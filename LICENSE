@@ -1,26 +1,24 @@
-Copyright (c) 2026 Chopsticks HQ. All rights reserved.
+MIT License
 
-Universal-FrameFX — Windows app shell (source-available)
+Copyright (c) 2026 Chopsticks HQ
 
-This repository's source code is published so that anyone can read, review and
-audit what Universal-FrameFX does on a PC. It is NOT open source, and no licence
-to it is granted except as follows:
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-You may view and read the source, and build it on your own computer for the
-purpose of reviewing, auditing or verifying its behaviour.
-
-You may not copy, modify, redistribute, sublicense or sell this source code or
-builds made from it, or use it in other software, without prior written
-permission from Chopsticks HQ.
-
-The FrameFX image-processing engine is proprietary and is not included in this
-repository.
-
-Third-party components remain under their own licences; see NOTICE.md and the
-licenses/ folder. Nothing in this file limits the rights those licences give you.
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
-COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING
-FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR ITS USE.
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+Third-party components (AMD FidelityFX Super Resolution 2 and 1, both MIT)
+keep their own copyright notices; see NOTICE.md.

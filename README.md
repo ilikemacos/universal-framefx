@@ -1,8 +1,58 @@
-# Universal-FrameFX (Windows app shell)
+<p align="center"><img src="screenshots/icon.png" width="96" alt="Universal-FrameFX icon"></p>
 
-Universal-FrameFX makes games and other windows look sharper and feel smoother on Windows 10/11. It captures the
-window you choose and shows an upscaled picture with optional frame generation, either as a click-through overlay
-on top of the game or in its own window.
+# Universal-FrameFX
+
+**Free real-time upscaler and frame generator for Windows**: sharper, smoother games and apps in a click-through overlay.
+No account · no telemetry · no admin rights.
+
+**Canonical site:** [https://chopstickshq.com/universal-framefx/](https://chopstickshq.com/universal-framefx/)
+**Hub:** [https://chopstickshq.com/](https://chopstickshq.com/)
+
+[![Download](https://img.shields.io/badge/download-v1.4.0%20Beta2-4d9eff)](https://chopstickshq.com/universal-framefx/)
+[![Windows 10/11](https://img.shields.io/badge/Windows-10%20%2F%2011%20x64-111111)](https://chopstickshq.com/universal-framefx/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-6b6b8a)](LICENSE)
+[![Build](https://github.com/ilikemacos/universal-framefx/actions/workflows/build.yml/badge.svg)](https://github.com/ilikemacos/universal-framefx/actions/workflows/build.yml)
+
+---
+
+## Install (Windows 10 2004+ / Windows 11, x64)
+
+**Recommended: PowerShell** (per-user, no admin; checks the download's SHA-256 before installing):
+
+```powershell
+irm https://chopstickshq.com/universal-framefx/install.ps1 | iex
+```
+
+The script is [`installer/install.ps1`](installer/install.ps1) in this repo, so you can read it before you run it.
+
+Or:
+
+1. Download the **.zip** from [chopstickshq.com/universal-framefx](https://chopstickshq.com/universal-framefx/).
+2. Unzip it anywhere and run **Universal-FrameFX.exe**.
+3. The exe isn't code-signed, so Windows SmartScreen may warn on first launch ("More info" → "Run anyway").
+   The zip's SHA-256 is published on the site and in
+   [`latest.json`](https://chopstickshq.com/universal-framefx/latest.json).
+
+---
+
+## Screenshots
+
+<p align="center"><img src="screenshots/main-window.png" width="760" alt="Universal-FrameFX main window: Source and Upscaling cards, the Apply button and the Apply to games only toggle"></p>
+<p align="center"><sub>Main window (screenshot from 1.3.2 on an RTX 3060 Laptop GPU, Windows 11).</sub></p>
+
+---
+
+## Why Universal-FrameFX
+
+- **Free.** Works with almost any game or app window: no game support needed.
+- **Nothing injected.** It captures the window picture through Windows' own capture API and draws an overlay on top.
+- **No account, no telemetry.** The only network request is the update check (details below).
+- **Open source app.** Everything that touches your PC (networking, updater, installer, capture setup, files and
+  processes) is in this repo under the MIT licence. Only the image-processing engine is closed (see below).
+
+---
+
+## Features
 
 - Upscaling with the built-in CSR options, or AMD FSR 1/2/3/4 and Intel XeSS where your GPU supports them
 - Frame generation up to 4× (8× as an advanced option)
@@ -11,26 +61,29 @@ on top of the game or in its own window.
 - Shows FrameFX's output fps next to the game's own fps, and warns when the game is in exclusive fullscreen
 - Ctrl+Alt+F hides/shows the overlay, Ctrl+Alt+Q stops it
 
-Download: **https://chopstickshq.com/universal-framefx/**
+**Requires:** Windows 10 version 2004 (build 19041) or later, 64-bit, a DirectX 11 GPU.
 
-## What's in this repository, and what isn't
+---
 
-This repository has the full source of the **app shell**: the window and settings UI, game detection, window
-capture setup, the overlay window, the updater, the installer script, and every piece of code that touches the
-network, files, other processes or the desktop. It's public so you can check exactly what FrameFX does on your PC.
+## Open source, with one closed part
 
-**The image-processing engine (upscaling, frame generation and image effects) is proprietary and closed source.**
-It is not in this repository. [`Engine/EngineContract.cs`](Engine/EngineContract.cs)
-shows the boundary: the app hands the engine the captured window picture and your settings, and the engine draws
-the result into FrameFX's own output window.
+This repository contains the full source of the Universal-FrameFX **app** under the **MIT licence**: the window
+and settings UI, game detection, window capture setup, the overlay window, the updater, the installer script, and
+every piece of code that touches the network, files, other processes or the desktop. It's public so you can check
+exactly what FrameFX does on your PC, and you're free to use, change and share it under the MIT terms.
 
-Engine-only command-line modes (the installer's `--selftest` GPU check and a build-time cache step) are
-left out of the public `Program.cs`.
+**The image-processing engine (upscaling, frame generation and image effects) is proprietary and closed source.
+It isn't in this repository and isn't covered by the MIT licence.** The release zip also ships third-party
+runtimes (AMD FidelityFX, Intel XeSS) under their own licences; see [NOTICE.md](NOTICE.md).
+[`Engine/EngineContract.cs`](Engine/EngineContract.cs) shows the boundary: the app hands the engine the captured
+window picture and your settings, and the engine draws the result into FrameFX's own output window.
 
-Building this repository gives you the app with a placeholder engine. The UI, settings, game detection and updater
-all run, but starting an output tells you the engine isn't included. Release builds contain the closed engine, so
-they can't be rebuilt byte-for-byte from this source. The release zip isn't code-signed. You can check its SHA-256
-against the published `latest.json` (see "How updates are verified" below).
+Engine-only command-line modes (the installer's `--selftest` GPU check and a build-time cache step) are left out
+of the public `Program.cs`. Building this repository gives you the app with a placeholder engine. The UI,
+settings, game detection and updater all run, but starting an output tells you the engine isn't included.
+Release builds contain the closed engine, so they can't be rebuilt byte-for-byte from this source.
+
+---
 
 ## What FrameFX does and doesn't do on your PC
 
@@ -158,7 +211,9 @@ It has no network, registry or process code. The only file it writes is the GPU 
 
 FrameFX leaves nothing else behind: no registry keys, services, drivers or startup entries.
 
-## Building the app shell
+---
+
+## Build from source
 
 Requirements: .NET 8 SDK. Windows is needed to run the app; it can also be built on Linux or macOS with
 `-p:EnableWindowsTargeting=true`.
@@ -169,12 +224,51 @@ dotnet build -c Release
 
 [`.github/workflows/build.yml`](.github/workflows/build.yml) builds it on every push.
 
-## Reporting a security issue
+### Repository layout
 
-See [SECURITY.md](SECURITY.md).
+| Path | What it is |
+|------|------------|
+| `MainForm.cs`, `Theme.cs` | Main window, settings UI, saved settings (`ui.json`) |
+| `OutputForm.cs` | Overlay / output window, hotkeys, HUD |
+| `WindowCapture.cs` | Window capture (Windows.Graphics.Capture) |
+| `GameDetector.cs` | "Apply to games only" detection |
+| `Updater.cs` | Update check, SHA-256 verified download, install and rollback |
+| `Diag.cs` | Startup and crash logs, GPU program cache |
+| `Native.cs`, `Beta2.cs`, `Program.cs` | Windows API declarations, version and hints, entry point |
+| `Engine/` | Boundary to the closed engine, plus the placeholder used in public builds |
+| `installer/install.ps1` | The one-line installer and uninstaller |
+| `licenses/`, `NOTICE.md` | Third-party licences and notices |
 
-## Licence
+---
 
-Copyright © 2026 Chopsticks HQ. **All rights reserved.** The source is published so it can be read and audited.
-It is not open source. See [LICENSE](LICENSE). Third-party components and their licences are listed in
-[NOTICE.md](NOTICE.md) and [`licenses/`](licenses/).
+## Contributing
+
+Bug reports and pull requests for the app are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
+Security issues: please report them privately, see [SECURITY.md](SECURITY.md).
+
+---
+
+## Chopsticks HQ
+
+| Product | URL |
+|---------|-----|
+| **HQ hub** | https://chopstickshq.com/ |
+| **Universal-FrameFX** | https://chopstickshq.com/universal-framefx/ |
+| **MacBar** | https://chopstickshq.com/macbar/ |
+| **cs.AI** | https://chopstickshq.com/chopsticks-ai/ |
+| **Fathom** | https://chopstickshq.com/fathom/ |
+
+---
+
+## Support
+
+- Issues: [github.com/ilikemacos/universal-framefx/issues](https://github.com/ilikemacos/universal-framefx/issues)
+- Site: [chopstickshq.com/universal-framefx](https://chopstickshq.com/universal-framefx/)
+- Buy me a coffee: [buymeacoffee.com/chopstickshq](https://buymeacoffee.com/chopstickshq)
+
+---
+
+## License
+
+The app source in this repository is MIT. See [LICENSE](LICENSE). The closed FrameFX engine isn't covered by
+it. Third-party components keep their own licences: see [NOTICE.md](NOTICE.md) and [`licenses/`](licenses/).

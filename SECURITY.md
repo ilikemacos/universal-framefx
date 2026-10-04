@@ -1,6 +1,6 @@
 # Security policy
 
-Universal-FrameFX's app shell is public so it can be audited, and reports are welcome.
+Universal-FrameFX's app is open source so it can be audited, and reports are welcome.
 
 ## Reporting a vulnerability
 

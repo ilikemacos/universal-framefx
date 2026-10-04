@@ -224,4 +224,5 @@ NVIDIA product and is not endorsed by NVIDIA.
 
 ## 8. Everything else
 
-Copyright (c) 2026 Chopsticks HQ. All rights reserved. See LICENSE.
+The Universal-FrameFX app source in this repository: Copyright (c) 2026 Chopsticks HQ, MIT. See LICENSE.
+The FrameFX image-processing engine is proprietary, isn't in this repository and isn't covered by that licence.
