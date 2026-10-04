@@ -1,0 +1,26 @@
+Copyright (c) 2026 Chopsticks HQ. All rights reserved.
+
+Universal-FrameFX — Windows app shell (source-available)
+
+This repository's source code is published so that anyone can read, review and
+audit what Universal-FrameFX does on a PC. It is NOT open source, and no licence
+to it is granted except as follows:
+
+You may view and read the source, and build it on your own computer for the
+purpose of reviewing, auditing or verifying its behaviour.
+
+You may not copy, modify, redistribute, sublicense or sell this source code or
+builds made from it, or use it in other software, without prior written
+permission from Chopsticks HQ.
+
+The FrameFX image-processing engine is proprietary and is not included in this
+repository.
+
+Third-party components remain under their own licences; see NOTICE.md and the
+licenses/ folder. Nothing in this file limits the rights those licences give you.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR ITS USE.

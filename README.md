@@ -1,0 +1,181 @@
+# Universal-FrameFX (Windows app shell)
+
+Universal-FrameFX makes games and other windows look sharper and feel smoother on Windows 10/11. It captures the
+window you choose and shows an upscaled picture with optional frame generation, either as a click-through overlay
+on top of the game or in its own window.
+
+- Upscaling with the built-in CSR options, or AMD FSR 1/2/3/4 and Intel XeSS where your GPU supports them
+- Frame generation up to 4× (8× as an advanced option)
+- "Apply to games only": turns itself on for games and pauses on the desktop, browsers and normal apps
+- Performance, Quality and Competitive presets, and a latency budget that keeps added response time low
+- Shows FrameFX's output fps next to the game's own fps, and warns when the game is in exclusive fullscreen
+- Ctrl+Alt+F hides/shows the overlay, Ctrl+Alt+Q stops it
+
+Download: **https://chopstickshq.com/universal-framefx/**
+
+## What's in this repository, and what isn't
+
+This repository has the full source of the **app shell**: the window and settings UI, game detection, window
+capture setup, the overlay window, the updater, the installer script, and every piece of code that touches the
+network, files, other processes or the desktop. It's public so you can check exactly what FrameFX does on your PC.
+
+**The image-processing engine (upscaling, frame generation and image effects) is proprietary and closed source.**
+It is not in this repository. [`src/UniversalFrameFX/Engine/EngineContract.cs`](src/UniversalFrameFX/Engine/EngineContract.cs)
+shows the boundary: the app hands the engine the captured window picture and your settings, and the engine draws
+the result into FrameFX's own output window.
+
+Engine-only command-line modes (the installer's `--selftest` GPU check and a build-time cache step) are
+left out of the public `Program.cs`.
+
+Building this repository gives you the app with a placeholder engine. The UI, settings, game detection and updater
+all run, but starting an output tells you the engine isn't included. Release builds contain the closed engine, so
+they can't be rebuilt byte-for-byte from this source. The release zip isn't code-signed. You can check its SHA-256
+against the published `latest.json` (see "How updates are verified" below).
+
+## What FrameFX does and doesn't do on your PC
+
+Everything below can be checked in this repository. The file that proves each point is linked.
+
+### Network: one update check, no telemetry
+
+- FrameFX makes no network connections apart from the updater ([`Updater.cs`](src/UniversalFrameFX/Updater.cs)).
+  There are no analytics, no telemetry, no crash uploads, no accounts and no ads.
+- **The update check** is one HTTPS `GET` of `https://chopstickshq.com/universal-framefx/latest.json?t=<current time>`.
+  The `t` value only stops caches from serving an old copy. The only information sent is what any HTTPS request
+  carries (your IP address and standard headers) plus a `User-Agent: Universal-FrameFX/<version>` header. Nothing
+  about your PC, your games or your settings is sent.
+- The check runs at startup and then every 6 hours, but only while **"Automatically check for updates"** is on
+  (Settings, on by default). Turn it off and FrameFX makes no network requests unless you click "Check now".
+- If an update is found, the zip is downloaded from the HTTPS URL listed in `latest.json` (currently
+  `https://chopstickshq.com/universal-framefx/…zip`). **"Install updates automatically" is off by default.**
+  While it's off, nothing is downloaded until you click Install.
+- Non-HTTPS URLs are refused. The only exception is a developer test override (`UFX_UPDATE_URL` environment
+  variable), which can point at a local file or `localhost`.
+- The "Website" and "Buy me a coffee" buttons just open the page in your browser.
+- The closed engine contains no networking code.
+
+### How updates are verified
+
+- [`Updater.cs`](src/UniversalFrameFX/Updater.cs) streams the download through SHA-256 and checks both the size and
+  the hash against `latest.json`. If either doesn't match, the file is deleted and nothing is installed (the
+  refusal is written to `update.log`).
+- Before it replaces any files, the updater checks that the zip contains a valid 64-bit Windows `Universal-FrameFX.exe`.
+  It also refuses zip entries whose paths would land outside the install folder.
+- The update is applied by a copy of FrameFX itself (`updates\helper\Universal-FrameFX-updater.exe`) after the app
+  has closed. The helper backs up the current version first. If the new version doesn't report a good start within
+  60 seconds, the backup is restored and that version is never auto-installed again.
+- The installer script ([`installer/install.ps1`](installer/install.ps1)) works the same way: it checks the zip's
+  SHA-256 against `version.json` on chopstickshq.com and installs nothing if it doesn't match.
+
+### No admin rights
+
+- The app asks for normal user rights only (`asInvoker` in [`app.manifest`](src/UniversalFrameFX/app.manifest)).
+  It never asks for elevation.
+- The installer is per-user: it installs to `%LOCALAPPDATA%\Programs\Universal-FrameFX`, adds a Start Menu
+  shortcut and runs FrameFX's GPU self-test once. It also removes leftover Start Menu shortcuts from the old
+  PowerShell-based "Universal FrameFX" tool (v0.x). It doesn't touch Program Files, the registry, services,
+  drivers or scheduled tasks, and it doesn't add FrameFX to startup.
+- FrameFX's code doesn't read or write the registry, and FrameFX doesn't start with Windows.
+
+### What FrameFX reads from games and other apps
+
+- **The picture of the window you choose.** [`WindowCapture.cs`](src/UniversalFrameFX/WindowCapture.cs) uses
+  Windows' own screen-capture API (Windows.Graphics.Capture), the same one used by OBS and the Windows Snipping Tool.
+  It gets the image Windows has already drawn on screen, including the mouse cursor. On Windows 10, Windows shows
+  a yellow border around a captured window; on Windows 11, FrameFX asks Windows to leave the border off.
+- **Nothing is injected into games.** FrameFX doesn't load code into other processes, hook them, or change their
+  memory or files. There is no `WriteProcessMemory`, `ReadProcessMemory`, `CreateRemoteThread`, `SetWindowsHookEx`
+  or DLL injection anywhere in FrameFX, including the closed engine.
+- **No input is sent in normal use.** The only `SendInput` calls are in a developer self-check
+  (`--demo --overlay --exit-after N` on the command line). It clicks once through FrameFX's own overlay and presses
+  FrameFX's own Ctrl+Alt+F/Q hotkeys to test that click-through and the hotkeys work.
+- **Game detection** ([`GameDetector.cs`](src/UniversalFrameFX/GameDetector.cs)) runs only while "Apply to games
+  only" is on. Twice a second it looks at the foreground window and asks Windows for:
+  - the program's file path and start time (`OpenProcess` with `PROCESS_QUERY_LIMITED_INFORMATION`, the lowest
+    access level);
+  - the list of DLL names it has loaded (a standard Toolhelp module snapshot, which Windows creates on FrameFX's
+    behalf), to see whether it uses Direct3D, Vulkan or OpenGL;
+  - whether it sits in a known game-launcher folder (Steam, Epic, Xbox and so on).
+
+  It doesn't read any game data or memory contents.
+- **Anti-cheat:** FrameFX doesn't interact with anti-cheat software and makes no claims about it. It doesn't inject
+  or modify anything, but whether a particular anti-cheat accepts an overlay or screen capture is up to that game.
+- **The overlay** ([`OutputForm.cs`](src/UniversalFrameFX/OutputForm.cs)) is a normal top-most window that clicks pass
+  through. It is never activated, so the game keeps keyboard and mouse focus. It moves to follow the game window but
+  never resizes or changes the game window. It's excluded from screen capture, so FrameFX never captures itself.
+  This also means screenshots and recordings show the original game image, not FrameFX's output.
+- **Hotkeys:** Ctrl+Alt+F and Ctrl+Alt+Q are registered with `RegisterHotKey` only while an output is running, and
+  released when it stops. There is no keyboard hook or keylogging.
+
+### Files FrameFX writes
+
+| What | Where |
+|---|---|
+| The program (installer or updater) | `%LOCALAPPDATA%\Programs\Universal-FrameFX\` |
+| Previous version kept by the updater | `%LOCALAPPDATA%\Programs\Universal-FrameFX.prev\` |
+| Your settings | `%APPDATA%\Universal-FrameFX\ui.json` |
+| Startup timing log, crash log (`crash.log`, rotated at 512 KB) | `%LOCALAPPDATA%\Universal-FrameFX\` |
+| Update log, downloaded update zips, updater helper | `%LOCALAPPDATA%\Universal-FrameFX\updates\` |
+| GPU program cache (only file the engine writes) | `%LOCALAPPDATA%\Universal-FrameFX\shadercache\` |
+| Installer self-test result | `%LOCALAPPDATA%\Programs\Universal-FrameFX\selftest.txt` |
+
+Logs stay on your PC. They're never uploaded. Settings → "Open logs folder" shows them. Developer diagnostics
+(command-line `--out` reports and `UFX_*` test variables) write files only to paths you give them.
+The code is in [`Diag.cs`](src/UniversalFrameFX/Diag.cs), [`Updater.cs`](src/UniversalFrameFX/Updater.cs) and
+`UiSettings` in [`MainForm.cs`](src/UniversalFrameFX/MainForm.cs).
+
+### Other programs FrameFX starts
+
+- The updater helper described above, and the new or restored FrameFX after an update.
+- Your browser (website, Buy me a coffee) and File Explorer ("Open logs folder"), only when you click them.
+
+### What the closed engine loads
+
+The engine uses Direct3D 11/12 on your GPU. It loads only these:
+
+- the AMD FidelityFX and Intel XeSS runtimes (shipped unmodified in the zip, see [`NOTICE.md`](NOTICE.md)), from
+  the program folder;
+- `ssgi.dll` from the program folder (the experimental SSGI option);
+- NVIDIA's optical-flow component, which ships with the NVIDIA driver, if it's present.
+
+It has no network, registry or process code. The only file it writes is the GPU program cache listed above.
+
+## Uninstall
+
+1. Close FrameFX (Ctrl+Alt+Q stops an output; then close the window).
+2. Run the installer with `-Uninstall`. It closes FrameFX if it's running, then removes the program folder and the
+   Start Menu shortcut:
+
+   ```powershell
+   & ([scriptblock]::Create((irm https://chopstickshq.com/universal-framefx/install.ps1))) -Uninstall
+   ```
+
+   If you used the zip, just delete the folder you unzipped.
+3. The uninstaller leaves your settings, logs and the update backup in place. To remove everything, also delete:
+   - `%APPDATA%\Universal-FrameFX`
+   - `%LOCALAPPDATA%\Universal-FrameFX`
+   - `%LOCALAPPDATA%\Programs\Universal-FrameFX.prev`
+
+FrameFX leaves nothing else behind: no registry keys, services, drivers or startup entries.
+
+## Building the app shell
+
+Requirements: .NET 8 SDK. Windows is needed to run the app; it can also be built on Linux or macOS with
+`-p:EnableWindowsTargeting=true`.
+
+```
+cd src/UniversalFrameFX
+dotnet build -c Release
+```
+
+[`.github/workflows/build.yml`](.github/workflows/build.yml) builds it on every push.
+
+## Reporting a security issue
+
+See [SECURITY.md](SECURITY.md).
+
+## Licence
+
+Copyright © 2026 Chopsticks HQ. **All rights reserved.** The source is published so it can be read and audited.
+It is not open source. See [LICENSE](LICENSE). Third-party components and their licences are listed in
+[NOTICE.md](NOTICE.md) and [`licenses/`](licenses/).

@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows10.0.22621.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Platforms>x64</Platforms>
+    <PlatformTarget>x64</PlatformTarget>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <AssemblyName>Universal-FrameFX</AssemblyName>
+    <RootNamespace>UniversalFrameFX</RootNamespace>
+    <Product>Universal-FrameFX</Product>
+    <Company>Chopsticks HQ</Company>
+    <Copyright>Copyright (c) 2026 Chopsticks HQ</Copyright>
+    <Version>1.4.0-beta.2</Version>
+    <FileVersion>1.4.0.2</FileVersion>
+    <InformationalVersion>1.4.0-beta.2</InformationalVersion>
+    <ApplicationIcon>app.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <DebugType>none</DebugType>
+    <!-- Precompiled (ReadyToRun) code for faster startup. -->
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <TieredPGO>true</TieredPGO>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Vortice.Direct3D11" Version="3.6.2" />
+    <PackageReference Include="Vortice.DXGI" Version="3.6.2" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\NOTICE.md" LogicalName="NOTICE.md" />
+    <EmbeddedResource Include="app.ico" LogicalName="app.ico" />
+  </ItemGroup>
+  <!-- Vendor runtimes (AMD FidelityFX, Intel XeSS): shipped unmodified next to the exe. -->
+  <ItemGroup Condition="Exists('..\..\vendor\bin')">
+    <Content Include="..\..\vendor\bin\*.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" Link="%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>
