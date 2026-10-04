@@ -111,6 +111,17 @@ public static class LatencyBudget
 public static class Ssgi
 {
     public static readonly string[] PresetNames = { "Auto", "GTX 1050 Ti (1080p)", "GTX 980 Ti (1440p)" };
+    /// <summary>Steadier lighting while moving. UFX_SSGI_TEMPORAL=0/1 overrides a saved choice.</summary>
+    public const bool TemporalDefault = false;
+
+    /// <summary>Saved choice, unless UFX_SSGI_TEMPORAL is 0 or 1.</summary>
+    public static bool TemporalEnabled(bool setting)
+    {
+        string? e = Environment.GetEnvironmentVariable("UFX_SSGI_TEMPORAL");
+        if (e == "0") return false;
+        if (e == "1") return true;
+        return setting;
+    }
 }
 
 public static class MotionEngines
@@ -135,6 +146,10 @@ public sealed class SessionSettings
     public volatile int FgMultiplier = 4;
     public volatile bool Ssgi;
     public volatile int SsgiPreset;
+    /// <summary>Steadier SSGI lighting while the view moves. UFX_SSGI_TEMPORAL overrides this at the call site.</summary>
+    public volatile bool SsgiTemporal = global::UniversalFrameFX.Ssgi.TemporalDefault;
+    /// <summary>Compare mode for this run: FrameFX processing is off. Not saved.</summary>
+    public volatile bool CompareOff;
     public volatile bool LatencyBudget = true;
     public volatile bool Hud = true;
     public volatile bool Performance = true;

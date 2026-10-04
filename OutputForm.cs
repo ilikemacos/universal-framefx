@@ -27,7 +27,7 @@ public sealed class OutputForm : Form
     long _resumeMark = -1;
     string _status = "";
     readonly Queue<double> _srcHist = new();
-    const int HkToggle = 0xF1, HkStop = 0xF2;
+    const int HkToggle = 0xF1, HkStop = 0xF2, HkCompare = 0xF3;
 
     public const string ExclusiveFullscreenWarning = "The game is in exclusive fullscreen, so FrameFX can't draw over it. Switch the game to Windowed Fullscreen (borderless) to see FrameFX.";
 
@@ -36,6 +36,9 @@ public sealed class OutputForm : Form
     public string? Error { get; private set; }
     public string Warning { get; private set; } = "";
     public string Hint { get; private set; } = "";
+    /// <summary>Compare mode: processing is off for this output only. Saved settings and profiles are not touched.</summary>
+    public bool CompareOff { get; private set; }
+    public string CompareStatus => CompareOff ? "FrameFX OFF (compare)" : "FrameFX ON";
     public string FgStatus { get; private set; } = "";
     public double SourceFps => _engine?.SourceFps ?? 0;
     public double OutputFps => _engine?.OutputFps ?? 0;
@@ -125,9 +128,19 @@ public sealed class OutputForm : Form
         if (Environment.GetEnvironmentVariable("UFX_ALLOW_CAPTURE") != "1")
             try { Native.SetWindowDisplayAffinity(Handle, Native.WDA_EXCLUDEFROMCAPTURE); } catch { }
         // Global hotkeys (work while the game has focus). Registered only while an output is running.
-        _hotkeys = Native.RegisterHotKey(Handle, HkToggle, Native.MOD_CONTROL | Native.MOD_ALT | Native.MOD_NOREPEAT, (uint)Keys.F)
-                 & Native.RegisterHotKey(Handle, HkStop, Native.MOD_CONTROL | Native.MOD_ALT | Native.MOD_NOREPEAT, (uint)Keys.Q);
-        if (!_hotkeys) _status = "Ctrl+Alt+F / Ctrl+Alt+Q are in use by another app.";
+        // Overlay stays click-through either way.
+        bool hkF = Native.RegisterHotKey(Handle, HkToggle, Native.MOD_CONTROL | Native.MOD_ALT | Native.MOD_NOREPEAT, (uint)Keys.F);
+        bool hkQ = Native.RegisterHotKey(Handle, HkStop, Native.MOD_CONTROL | Native.MOD_ALT | Native.MOD_NOREPEAT, (uint)Keys.Q);
+        bool hkC = Native.RegisterHotKey(Handle, HkCompare, Native.MOD_CONTROL | Native.MOD_ALT | Native.MOD_NOREPEAT, (uint)Keys.C);
+        _hotkeys = hkF && hkQ && hkC;
+        if (!_hotkeys)
+        {
+            var busy = new List<string>();
+            if (!hkF) busy.Add("Ctrl+Alt+F");
+            if (!hkQ) busy.Add("Ctrl+Alt+Q");
+            if (!hkC) busy.Add("Ctrl+Alt+C");
+            _status = string.Join(" / ", busy) + (busy.Count > 1 ? " are" : " is") + " in use by another app.";
+        }
     }
 
     protected override void WndProc(ref Message m)
@@ -137,6 +150,7 @@ public sealed class OutputForm : Form
             int id = (int)m.WParam;
             if (id == HkStop) { UserStop = true; BeginInvoke(new Action(Close)); return; }
             if (id == HkToggle) { ToggleOverlay(); return; }
+            if (id == HkCompare) { ToggleCompare(); return; }
         }
         base.WndProc(ref m);
     }
@@ -148,6 +162,22 @@ public sealed class OutputForm : Form
         OverlayShown = !OverlayShown;
         if (!OverlayShown) Native.ShowWindow(Handle, Native.SW_HIDE);
         else if (!Paused) Native.ShowWindow(Handle, Native.SW_SHOWNOACTIVATE);
+    }
+
+    /// <summary>Ctrl+Alt+C: show the captured picture with FrameFX processing off for this output.
+    /// Does not write saved settings or profiles.</summary>
+    public void ToggleCompare() => SetCompareOff(!CompareOff);
+
+    public void SetCompareOff(bool off)
+    {
+        if (off == CompareOff) return;
+        CompareOff = off;
+        _settings.CompareOff = off;
+        lock (Gpu.Lock)
+        {
+            _pipe.Reset();
+            _engine?.Reset();
+        }
     }
 
     /// <summary>Games-only pause/resume (UI thread). Pause hides the window immediately; resume shows it again only
@@ -232,10 +262,36 @@ public sealed class OutputForm : Form
     void UpdateHud()
     {
         UpdateWarnings(SourceFps);
-        var lines = new List<string> { $"Universal-FrameFX {MainForm.DisplayVersion} · output {OutputFps:0} fps / game {SourceFps:0} fps" };
+        string keys = Mode == OutputMode.Overlay
+            ? "Overlay · Ctrl+Alt+F hide/show · Ctrl+Alt+Q stop · Ctrl+Alt+C compare"
+            : "Esc / Ctrl+Alt+Q stop · Ctrl+Alt+F HUD · Ctrl+Alt+C compare";
+        if (CompareOff)
+        {
+            var cmp = new List<string>
+            {
+                "FrameFX OFF (compare)",
+                $"output {OutputFps:0} fps / game {SourceFps:0} fps",
+                "Showing the captured frame as-is.",
+                keys,
+            };
+            if (Warning.Length > 0) cmp.Insert(2, "⚠ " + Warning);
+            if (Hint.Length > 0) cmp.Insert(Warning.Length > 0 ? 3 : 2, "Hint: " + Hint);
+            if (Paused) cmp.Add("Paused (not a game)");
+            if (_status.Length > 0) cmp.Add(_status);
+            _hud.Text = string.Join(Environment.NewLine, cmp);
+            FgStatus = "";
+            _hud.Visible = _settings.Hud;
+            return;
+        }
+        var lines = new List<string>
+        {
+            "FrameFX ON",
+            $"output {OutputFps:0} fps / game {SourceFps:0} fps" + (OutputFps > SourceFps + 1 ? $"  (+{OutputFps - SourceFps:0} generated/s)" : ""),
+            $"Universal-FrameFX {MainForm.DisplayVersion}",
+        };
         if (_engine?.Status is { Length: > 0 } st) lines.Add(st);
         FgStatus = _engine?.Status ?? "";
-        lines.Add(Mode == OutputMode.Overlay ? "Overlay · Ctrl+Alt+F hide/show · Ctrl+Alt+Q stop" : "Esc / Ctrl+Alt+Q stop · Ctrl+Alt+F HUD");
+        lines.Add(keys);
         if (Warning.Length > 0) lines.Insert(1, "⚠ " + Warning);
         if (Hint.Length > 0) lines.Insert(Warning.Length > 0 ? 2 : 1, "Hint: " + Hint);
         if (Paused) lines.Add("Paused (not a game)");
@@ -267,7 +323,7 @@ public sealed class OutputForm : Form
     {
         _hudTimer.Stop();
         _follow?.Stop();
-        Native.UnregisterHotKey(Handle, HkToggle); Native.UnregisterHotKey(Handle, HkStop);
+        Native.UnregisterHotKey(Handle, HkToggle); Native.UnregisterHotKey(Handle, HkStop); Native.UnregisterHotKey(Handle, HkCompare);
         _capture?.Dispose();
         lock (Gpu.Lock) { _engine?.Dispose(); _engine = null; _pipe.Reset(); }
         base.OnFormClosing(e);

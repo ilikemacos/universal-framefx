@@ -8,7 +8,7 @@ No account · no telemetry · no admin rights.
 **Canonical site:** [https://chopstickshq.com/universal-framefx/](https://chopstickshq.com/universal-framefx/)
 **Hub:** [https://chopstickshq.com/](https://chopstickshq.com/)
 
-[![Download](https://img.shields.io/badge/download-v1.4.0%20Beta2-4d9eff)](https://chopstickshq.com/universal-framefx/)
+[![Download](https://img.shields.io/badge/download-v1.4.0%20Beta3-4d9eff)](https://chopstickshq.com/universal-framefx/)
 [![Windows 10/11](https://img.shields.io/badge/Windows-10%20%2F%2011%20x64-111111)](https://chopstickshq.com/universal-framefx/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-6b6b8a)](LICENSE)
 [![Build](https://github.com/ilikemacos/universal-framefx/actions/workflows/build.yml/badge.svg)](https://github.com/ilikemacos/universal-framefx/actions/workflows/build.yml)
@@ -59,7 +59,7 @@ Or:
 - "Apply to games only": turns itself on for games and pauses on the desktop, browsers and normal apps
 - Performance, Quality and Competitive presets, and a latency budget that keeps added response time low
 - Shows FrameFX's output fps next to the game's own fps, and warns when the game is in exclusive fullscreen
-- Ctrl+Alt+F hides/shows the overlay, Ctrl+Alt+Q stops it
+- Ctrl+Alt+F hides/shows the overlay, Ctrl+Alt+Q stops it, and Ctrl+Alt+C turns compare on or off (FrameFX processing off). Those hotkeys are registered only while an output is running
 
 **Requires:** Windows 10 version 2004 (build 19041) or later, 64-bit, a DirectX 11 GPU.
 
@@ -157,8 +157,9 @@ Everything below can be checked in this repository. The file that proves each po
   through. It is never activated, so the game keeps keyboard and mouse focus. It moves to follow the game window but
   never resizes or changes the game window. It's excluded from screen capture, so FrameFX never captures itself.
   This also means screenshots and recordings show the original game image, not FrameFX's output.
-- **Hotkeys:** Ctrl+Alt+F and Ctrl+Alt+Q are registered with `RegisterHotKey` only while an output is running, and
-  released when it stops. There is no keyboard hook or keylogging.
+- **Hotkeys:** Ctrl+Alt+F (hide/show the overlay), Ctrl+Alt+Q (stop) and Ctrl+Alt+C (compare on/off) are registered
+  with `RegisterHotKey` only while an output is running, and released when it stops. There is no keyboard hook or
+  keylogging.
 
 ### Files FrameFX writes
 
@@ -166,11 +167,14 @@ Everything below can be checked in this repository. The file that proves each po
 |---|---|
 | The program (installer or updater) | `%LOCALAPPDATA%\Programs\Universal-FrameFX\` |
 | Previous version kept by the updater | `%LOCALAPPDATA%\Programs\Universal-FrameFX.prev\` |
-| Your settings | `%APPDATA%\Universal-FrameFX\ui.json` |
+| Your settings and per-game profiles | `%APPDATA%\Universal-FrameFX\ui.json` |
 | Startup timing log, crash log (`crash.log`, rotated at 512 KB) | `%LOCALAPPDATA%\Universal-FrameFX\` |
 | Update log, downloaded update zips, updater helper | `%LOCALAPPDATA%\Universal-FrameFX\updates\` |
 | GPU program cache (only file the engine writes) | `%LOCALAPPDATA%\Universal-FrameFX\shadercache\` |
 | Installer self-test result | `%LOCALAPPDATA%\Programs\Universal-FrameFX\selftest.txt` |
+
+Per-game profiles (preset, frame generation, SSGI, steadier lighting, upscaler and output resolution for each game)
+are stored locally in that `ui.json`. Nothing about them is sent anywhere.
 
 Logs stay on your PC. They're never uploaded. Settings → "Open logs folder" shows them. Developer diagnostics
 (command-line `--out` reports and `UFX_*` test variables) write files only to paths you give them.
@@ -232,6 +236,7 @@ dotnet build -c Release
 | `OutputForm.cs` | Overlay / output window, hotkeys, HUD |
 | `WindowCapture.cs` | Window capture (Windows.Graphics.Capture) |
 | `GameDetector.cs` | "Apply to games only" detection |
+| `GameProfiles.cs` | Per-game profiles saved locally in `ui.json` |
 | `Updater.cs` | Update check, SHA-256 verified download, install and rollback |
 | `Diag.cs` | Startup and crash logs, GPU program cache |
 | `Native.cs`, `Beta2.cs`, `Program.cs` | Windows API declarations, version and hints, entry point |

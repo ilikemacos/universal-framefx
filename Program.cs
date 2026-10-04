@@ -94,6 +94,7 @@ internal static class Program
         form.AutoFgKind = Arg("--fgkind");     // framefx|fsr3
         form.AutoFgMul = Arg("--fgx");         // 1.3.4: 2|3|4|8 (this run only, not saved)
         form.AutoPreset = Arg("--preset");     // performance|quality|competitive
+        form.CliCompareOff = args.Contains("--compare-off");   // this run starts with FrameFX processing off (compare)
         form.UpdateMarker = Arg("--update-marker");   // set by the updater: write this file once started
         form.UpdatedFrom = Arg("--updated-from");
         form.UpdateFailed = Arg("--update-failed");

@@ -30,6 +30,7 @@ public sealed class MainForm : Form
     /// <summary>SSGI (experimental, off by default).</summary>
     readonly ToggleSwitch _ssgi = new() { Text = "SSGI (experimental)" };
     readonly DarkCombo _ssgiPreset = new() { Width = 300 };
+    readonly ToggleSwitch _ssgiSteady = new() { Text = "Steadier SSGI lighting" };
     /// <summary>1.3.4 latency budget toggle (live, saved in ui.json).</summary>
     readonly ToggleSwitch _lowLat = new() { Text = $"Latency budget: keep FrameFX under {LatencyBudget.DefaultMs:0.0} ms per frame" };
     readonly DarkCombo _res = new() { Width = 300 };
@@ -39,6 +40,8 @@ public sealed class MainForm : Form
     /// <summary>Dropdown order: our own engine (CSR 1.3, CSR 1.2) first, then the vendor upscalers.</summary>
     static readonly Backend[] BackendOrder = { Backend.Temporal, Backend.Spatial, Backend.Fsr1, Backend.Fsr2, Backend.Fsr3, Backend.Fsr4, Backend.XeSS, Backend.Bilinear };
     public string? AutoBackend, AutoRes, AutoFgKind, AutoPreset, AutoFgMul;
+    /// <summary>--compare-off: this run starts with processing off. A later hotkey toggle is kept across output restarts.</summary>
+    public bool CliCompareOff { get => _compareOff; set { if (value) _compareOff = true; } }
     readonly ToggleSwitch _hud = new() { Text = "Performance HUD", Checked = true };
     readonly DarkCombo _mode = new() { Width = 300 };
     readonly DarkCombo _motion = new() { Width = 300 };
@@ -64,6 +67,16 @@ public sealed class MainForm : Form
     readonly TextBox _gamesNeverBox = NewGameListBox();
     readonly Label _gamesListNote = new() { AutoSize = true, ForeColor = Theme.Green, Margin = new Padding(2, 6, 0, 0) };
     bool _gamesArmed;                     // games-only on AND the user pressed Apply/Start (or switched it on while running)
+    /// <summary>Settings used for a game that has no saved profile. Updated only by explicit edits while no game is the source.</summary>
+    GameProfile _baseline = new();
+    bool _profilesReady;
+    string _profileBanner = "";
+    /// <summary>Compare hotkey state for this run (not saved). Restored onto the next output after a restart.</summary>
+    bool _compareOff;
+    readonly TableLayoutPanel _profileRows = new() { ColumnCount = 2, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Anchor = AnchorStyles.Left | AnchorStyles.Right, Margin = new Padding(0, 2, 0, 0), BackColor = Theme.Card };
+    readonly Label _profileEmpty = new() { AutoSize = true, ForeColor = Theme.TextMuted, Margin = new Padding(0, 4, 0, 2), Text = "No saved profiles yet. They appear when you change settings while a game is running." };
+    readonly PillButton _profileResetAll = new() { Text = "Reset all", AutoSize = true, Kind = PillKind.Ghost, Margin = new Padding(0, 4, 0, 0) };
+    readonly List<Label> _profileLabels = new();
     GameDetector.GameVerdict? _lastExternal; // last foreground window that was not FrameFX itself (for "Add current game")
     GameDetector.GameVerdict? _lastVerdict;
     IntPtr _gameHwnd;                     // window the armed output is on
@@ -83,7 +96,7 @@ public sealed class MainForm : Form
     sealed record Applied(IntPtr Source, int Backend, int Quality, int Sharp, bool Fg, int Mode, int Motion, int FgKind, int Res, int Preset, int FgMul);
     Applied? _applied;
     bool _restartPending;
-    bool _suppressDirty, _suppressMulSave;
+    bool _suppressDirty, _suppressMulSave, _suppressProfile;
     readonly Label _status = new() { AutoSize = true, MaximumSize = new Size(470, 0), ForeColor = Theme.TextMuted, Margin = new Padding(2, 6, 0, 0) };
     // Updates: banner in the header, settings in the "Updates" section.
     readonly FlowLayoutPanel _updBar = new() { AutoSize = true, WrapContents = true, Visible = false, Margin = new Padding(0, 4, 0, 2), BackColor = Theme.Bg };
@@ -173,7 +186,7 @@ public sealed class MainForm : Form
         foreach (var b in BackendOrder) _backend.Items.Add(BackendNames.Long(b));
         _backend.DisabledReason = i => VendorSupport.Get(BackendOrder[i]) is { Ok: false } v ? (VendorSupport.Probed ? v.Why : "Checking this GPU…") : null;
         _backend.SelectedIndex = 0;
-        _backend.SelectedIndexChanged += (_, _) => { UpdateUpNote(); UpdateDirty(); };
+        _backend.SelectedIndexChanged += (_, _) => { UserProfileTouch(); UpdateUpNote(); UpdateDirty(); };
         Add(up, Note("Upscaler:"));
         Add(up, Stretch(_backend));
         _upNote.MaximumSize = Size.Empty; _wrap.Add(_upNote);
@@ -182,7 +195,7 @@ public sealed class MainForm : Form
         _preset.Items.Add("Quality: best image quality");
         _preset.Items.Add("Competitive: 1080p output, 8× frame generation, lowest latency");
         _preset.SelectedIndex = 0;
-        _preset.SelectedIndexChanged += (_, _) => { UpdateUpNote(); UpdateDirty(); };
+        _preset.SelectedIndexChanged += (_, _) => { UserProfileTouch(); UpdateUpNote(); UpdateDirty(); };
         Add(up, Note("Preset:"));
         Add(up, Stretch(_preset));
         foreach (var q in Qualities) _quality.Items.Add(q.name);
@@ -233,7 +246,7 @@ public sealed class MainForm : Form
         Add(outs, Note("Output resolution:"));
         Add(outs, Stretch(_res));
         Add(outs, Note("1440p / 4K with the overlay: the overlay covers the source's monitor and shows the upscaled image letterboxed; it stays click-through, so clicks reach whatever is underneath at its real position. 4K on a smaller monitor is rendered at 4K and scaled to fit."));
-        Add(outs, Note("Overlay: a click-through, always-on-top window over the source that follows it; the source keeps mouse and keyboard focus. Ctrl+Alt+F hides/shows it, Ctrl+Alt+Q stops. Separate/fullscreen output: Esc stops."));
+        Add(outs, Note("Overlay: a click-through, always-on-top window over the source that follows it; the source keeps mouse and keyboard focus. Ctrl+Alt+F hides/shows it, Ctrl+Alt+Q stops, Ctrl+Alt+C compares the picture with FrameFX off. Separate/fullscreen output: Esc stops, Ctrl+Alt+C compares."));
         Add(outs, _hud);
 
         // Games (1.3.2, collapsed by default): the "Apply to games only" lists.
@@ -257,6 +270,15 @@ public sealed class MainForm : Form
         _gamesNeverBox.TextChanged += (_, _) => SyncGameLists(false);
         _gamesAlwaysBox.Leave += (_, _) => SyncGameLists(true);
         _gamesNeverBox.Leave += (_, _) => SyncGameLists(true);
+        Add(games, Note("Game profiles: FrameFX remembers preset, frame generation, SSGI, steadier lighting, upscaler and output resolution for each game, and applies them when that game is detected."));
+        _wrap.Add(_profileEmpty);
+        _profileRows.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        _profileRows.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        Add(games, _profileEmpty);
+        Add(games, _profileRows);
+        _profileResetAll.Click += (_, _) => { GameProfiles.ResetAll(_ui.Profiles); SaveUi(); RebuildProfileList(); };
+        Add(games, _profileResetAll);
+        RebuildProfileList();
 
         // Advanced (collapsed by default)
         var adv = Section("Advanced", false);
@@ -266,6 +288,9 @@ public sealed class MainForm : Form
         foreach (var n in Ssgi.PresetNames) _ssgiPreset.Items.Add("SSGI preset: " + n);
         _ssgiPreset.SelectedIndex = Math.Clamp(_ui.SsgiPreset, 0, Ssgi.PresetNames.Length - 1);
         Add(adv, Stretch(_ssgiPreset));
+        _ssgiSteady.Checked = _ui.SsgiTemporal;
+        Add(adv, _ssgiSteady);
+        Add(adv, Note("Steadier lighting while moving."));
         Add(adv, Note("SSGI (experimental): adds coloured bounce light from bright areas and contact shadows to the captured frame, before upscaling and frame generation. It only sees the 2D image (no depth), so it is an approximation: it can light or darken things a real renderer would not. Estimated GPU cost ~0.9–1.2 ms (GTX 1050 Ti at 1080p / GTX 980 Ti at 1440p presets). Auto picks the 980 Ti settings for 1440p+ on faster GPUs, otherwise the 1050 Ti settings."));
         foreach (var m in Enum.GetValues<MotionPreference>()) _motion.Items.Add(MotionEngines.PrefName(m));
         _motion.SelectedIndex = 0;
@@ -319,19 +344,46 @@ public sealed class MainForm : Form
         _updInstall.Click += (_, _) => _ = InstallUpdateAsync(false);
         _updLater.Click += (_, _) => { _updBar.Visible = false; };
 
-        _fg.CheckedChanged += (_, _) => UpdateDirty();
+        _fg.CheckedChanged += (_, _) => { UserProfileTouch(); UpdateDirty(); };
         _fgKind.SelectedIndexChanged += (_, _) => UpdateDirty();
-        _fgMul.SelectedIndexChanged += (_, _) => { if (!_suppressMulSave) { _ui.FgMultiplier = FgMul.Allowed[Math.Max(0, _fgMul.SelectedIndex)]; SaveUi(); } UpdateDirty(); };
-        _res.SelectedIndexChanged += (_, _) => UpdateDirty();
+        _fgMul.SelectedIndexChanged += (_, _) =>
+        {
+            if (!_suppressMulSave && !_suppressProfile)
+            {
+                if (ActiveGameExe() is null) { _ui.FgMultiplier = FgMul.Allowed[Math.Max(0, _fgMul.SelectedIndex)]; SaveUi(); }
+                UserProfileTouch();
+            }
+            UpdateDirty();
+        };
+        _res.SelectedIndexChanged += (_, _) => { UserProfileTouch(); UpdateDirty(); };
         _quality.SelectedIndexChanged += (_, _) => UpdateDirty();
         _mode.SelectedIndexChanged += (_, _) => UpdateDirty();
         _source.SelectedIndexChanged += (_, _) => UpdateDirty();
         _hud.CheckedChanged += (_, _) => _settings.Hud = _hud.Checked;
         _lowLat.CheckedChanged += (_, _) => { _settings.LatencyBudget = _lowLat.Checked || _settings.Competitive; _ui.LatencyBudget = _lowLat.Checked; SaveUi(); };
         _settings.LatencyBudget = _ui.LatencyBudget;
-        _ssgi.CheckedChanged += (_, _) => { _settings.Ssgi = _ssgi.Checked; _ui.Ssgi = _ssgi.Checked; SaveUi(); };
-        _ssgiPreset.SelectedIndexChanged += (_, _) => { _settings.SsgiPreset = Math.Max(0, _ssgiPreset.SelectedIndex); _ui.SsgiPreset = _settings.SsgiPreset; SaveUi(); };
-        _settings.Ssgi = _ui.Ssgi; _settings.SsgiPreset = Math.Clamp(_ui.SsgiPreset, 0, 2);
+        _ssgi.CheckedChanged += (_, _) =>
+        {
+            if (_suppressProfile) return;
+            _settings.Ssgi = _ssgi.Checked;
+            if (ActiveGameExe() is null) { _ui.Ssgi = _ssgi.Checked; SaveUi(); }
+            UserProfileTouch();
+        };
+        _ssgiPreset.SelectedIndexChanged += (_, _) =>
+        {
+            if (_suppressProfile) return;
+            _settings.SsgiPreset = Math.Max(0, _ssgiPreset.SelectedIndex);
+            if (ActiveGameExe() is null) { _ui.SsgiPreset = _settings.SsgiPreset; SaveUi(); }
+            UserProfileTouch();
+        };
+        _ssgiSteady.CheckedChanged += (_, _) =>
+        {
+            if (_suppressProfile) return;
+            _settings.SsgiTemporal = _ssgiSteady.Checked;
+            if (ActiveGameExe() is null) { _ui.SsgiTemporal = _ssgiSteady.Checked; SaveUi(); }
+            UserProfileTouch();
+        };
+        _settings.Ssgi = _ui.Ssgi; _settings.SsgiPreset = Math.Clamp(_ui.SsgiPreset, 0, 2); _settings.SsgiTemporal = _ui.SsgiTemporal;
 
         // Pinned action bar: Apply is always visible
         var bar = new TableLayoutPanel { Dock = DockStyle.Bottom, AutoSize = true, ColumnCount = 1, Padding = new Padding(20, 12, 20, 14), BackColor = Theme.Bg };
@@ -374,16 +426,20 @@ public sealed class MainForm : Form
             if (_out != null && _pipe != null)
             {
                 _motionLbl.Text = $"Active motion source: {_pipe.MotionSource}";
-                _active.Text = _out.OutputFps > 0 ? $"FrameFX output {_out.OutputFps:0} fps / game {_out.SourceFps:0} fps" : $"Motion: {_pipe.MotionSource}";
-                string n = _out.Warning.Length > 0 ? "⚠ " + _out.Warning : "";
+                _active.ForeColor = _out.CompareOff ? Theme.Amber : Theme.Green;
+                _active.Text = $"{_out.CompareStatus}  ·  output {_out.OutputFps:0} fps / game {_out.SourceFps:0} fps";
+                string n = _out.CompareOff ? "FrameFX OFF (compare)" : "";
+                if (_out.Warning.Length > 0) n += (n.Length > 0 ? "\n" : "") + "⚠ " + _out.Warning;
                 if (_out.Hint.Length > 0) n += (n.Length > 0 ? "\n" : "") + "Hint: " + _out.Hint;
                 if (_notice.Text != n) _notice.Text = n;
                 _notice.Visible = n.Length > 0;
             }
-            else { _motionLbl.Text = _motionAvail; _active.Text = _motionShort; _notice.Visible = false; }
+            else { _motionLbl.Text = _motionAvail; _active.ForeColor = Theme.Green; _active.Text = _motionShort; _notice.Visible = false; }
         };
         _uiTimer.Start();
         UpdateDirty();
+        _baseline = CaptureUiProfile();
+        _profilesReady = true;
         Reflow();
         _updTimer.Tick += (_, _) => UpdateTick();
         _updTimer.Start();
@@ -423,7 +479,8 @@ public sealed class MainForm : Form
         }
     }
 
-    void SaveUi() { if (Environment.GetEnvironmentVariable("UFX_UITEST") is not { Length: > 0 } && !QuietShot && FgScript == null) _ui.Save(); }
+    bool PersistOk => Environment.GetEnvironmentVariable("UFX_UITEST") is not { Length: > 0 } && !QuietShot && FgScript == null;
+    void SaveUi() { if (PersistOk) _ui.Save(); }
 
     void ShowUpdBanner(string text, bool buttons, string install = "Install")
     {
@@ -629,6 +686,7 @@ public sealed class MainForm : Form
         }
         var c = Current(); var a = _applied!;
         bool restart = c.Source != a.Source || c.Quality != a.Quality || c.Mode != a.Mode || c.Res != a.Res || (c.Preset == 2) != (a.Preset == 2);
+        UserProfileTouch();
         if (restart)
         {
             _restartPending = true;
@@ -654,6 +712,9 @@ public sealed class MainForm : Form
         _settings.Motion = (MotionPreference)_motion.SelectedIndex;
         _settings.Performance = _preset.SelectedIndex != 1;
         _settings.LatencyBudget = _lowLat.Checked;
+        _settings.Ssgi = _ssgi.Checked;
+        _settings.SsgiPreset = Math.Max(0, _ssgiPreset.SelectedIndex);
+        _settings.SsgiTemporal = _ssgiSteady.Checked;
         bool comp = _preset.SelectedIndex == 2;
         _settings.Competitive = comp;
         if (comp)
@@ -699,6 +760,7 @@ public sealed class MainForm : Form
         PushLive();
         _applied = Current();
         _out = new OutputForm(_gpu, _pipe, _settings, hwnd, screen, mode, inW, inH, outW, outH, res);
+        if (_compareOff) _out.SetCompareOff(true);
         _out.FormClosed += OnOutputClosed;
         _start.Text = "Stop";
         _status.Text = hwnd == IntPtr.Zero
@@ -706,6 +768,7 @@ public sealed class MainForm : Form
             : _gamesArmed
                 ? $"Game overlay on \"{label}\"" + (res is OutputRes.P1080 or OutputRes.P1440 or OutputRes.P2160 ? $" → {outW}×{outH}" : "")
                 : $"Capturing \"{label}\"" + (res is OutputRes.P1080 or OutputRes.P1440 or OutputRes.P2160 ? $" → {outW}×{outH}" : "");
+        if (_profileBanner.Length > 0) { _status.Text = _profileBanner; _profileBanner = ""; }
         _out.Show();
         UpdateDirty();
     }
@@ -713,6 +776,7 @@ public sealed class MainForm : Form
     void OnOutputClosed(object? sender, FormClosedEventArgs e)
     {
         if (sender is not OutputForm f) return;
+        _compareOff = f.CompareOff;
         _status.Text = f.Error is { } err ? "Stopped: " + err : "Stopped.";
         bool userStop = f.UserStop;
         _out = null; _applied = null;
@@ -812,13 +876,19 @@ public sealed class MainForm : Form
                 var o = _out;
                 if (o == null)
                 {
-                    _gameHwnd = v.Hwnd; _gameLabel = v.Exe;
-                    StartOutput(v.Hwnd, OutputMode.Overlay, v.Exe);
+                    // A restart already in flight (Apply or a game switch) starts the output from OnOutputClosed.
+                    if (!_restartPending)
+                    {
+                        PrepareGameSettings(v.Exe);
+                        _gameHwnd = v.Hwnd; _gameLabel = v.Exe;
+                        StartOutput(v.Hwnd, OutputMode.Overlay, v.Exe);
+                    }
                 }
                 else if (o.Source != v.Hwnd)
                 {
                     // A different game came to the front: restart the overlay on it (close first, so
                     // the hotkeys are unregistered before the new output registers them).
+                    PrepareGameSettings(v.Exe);
                     _pendingHwnd = v.Hwnd; _pendingLabel = v.Exe;
                     _restartPending = true;
                     o.Close();
@@ -914,6 +984,128 @@ public sealed class MainForm : Form
             list.Add((part[..i].Trim(), sec));
         }
         return list;
+    }
+
+    /// <summary>Exe of the game the output is on, or null when the source is not a detected game.
+    /// Paused games-only output still counts: the user is editing that game's settings.</summary>
+    string? ActiveGameExe()
+    {
+        try
+        {
+            var o = _out;
+            if (o == null || o.Source == IntPtr.Zero) return null;
+            if (_gamesArmed && _gameLabel.Length > 0 && o.Source == _gameHwnd) return _gameLabel;
+            var c = _detector.Classify(o.Source);
+            return c.IsGame && c.Exe.Length > 0 ? c.Exe : null;
+        }
+        catch { return null; }
+    }
+
+    GameProfile CaptureUiProfile() => GameProfiles.Sanitize(new GameProfile
+    {
+        Preset = Math.Max(0, _preset.SelectedIndex),
+        FrameGen = _fg.Checked,
+        FgMultiplier = _fgMul.SelectedIndex >= 0 && _fgMul.SelectedIndex < FgMul.Allowed.Length
+            ? FgMul.Allowed[_fgMul.SelectedIndex]
+            : FgMul.Allowed[Math.Clamp(_fgMul.SelectedIndex, 0, FgMul.Allowed.Length - 1)],
+        Ssgi = _ssgi.Checked,
+        SsgiPreset = Math.Max(0, _ssgiPreset.SelectedIndex),
+        SsgiTemporal = _ssgiSteady.Checked,
+        Backend = (int)BackendOrder[Math.Clamp(_backend.SelectedIndex, 0, BackendOrder.Length - 1)],
+        Res = Math.Max(0, _res.SelectedIndex),
+    });
+
+    /// <summary>Store an explicit edit on the active game, or refresh the global baseline when no game is the source.</summary>
+    void UserProfileTouch()
+    {
+        if (!_profilesReady || _suppressProfile) return;
+        var snap = CaptureUiProfile();
+        if (ActiveGameExe() is { } exe && GameProfiles.ShouldRemember(true, !PersistOk, exe))
+        {
+            GameProfiles.Remember(_ui.Profiles, exe, snap);
+            SaveUi();
+            RebuildProfileList();
+        }
+        else if (ActiveGameExe() is null)
+            _baseline = snap;
+    }
+
+    void PrepareGameSettings(string exe)
+    {
+        var (settings, fromProfile) = GameProfiles.Select(_ui.Profiles, exe, _baseline);
+        ApplyProfileToUi(settings);
+        _profileBanner = fromProfile ? GameProfiles.AppliedStatus(exe) : "";
+    }
+
+    void ApplyProfileToUi(GameProfile p)
+    {
+        _suppressProfile = true;
+        _suppressDirty = true;
+        _suppressMulSave = true;
+        try
+        {
+            int bi = Array.IndexOf(BackendOrder, (Backend)p.Backend);
+            if (bi >= 0) _backend.SelectedIndex = bi;
+            _preset.SelectedIndex = p.Preset is 1 or 2 ? p.Preset : 0;
+            _fg.Checked = p.FrameGen;
+            int mi = FgMul.IndexOf(GameProfiles.Mul(p.FgMultiplier));
+            if (mi >= _fgMul.Items.Count) _fgMul.Items.Add("8× (7 generated frames, advanced)");
+            _fgMul.SelectedIndex = Math.Min(mi, _fgMul.Items.Count - 1);
+            _ssgi.Checked = p.Ssgi;
+            if (_ssgiPreset.Items.Count > 0) _ssgiPreset.SelectedIndex = Math.Clamp(p.SsgiPreset, 0, _ssgiPreset.Items.Count - 1);
+            _ssgiSteady.Checked = p.SsgiTemporal;
+            if (p.Res >= 0 && p.Res < _res.Items.Count) _res.SelectedIndex = p.Res;
+            UpdateUpNote();
+        }
+        finally
+        {
+            _suppressProfile = false;
+            _suppressDirty = false;
+            _suppressMulSave = false;
+        }
+    }
+
+    void RebuildProfileList()
+    {
+        foreach (var l in _profileLabels) _wrap.Remove(l);
+        _profileLabels.Clear();
+        for (int i = _profileRows.Controls.Count - 1; i >= 0; i--)
+        {
+            var c = _profileRows.Controls[i];
+            _profileRows.Controls.RemoveAt(i);
+            c.Dispose();
+        }
+        _profileRows.RowStyles.Clear();
+        _profileRows.RowCount = 0;
+        var keys = _ui.Profiles.Keys.OrderBy(k => k, StringComparer.OrdinalIgnoreCase).ToList();
+        _profileEmpty.Visible = keys.Count == 0;
+        _profileResetAll.Enabled = keys.Count > 0;
+        int row = 0;
+        foreach (var key in keys)
+        {
+            if (!_ui.Profiles.TryGetValue(key, out var prof) || prof == null) continue;
+            var lbl = new Label
+            {
+                Text = $"{key}  —  {GameProfiles.Summary(prof)}",
+                AutoSize = true,
+                ForeColor = Theme.Text,
+                Margin = new Padding(0, 4, 8, 2),
+                MaximumSize = new Size(420, 0),
+            };
+            _profileLabels.Add(lbl);
+            _wrap.Add(lbl);
+            string k = key;
+            var btn = new PillButton { Text = "Reset", AutoSize = true, Kind = PillKind.Ghost, Margin = new Padding(0, 2, 0, 0) };
+            btn.Click += (_, _) => BeginInvoke(new Action(() =>
+            {
+                if (!GameProfiles.Reset(_ui.Profiles, k)) return;
+                SaveUi();
+                RebuildProfileList();
+            }));
+            _profileRows.Controls.Add(lbl, 0, row);
+            _profileRows.Controls.Add(btn, 1, row);
+            row++;
+        }
     }
 
     static TextBox NewGameListBox()
@@ -1321,6 +1513,10 @@ public sealed class UiState
     /// <summary>SSGI (experimental): off by default; preset 0 Auto, 1 GTX 1050 Ti, 2 GTX 980 Ti.</summary>
     public bool Ssgi { get; set; }
     public int SsgiPreset { get; set; }
+    /// <summary>Steadier lighting while moving (with SSGI).</summary>
+    public bool SsgiTemporal { get; set; } = global::UniversalFrameFX.Ssgi.TemporalDefault;
+    /// <summary>Per-game profiles, keyed by lowercase exe name.</summary>
+    public Dictionary<string, GameProfile> Profiles { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     static string PathOf => System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Universal-FrameFX", "ui.json");
 
@@ -1330,6 +1526,7 @@ public sealed class UiState
         try { if (File.Exists(PathOf)) s = JsonSerializer.Deserialize<UiState>(File.ReadAllText(PathOf)) ?? new(); } catch { }
         if (s.SettingsVersion < 132) { s.GamesOnly = true; s.SettingsVersion = 132; }
         if (s.FgDefault4 == 0) { if (s.FgMultiplier == 2) s.FgMultiplier = 4; s.FgDefault4 = 1; }   // old default 2× -> new default 4×
+        s.Profiles = GameProfiles.NormalizeMap(s.Profiles);
         return s;
     }
 

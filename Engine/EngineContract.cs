@@ -34,7 +34,8 @@ public interface IFrameEngine : IDisposable
     /// <summary>The output window changed size.</summary>
     void ResizeOutput(int width, int height);
     /// <summary>A newly captured picture of the source window. Called on the capture thread; the texture is only
-    /// valid for the duration of the call.</summary>
+    /// valid for the duration of the call. When <see cref="SessionSettings.CompareOff"/> is set, the picture is
+    /// shown as captured, with FrameFX processing off.</summary>
     void SubmitFrame(ID3D11Texture2D captured, int contentWidth, int contentHeight);
     /// <summary>Forget previous frames (after a pause, so nothing stale is shown).</summary>
     void Reset();
