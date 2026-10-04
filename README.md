@@ -20,7 +20,7 @@ capture setup, the overlay window, the updater, the installer script, and every 
 network, files, other processes or the desktop. It's public so you can check exactly what FrameFX does on your PC.
 
 **The image-processing engine (upscaling, frame generation and image effects) is proprietary and closed source.**
-It is not in this repository. [`src/UniversalFrameFX/Engine/EngineContract.cs`](src/UniversalFrameFX/Engine/EngineContract.cs)
+It is not in this repository. [`Engine/EngineContract.cs`](Engine/EngineContract.cs)
 shows the boundary: the app hands the engine the captured window picture and your settings, and the engine draws
 the result into FrameFX's own output window.
 
@@ -38,7 +38,7 @@ Everything below can be checked in this repository. The file that proves each po
 
 ### Network: one update check, no telemetry
 
-- FrameFX makes no network connections apart from the updater ([`Updater.cs`](src/UniversalFrameFX/Updater.cs)).
+- FrameFX makes no network connections apart from the updater ([`Updater.cs`](Updater.cs)).
   There are no analytics, no telemetry, no crash uploads, no accounts and no ads.
 - **The update check** is one HTTPS `GET` of `https://chopstickshq.com/universal-framefx/latest.json?t=<current time>`.
   The `t` value only stops caches from serving an old copy. The only information sent is what any HTTPS request
@@ -56,7 +56,7 @@ Everything below can be checked in this repository. The file that proves each po
 
 ### How updates are verified
 
-- [`Updater.cs`](src/UniversalFrameFX/Updater.cs) streams the download through SHA-256 and checks both the size and
+- [`Updater.cs`](Updater.cs) streams the download through SHA-256 and checks both the size and
   the hash against `latest.json`. If either doesn't match, the file is deleted and nothing is installed (the
   refusal is written to `update.log`).
 - Before it replaces any files, the updater checks that the zip contains a valid 64-bit Windows `Universal-FrameFX.exe`.
@@ -69,7 +69,7 @@ Everything below can be checked in this repository. The file that proves each po
 
 ### No admin rights
 
-- The app asks for normal user rights only (`asInvoker` in [`app.manifest`](src/UniversalFrameFX/app.manifest)).
+- The app asks for normal user rights only (`asInvoker` in [`app.manifest`](app.manifest)).
   It never asks for elevation.
 - The installer is per-user: it installs to `%LOCALAPPDATA%\Programs\Universal-FrameFX`, adds a Start Menu
   shortcut and runs FrameFX's GPU self-test once. It also removes leftover Start Menu shortcuts from the old
@@ -79,7 +79,7 @@ Everything below can be checked in this repository. The file that proves each po
 
 ### What FrameFX reads from games and other apps
 
-- **The picture of the window you choose.** [`WindowCapture.cs`](src/UniversalFrameFX/WindowCapture.cs) uses
+- **The picture of the window you choose.** [`WindowCapture.cs`](WindowCapture.cs) uses
   Windows' own screen-capture API (Windows.Graphics.Capture), the same one used by OBS and the Windows Snipping Tool.
   It gets the image Windows has already drawn on screen, including the mouse cursor. On Windows 10, Windows shows
   a yellow border around a captured window; on Windows 11, FrameFX asks Windows to leave the border off.
@@ -89,7 +89,7 @@ Everything below can be checked in this repository. The file that proves each po
 - **No input is sent in normal use.** The only `SendInput` calls are in a developer self-check
   (`--demo --overlay --exit-after N` on the command line). It clicks once through FrameFX's own overlay and presses
   FrameFX's own Ctrl+Alt+F/Q hotkeys to test that click-through and the hotkeys work.
-- **Game detection** ([`GameDetector.cs`](src/UniversalFrameFX/GameDetector.cs)) runs only while "Apply to games
+- **Game detection** ([`GameDetector.cs`](GameDetector.cs)) runs only while "Apply to games
   only" is on. Twice a second it looks at the foreground window and asks Windows for:
   - the program's file path and start time (`OpenProcess` with `PROCESS_QUERY_LIMITED_INFORMATION`, the lowest
     access level);
@@ -100,7 +100,7 @@ Everything below can be checked in this repository. The file that proves each po
   It doesn't read any game data or memory contents.
 - **Anti-cheat:** FrameFX doesn't interact with anti-cheat software and makes no claims about it. It doesn't inject
   or modify anything, but whether a particular anti-cheat accepts an overlay or screen capture is up to that game.
-- **The overlay** ([`OutputForm.cs`](src/UniversalFrameFX/OutputForm.cs)) is a normal top-most window that clicks pass
+- **The overlay** ([`OutputForm.cs`](OutputForm.cs)) is a normal top-most window that clicks pass
   through. It is never activated, so the game keeps keyboard and mouse focus. It moves to follow the game window but
   never resizes or changes the game window. It's excluded from screen capture, so FrameFX never captures itself.
   This also means screenshots and recordings show the original game image, not FrameFX's output.
@@ -121,8 +121,8 @@ Everything below can be checked in this repository. The file that proves each po
 
 Logs stay on your PC. They're never uploaded. Settings → "Open logs folder" shows them. Developer diagnostics
 (command-line `--out` reports and `UFX_*` test variables) write files only to paths you give them.
-The code is in [`Diag.cs`](src/UniversalFrameFX/Diag.cs), [`Updater.cs`](src/UniversalFrameFX/Updater.cs) and
-`UiSettings` in [`MainForm.cs`](src/UniversalFrameFX/MainForm.cs).
+The code is in [`Diag.cs`](Diag.cs), [`Updater.cs`](Updater.cs) and
+`UiSettings` in [`MainForm.cs`](MainForm.cs).
 
 ### Other programs FrameFX starts
 
@@ -164,7 +164,6 @@ Requirements: .NET 8 SDK. Windows is needed to run the app; it can also be built
 `-p:EnableWindowsTargeting=true`.
 
 ```
-cd src/UniversalFrameFX
 dotnet build -c Release
 ```
 

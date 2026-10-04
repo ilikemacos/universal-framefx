@@ -33,11 +33,11 @@
     <PackageReference Include="Vortice.DXGI" Version="3.6.2" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="..\..\NOTICE.md" LogicalName="NOTICE.md" />
+    <EmbeddedResource Include="NOTICE.md" LogicalName="NOTICE.md" />
     <EmbeddedResource Include="app.ico" LogicalName="app.ico" />
   </ItemGroup>
   <!-- Vendor runtimes (AMD FidelityFX, Intel XeSS): shipped unmodified next to the exe. -->
-  <ItemGroup Condition="Exists('..\..\vendor\bin')">
-    <Content Include="..\..\vendor\bin\*.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" Link="%(Filename)%(Extension)" />
+  <ItemGroup Condition="Exists('vendor\bin')">
+    <Content Include="vendor\bin\*.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" Link="%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>
