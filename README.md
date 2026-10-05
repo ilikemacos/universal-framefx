@@ -8,7 +8,7 @@ No account · no telemetry · no admin rights.
 **Canonical site:** [https://chopstickshq.com/universal-framefx/](https://chopstickshq.com/universal-framefx/)
 **Hub:** [https://chopstickshq.com/](https://chopstickshq.com/)
 
-[![Download](https://img.shields.io/badge/download-v1.4.0%20Beta3-4d9eff)](https://chopstickshq.com/universal-framefx/)
+[![Download](https://img.shields.io/badge/download-v1.4.0%20Beta4-4d9eff)](https://chopstickshq.com/universal-framefx/)
 [![Windows 10/11](https://img.shields.io/badge/Windows-10%20%2F%2011%20x64-111111)](https://chopstickshq.com/universal-framefx/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-6b6b8a)](LICENSE)
 [![Build](https://github.com/ilikemacos/universal-framefx/actions/workflows/build.yml/badge.svg)](https://github.com/ilikemacos/universal-framefx/actions/workflows/build.yml)
@@ -58,6 +58,7 @@ Or:
 - Frame generation up to 4× (8× as an advanced option)
 - "Apply to games only": turns itself on for games and pauses on the desktop, browsers and normal apps
 - Performance, Quality and Competitive presets, and a latency budget that keeps added response time low
+- Ray-traced lighting (experimental, off by default): extra light, reflections and contact shadows, including on cards without hardware ray tracing such as the GTX 1050 Ti and GTX 980 Ti
 - Shows FrameFX's output fps next to the game's own fps, and warns when the game is in exclusive fullscreen
 - Ctrl+Alt+F hides/shows the overlay, Ctrl+Alt+Q stops it, and Ctrl+Alt+C turns compare on or off (FrameFX processing off). Those hotkeys are registered only while an output is running
 
@@ -173,7 +174,7 @@ Everything below can be checked in this repository. The file that proves each po
 | GPU program cache (only file the engine writes) | `%LOCALAPPDATA%\Universal-FrameFX\shadercache\` |
 | Installer self-test result | `%LOCALAPPDATA%\Programs\Universal-FrameFX\selftest.txt` |
 
-Per-game profiles (preset, frame generation, SSGI, steadier lighting, upscaler and output resolution for each game)
+Per-game profiles (preset, frame generation, SSGI, steadier lighting, ray-traced lighting, upscaler and output resolution for each game)
 are stored locally in that `ui.json`. Nothing about them is sent anywhere.
 
 Logs stay on your PC. They're never uploaded. Settings → "Open logs folder" shows them. Developer diagnostics

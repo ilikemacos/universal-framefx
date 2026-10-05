@@ -290,6 +290,11 @@ public sealed class OutputForm : Form
             $"Universal-FrameFX {MainForm.DisplayVersion}",
         };
         if (_engine?.Status is { Length: > 0 } st) lines.Add(st);
+        if (Ssrt.Enabled(_settings.Ssrt))
+        {
+            string label = Ssrt.PresetLabel(Ssrt.Resolve(_settings.SsrtPreset, _outW, _outH, _gpu.AdapterName));
+            lines.Add("Ray-traced lighting: " + label);
+        }
         FgStatus = _engine?.Status ?? "";
         lines.Add(keys);
         if (Warning.Length > 0) lines.Insert(1, "⚠ " + Warning);

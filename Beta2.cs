@@ -3,10 +3,10 @@ using System.Text.RegularExpressions;
 
 namespace UniversalFrameFX;
 
-/// <summary>One place for the version. Internal semver from the csproj (e.g. 1.4.0-beta.3), shown as "v1.4.0 Beta3".</summary>
+/// <summary>One place for the version. Internal semver from the csproj (e.g. 1.4.0-beta.4), shown as "v1.4.0 Beta4".</summary>
 public static class AppVersion
 {
-    public static readonly string Version = (typeof(AppVersion).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "1.4.0-beta.3").Split('+')[0];
+    public static readonly string Version = (typeof(AppVersion).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "1.4.0-beta.4").Split('+')[0];
     public static string Display => Pretty(Version);
     public static string Pretty(string v)
     {

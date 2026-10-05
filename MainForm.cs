@@ -31,6 +31,8 @@ public sealed class MainForm : Form
     readonly ToggleSwitch _ssgi = new() { Text = "SSGI (experimental)" };
     readonly DarkCombo _ssgiPreset = new() { Width = 300 };
     readonly ToggleSwitch _ssgiSteady = new() { Text = "Steadier SSGI lighting" };
+    readonly ToggleSwitch _ssrt = new() { Text = "Ray-traced lighting (experimental)" };
+    readonly DarkCombo _ssrtPreset = new() { Width = 300 };
     /// <summary>1.3.4 latency budget toggle (live, saved in ui.json).</summary>
     readonly ToggleSwitch _lowLat = new() { Text = $"Latency budget: keep FrameFX under {LatencyBudget.DefaultMs:0.0} ms per frame" };
     readonly DarkCombo _res = new() { Width = 300 };
@@ -270,7 +272,7 @@ public sealed class MainForm : Form
         _gamesNeverBox.TextChanged += (_, _) => SyncGameLists(false);
         _gamesAlwaysBox.Leave += (_, _) => SyncGameLists(true);
         _gamesNeverBox.Leave += (_, _) => SyncGameLists(true);
-        Add(games, Note("Game profiles: FrameFX remembers preset, frame generation, SSGI, steadier lighting, upscaler and output resolution for each game, and applies them when that game is detected."));
+        Add(games, Note("Game profiles: FrameFX remembers preset, frame generation, SSGI, steadier lighting, ray-traced lighting, upscaler and output resolution for each game, and applies them when that game is detected."));
         _wrap.Add(_profileEmpty);
         _profileRows.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         _profileRows.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
@@ -292,6 +294,13 @@ public sealed class MainForm : Form
         Add(adv, _ssgiSteady);
         Add(adv, Note("Steadier lighting while moving."));
         Add(adv, Note("SSGI (experimental): adds coloured bounce light from bright areas and contact shadows to the captured frame, before upscaling and frame generation. It only sees the 2D image (no depth), so it is an approximation: it can light or darken things a real renderer would not. Estimated GPU cost ~0.9–1.2 ms (GTX 1050 Ti at 1080p / GTX 980 Ti at 1440p presets). Auto picks the 980 Ti settings for 1440p+ on faster GPUs, otherwise the 1050 Ti settings."));
+        _ssrt.Checked = _ui.Ssrt;
+        Add(adv, _ssrt);
+        foreach (var n in Ssrt.PresetNames) _ssrtPreset.Items.Add(n);
+        _ssrtPreset.SelectedIndex = Math.Clamp(_ui.SsrtPreset, 0, Ssrt.PresetNames.Length - 1);
+        _ssrtPreset.Visible = _ssrt.Checked;
+        Add(adv, Stretch(_ssrtPreset));
+        Add(adv, Note("Ray-traced lighting (experimental) is off unless you turn it on. It adds extra light, reflections and contact shadows, including on cards without hardware ray tracing such as the GTX 1050 Ti and GTX 980 Ti. While it is on, it is used instead of SSGI. Auto picks lighter settings at 1080p and on a GTX 1050 Ti or a slower card."));
         foreach (var m in Enum.GetValues<MotionPreference>()) _motion.Items.Add(MotionEngines.PrefName(m));
         _motion.SelectedIndex = 0;
         _motion.SelectedIndexChanged += (_, _) => UpdateDirty();
@@ -384,6 +393,22 @@ public sealed class MainForm : Form
             UserProfileTouch();
         };
         _settings.Ssgi = _ui.Ssgi; _settings.SsgiPreset = Math.Clamp(_ui.SsgiPreset, 0, 2); _settings.SsgiTemporal = _ui.SsgiTemporal;
+        _ssrt.CheckedChanged += (_, _) =>
+        {
+            _ssrtPreset.Visible = _ssrt.Checked;
+            if (_suppressProfile) return;
+            _settings.Ssrt = _ssrt.Checked;
+            if (ActiveGameExe() is null) { _ui.Ssrt = _ssrt.Checked; SaveUi(); }
+            UserProfileTouch();
+        };
+        _ssrtPreset.SelectedIndexChanged += (_, _) =>
+        {
+            if (_suppressProfile) return;
+            _settings.SsrtPreset = Math.Max(0, _ssrtPreset.SelectedIndex);
+            if (ActiveGameExe() is null) { _ui.SsrtPreset = _settings.SsrtPreset; SaveUi(); }
+            UserProfileTouch();
+        };
+        _settings.Ssrt = _ui.Ssrt; _settings.SsrtPreset = Math.Clamp(_ui.SsrtPreset, 0, 2); _settings.SsrtTemporal = _ui.SsrtTemporal;
 
         // Pinned action bar: Apply is always visible
         var bar = new TableLayoutPanel { Dock = DockStyle.Bottom, AutoSize = true, ColumnCount = 1, Padding = new Padding(20, 12, 20, 14), BackColor = Theme.Bg };
@@ -715,6 +740,9 @@ public sealed class MainForm : Form
         _settings.Ssgi = _ssgi.Checked;
         _settings.SsgiPreset = Math.Max(0, _ssgiPreset.SelectedIndex);
         _settings.SsgiTemporal = _ssgiSteady.Checked;
+        _settings.Ssrt = _ssrt.Checked;
+        _settings.SsrtPreset = Math.Max(0, _ssrtPreset.SelectedIndex);
+        _settings.SsrtTemporal = _ui.SsrtTemporal;
         bool comp = _preset.SelectedIndex == 2;
         _settings.Competitive = comp;
         if (comp)
@@ -1011,6 +1039,9 @@ public sealed class MainForm : Form
         Ssgi = _ssgi.Checked,
         SsgiPreset = Math.Max(0, _ssgiPreset.SelectedIndex),
         SsgiTemporal = _ssgiSteady.Checked,
+        Ssrt = _ssrt.Checked,
+        SsrtPreset = Math.Max(0, _ssrtPreset.SelectedIndex),
+        SsrtTemporal = _ui.SsrtTemporal,
         Backend = (int)BackendOrder[Math.Clamp(_backend.SelectedIndex, 0, BackendOrder.Length - 1)],
         Res = Math.Max(0, _res.SelectedIndex),
     });
@@ -1054,6 +1085,10 @@ public sealed class MainForm : Form
             _ssgi.Checked = p.Ssgi;
             if (_ssgiPreset.Items.Count > 0) _ssgiPreset.SelectedIndex = Math.Clamp(p.SsgiPreset, 0, _ssgiPreset.Items.Count - 1);
             _ssgiSteady.Checked = p.SsgiTemporal;
+            _ssrt.Checked = p.Ssrt;
+            if (_ssrtPreset.Items.Count > 0) _ssrtPreset.SelectedIndex = Math.Clamp(p.SsrtPreset, 0, _ssrtPreset.Items.Count - 1);
+            _ssrtPreset.Visible = p.Ssrt;
+            _ui.SsrtTemporal = p.SsrtTemporal;
             if (p.Res >= 0 && p.Res < _res.Items.Count) _res.SelectedIndex = p.Res;
             UpdateUpNote();
         }
@@ -1515,6 +1550,11 @@ public sealed class UiState
     public int SsgiPreset { get; set; }
     /// <summary>Steadier lighting while moving (with SSGI).</summary>
     public bool SsgiTemporal { get; set; } = global::UniversalFrameFX.Ssgi.TemporalDefault;
+    /// <summary>Ray-traced lighting (experimental). Off by default. Preset 0 Auto, 1 GTX 1050 Ti, 2 GTX 980 Ti.</summary>
+    public bool Ssrt { get; set; }
+    public int SsrtPreset { get; set; }
+    /// <summary>Steadier picture while ray-traced lighting is on.</summary>
+    public bool SsrtTemporal { get; set; } = global::UniversalFrameFX.Ssrt.TemporalDefault;
     /// <summary>Per-game profiles, keyed by lowercase exe name.</summary>
     public Dictionary<string, GameProfile> Profiles { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 

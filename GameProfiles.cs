@@ -16,6 +16,12 @@ public sealed class GameProfile
     public int SsgiPreset { get; set; }
     /// <summary>Steadier lighting while moving, when SSGI is on.</summary>
     public bool SsgiTemporal { get; set; } = global::UniversalFrameFX.Ssgi.TemporalDefault;
+    /// <summary>Ray-traced lighting (experimental). Off unless the user turns it on. Replaces SSGI while it is on.</summary>
+    public bool Ssrt { get; set; }
+    /// <summary>0 Auto, 1 GTX 1050 Ti, 2 GTX 980 Ti.</summary>
+    public int SsrtPreset { get; set; }
+    /// <summary>Steadier picture while moving, when ray-traced lighting is on.</summary>
+    public bool SsrtTemporal { get; set; } = global::UniversalFrameFX.Ssrt.TemporalDefault;
     /// <summary><see cref="Backend"/> value.</summary>
     public int Backend { get; set; }
     /// <summary><see cref="OutputRes"/> value.</summary>
@@ -60,9 +66,10 @@ public static class GameProfiles
     {
         p = Sanitize(p);
         string ssgi = p.Ssgi ? "SSGI on" : "SSGI off";
-        if (p.Preset == 2) return $"Competitive · FG 8× · {ssgi}";
+        string rt = p.Ssrt ? " · RT on" : "";
+        if (p.Preset == 2) return $"Competitive · FG 8× · {ssgi}{rt}";
         string fg = p.FrameGen ? $"FG {Mul(p.FgMultiplier)}×" : "FG off";
-        return $"{PresetName(p.Preset)} · {fg} · {ssgi}";
+        return $"{PresetName(p.Preset)} · {fg} · {ssgi}{rt}";
     }
 
     public static string AppliedStatus(string exe) => $"Profile: {DisplayName(exe)} (saved settings applied)";
@@ -80,6 +87,9 @@ public static class GameProfiles
             Ssgi = p.Ssgi,
             SsgiPreset = p.SsgiPreset is 1 or 2 ? p.SsgiPreset : 0,
             SsgiTemporal = p.SsgiTemporal,
+            Ssrt = p.Ssrt,
+            SsrtPreset = p.SsrtPreset is 1 or 2 ? p.SsrtPreset : 0,
+            SsrtTemporal = p.SsrtTemporal,
             Backend = backend,
             Res = res,
         };

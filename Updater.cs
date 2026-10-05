@@ -56,7 +56,7 @@ public static class Updater
         return await resp.Content.ReadAsStreamAsync(ct);
     }
 
-    /// <summary>Semver-aware: "1.4.0" > "1.4.0-beta.3" > "1.4.0-beta.2" > "1.4.0-beta.1" > "1.3.3". Build metadata (+...) is ignored.</summary>
+    /// <summary>Semver-aware: "1.4.0" > "1.4.0-beta.4" > "1.4.0-beta.3" > "1.4.0-beta.2" > "1.4.0-beta.1" > "1.3.3". Build metadata (+...) is ignored.</summary>
     public static bool IsNewer(string a, string b) => CompareVersions(a, b) > 0;
 
     public static int CompareVersions(string a, string b)
