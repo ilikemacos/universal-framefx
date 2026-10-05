@@ -3,12 +3,12 @@
 # Universal-FrameFX
 
 **Free real-time upscaler and frame generator for Windows**: sharper, smoother games and apps in a click-through overlay.
-No account · no telemetry · no admin rights.
+No account · no telemetry · FrameFX itself needs no admin rights.
 
 **Canonical site:** [https://chopstickshq.com/universal-framefx/](https://chopstickshq.com/universal-framefx/)
 **Hub:** [https://chopstickshq.com/](https://chopstickshq.com/)
 
-[![Download](https://img.shields.io/badge/download-v1.4.0%20Beta4-4d9eff)](https://chopstickshq.com/universal-framefx/)
+[![Download](https://img.shields.io/badge/download-v1.4.0%20Beta5-4d9eff)](https://chopstickshq.com/universal-framefx/)
 [![Windows 10/11](https://img.shields.io/badge/Windows-10%20%2F%2011%20x64-111111)](https://chopstickshq.com/universal-framefx/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-6b6b8a)](LICENSE)
 [![Build](https://github.com/ilikemacos/universal-framefx/actions/workflows/build.yml/badge.svg)](https://github.com/ilikemacos/universal-framefx/actions/workflows/build.yml)
@@ -61,6 +61,7 @@ Or:
 - Ray-traced lighting (experimental, off by default): extra light, reflections and contact shadows, including on cards without hardware ray tracing such as the GTX 1050 Ti and GTX 980 Ti
 - Shows FrameFX's output fps next to the game's own fps, and warns when the game is in exclusive fullscreen
 - Ctrl+Alt+F hides/shows the overlay, Ctrl+Alt+Q stops it, and Ctrl+Alt+C turns compare on or off (FrameFX processing off). Those hotkeys are registered only while an output is running
+- CPU section (off by default, remembered per game): optional help while a game is running. It can't make the CPU faster than its hardware. Everything is undone when the game closes, when FrameFX closes, or with Restore defaults. A quick benchmark lets you compare before and after. Some power options may ask for admin approval
 
 **Requires:** Windows 10 version 2004 (build 19041) or later, 64-bit, a DirectX 11 GPU.
 
@@ -121,15 +122,20 @@ Everything below can be checked in this repository. The file that proves each po
 - The installer script ([`installer/install.ps1`](installer/install.ps1)) works the same way: it checks the zip's
   SHA-256 against `version.json` on chopstickshq.com and installs nothing if it doesn't match.
 
-### No admin rights
+### Admin rights
 
-- The app asks for normal user rights only (`asInvoker` in [`app.manifest`](app.manifest)).
-  It never asks for elevation.
+- FrameFX itself asks for normal user rights only (`asInvoker` in [`app.manifest`](app.manifest)).
+  The app is never relaunched elevated, and nothing asks for administrator approval unless you turn on a CPU power option.
 - The installer is per-user: it installs to `%LOCALAPPDATA%\Programs\Universal-FrameFX`, adds a Start Menu
   shortcut and runs FrameFX's GPU self-test once. It also removes leftover Start Menu shortcuts from the old
   PowerShell-based "Universal FrameFX" tool (v0.x). It doesn't touch Program Files, the registry, services,
   drivers or scheduled tasks, and it doesn't add FrameFX to startup.
 - FrameFX's code doesn't read or write the registry, and FrameFX doesn't start with Windows.
+  Optional CPU power options (off unless you turn them on) change the power plan through `powercfg`, not the registry.
+  That plan is put back afterwards (see below).
+- Only those CPU power options may show one Windows administrator prompt (`runas` on `powercfg` / `cmd.exe`)
+  when a normal-user `powercfg` call is refused. Declining it is remembered until you edit the CPU section.
+  The other CPU options do not ask for admin. See [`CpuBoostWin.cs`](CpuBoostWin.cs).
 
 ### What FrameFX reads from games and other apps
 
@@ -140,6 +146,14 @@ Everything below can be checked in this repository. The file that proves each po
 - **Nothing is injected into games.** FrameFX doesn't load code into other processes, hook them, or change their
   memory or files. There is no `WriteProcessMemory`, `ReadProcessMemory`, `CreateRemoteThread`, `SetWindowsHookEx`
   or DLL injection anywhere in FrameFX, including the closed engine.
+- **Optional CPU section** ([`CpuBoost.cs`](CpuBoost.cs), [`CpuBoostWin.cs`](CpuBoostWin.cs)), off by default.
+  While a game is running it can set that game's priority to High (never Realtime) and listed background apps to
+  Below Normal, place them on chosen CPU sets (processor affinity when CPU sets aren't available), ask Windows
+  not to power-throttle the game, lower FrameFX's own priority, and request a 1 ms timer. It can also switch the
+  active power plan to a FrameFX-owned copy (`FrameFX Gaming`, made with `powercfg /duplicatescheme`) while gaming.
+  All of that is restored when the game closes, when FrameFX closes, when you click Restore defaults, and on the
+  next start if the process crashed (a fatal unhandled exception also tries to restore immediately). It does not
+  read or write other processes' memory.
 - **No input is sent in normal use.** The only `SendInput` calls are in a developer self-check
   (`--demo --overlay --exit-after N` on the command line). It clicks once through FrameFX's own overlay and presses
   FrameFX's own Ctrl+Alt+F/Q hotkeys to test that click-through and the hotkeys work.
@@ -169,13 +183,16 @@ Everything below can be checked in this repository. The file that proves each po
 | The program (installer or updater) | `%LOCALAPPDATA%\Programs\Universal-FrameFX\` |
 | Previous version kept by the updater | `%LOCALAPPDATA%\Programs\Universal-FrameFX.prev\` |
 | Your settings and per-game profiles | `%APPDATA%\Universal-FrameFX\ui.json` |
+| CPU restore book (previous power plan, timer, and process priority / CPU sets, so a crash can be undone). Removed when the book is empty | `%APPDATA%\Universal-FrameFX\cpu-restore.json` |
 | Startup timing log, crash log (`crash.log`, rotated at 512 KB) | `%LOCALAPPDATA%\Universal-FrameFX\` |
 | Update log, downloaded update zips, updater helper | `%LOCALAPPDATA%\Universal-FrameFX\updates\` |
 | GPU program cache (only file the engine writes) | `%LOCALAPPDATA%\Universal-FrameFX\shadercache\` |
 | Installer self-test result | `%LOCALAPPDATA%\Programs\Universal-FrameFX\selftest.txt` |
 
-Per-game profiles (preset, frame generation, SSGI, steadier lighting, ray-traced lighting, upscaler and output resolution for each game)
+Per-game profiles (preset, frame generation, SSGI, steadier lighting, ray-traced lighting, upscaler, output resolution and CPU options for each game)
 are stored locally in that `ui.json`. Nothing about them is sent anywhere.
+
+CPU power steps also write short-lived `ufx-cpu-*` scripts under the temp folder and delete them when the step finishes.
 
 Logs stay on your PC. They're never uploaded. Settings → "Open logs folder" shows them. Developer diagnostics
 (command-line `--out` reports and `UFX_*` test variables) write files only to paths you give them.
@@ -186,6 +203,7 @@ The code is in [`Diag.cs`](Diag.cs), [`Updater.cs`](Updater.cs) and
 
 - The updater helper described above, and the new or restored FrameFX after an update.
 - Your browser (website, Buy me a coffee) and File Explorer ("Open logs folder"), only when you click them.
+- `powercfg.exe`, and `cmd.exe` only if a CPU power option needs the one administrator prompt above. Nothing else is started for the CPU section.
 
 ### What the closed engine loads
 
@@ -215,6 +233,8 @@ It has no network, registry or process code. The only file it writes is the GPU 
    - `%LOCALAPPDATA%\Programs\Universal-FrameFX.prev`
 
 FrameFX leaves nothing else behind: no registry keys, services, drivers or startup entries.
+Closing FrameFX restores the previous power plan and deletes the `FrameFX Gaming` plan the optional CPU section may have created.
+If the process was killed, the next start does that restore from `cpu-restore.json`. The uninstaller does not remove a power plan by itself, so close FrameFX (or start it once) before you uninstall.
 
 ---
 
@@ -241,6 +261,7 @@ dotnet build -c Release
 | `Updater.cs` | Update check, SHA-256 verified download, install and rollback |
 | `Diag.cs` | Startup and crash logs, GPU program cache |
 | `Native.cs`, `Beta2.cs`, `Program.cs` | Windows API declarations, version and hints, entry point |
+| `CpuBoost.cs`, `CpuBoostWin.cs` | Optional CPU section: settings, what it changes, and how it is restored |
 | `Engine/` | Boundary to the closed engine, plus the placeholder used in public builds |
 | `installer/install.ps1` | The one-line installer and uninstaller |
 | `licenses/`, `NOTICE.md` | Third-party licences and notices |

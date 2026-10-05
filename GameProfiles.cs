@@ -26,6 +26,8 @@ public sealed class GameProfile
     public int Backend { get; set; }
     /// <summary><see cref="OutputRes"/> value.</summary>
     public int Res { get; set; }
+    /// <summary>Per-game CPU options. Missing on older profiles, which means everything off.</summary>
+    public CpuBoostSettings Cpu { get; set; } = new();
 }
 
 /// <summary>Key normalisation, summary text, and when a saved profile replaces the global settings.</summary>
@@ -67,9 +69,10 @@ public static class GameProfiles
         p = Sanitize(p);
         string ssgi = p.Ssgi ? "SSGI on" : "SSGI off";
         string rt = p.Ssrt ? " · RT on" : "";
-        if (p.Preset == 2) return $"Competitive · FG 8× · {ssgi}{rt}";
+        string cpu = CpuBoost.AnyEnabled(p.Cpu) ? " · CPU boost" : "";
+        if (p.Preset == 2) return $"Competitive · FG 8× · {ssgi}{rt}{cpu}";
         string fg = p.FrameGen ? $"FG {Mul(p.FgMultiplier)}×" : "FG off";
-        return $"{PresetName(p.Preset)} · {fg} · {ssgi}{rt}";
+        return $"{PresetName(p.Preset)} · {fg} · {ssgi}{rt}{cpu}";
     }
 
     public static string AppliedStatus(string exe) => $"Profile: {DisplayName(exe)} (saved settings applied)";
@@ -92,6 +95,7 @@ public static class GameProfiles
             SsrtTemporal = p.SsrtTemporal,
             Backend = backend,
             Res = res,
+            Cpu = CpuBoost.Sanitize(p.Cpu),
         };
     }
 

@@ -72,6 +72,7 @@ internal static class Program
                 MainForm.CliGpu = args[gi + 1].ToLowerInvariant() switch { "igpu" or "integrated" => GpuChoice.Integrated, "dgpu" or "dedicated" => GpuChoice.Dedicated, _ => GpuChoice.Auto };
         }
         Diag.InstallCrashHandlers();
+        try { CpuBoostWin.StartupRecover(); } catch { }
         ApplicationConfiguration.Initialize();
         Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
         Application.ThreadException += (_, e) =>

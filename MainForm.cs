@@ -126,6 +126,32 @@ public sealed class MainForm : Form
     readonly Dictionary<string, (SectionHeader head, Control body)> _sections = new();
     readonly Label _notice = new() { AutoSize = true, MaximumSize = new Size(470, 0), ForeColor = Theme.Amber, Margin = new Padding(2, 4, 0, 0), Visible = false };
     readonly Label _active = new() { AutoSize = true, ForeColor = Theme.Green, Margin = new Padding(2, 2, 0, 0) };
+    // CPU section (collapsed by default). Options stay off until the user turns them on.
+    readonly ToggleSwitch _cpuPower = new() { Text = "Use the high performance power mode while gaming (may ask for admin)" };
+    readonly ToggleSwitch _cpuMin = new() { Text = "Keep the processor at full speed while gaming (may ask for admin)" };
+    readonly ToggleSwitch _cpuPark = new() { Text = "Keep all cores awake (may ask for admin)" };
+    readonly DarkCombo _cpuBoost = new() { Width = 300 };
+    readonly ToggleSwitch _cpuPrio = new() { Text = "Run the game at high priority" };
+    readonly ToggleSwitch _cpuFast = new() { Text = "Prefer your fastest cores" };
+    readonly ToggleSwitch _cpuSmt = new() { Text = "Use one thread per core (can help some games on AMD and Intel CPUs)" };
+    readonly ToggleSwitch _cpuTimer = new() { Text = "Smoother timing (1 ms)" };
+    readonly ToggleSwitch _cpuAll = new() { Text = "Spread the game across all cores" };
+    readonly ToggleSwitch _cpuSelf = new() { Text = "Keep FrameFX out of the game's way" };
+    readonly ToggleSwitch _cpuThrottle = new() { Text = "Don't let Windows throttle the game" };
+    readonly TextBox _cpuBg = NewGameListBox();
+    readonly Label _cpuStatus = new() { AutoSize = true, MaximumSize = new Size(470, 0), ForeColor = Theme.TextMuted, Margin = new Padding(0, 6, 0, 2) };
+    readonly Label _cpuBenchLbl = new() { AutoSize = true, MaximumSize = new Size(470, 0), ForeColor = Theme.Green, Margin = new Padding(0, 4, 0, 2) };
+    readonly PillButton _cpuBench = new() { Text = "Run quick benchmark", AutoSize = true, Kind = PillKind.Ghost, Margin = new Padding(0, 0, 8, 0) };
+    readonly PillButton _cpuDefaults = new() { Text = "Restore defaults", AutoSize = true, Kind = PillKind.Ghost, Margin = new Padding(0) };
+    readonly System.Windows.Forms.Timer _cpuPoll = new() { Interval = 500 };
+    bool _suppressCpu;
+    volatile bool _cpuClosing;
+    int _cpuJob;
+    bool _cpuAgain;
+    string _cpuKey = "";
+    long _cpuPollAt;
+    string _cpuShownExe = "";
+    double? _benchSingle0, _benchMulti0;
     UiState _ui = UiState.Load();
 
     public MainForm()
@@ -272,7 +298,7 @@ public sealed class MainForm : Form
         _gamesNeverBox.TextChanged += (_, _) => SyncGameLists(false);
         _gamesAlwaysBox.Leave += (_, _) => SyncGameLists(true);
         _gamesNeverBox.Leave += (_, _) => SyncGameLists(true);
-        Add(games, Note("Game profiles: FrameFX remembers preset, frame generation, SSGI, steadier lighting, ray-traced lighting, upscaler and output resolution for each game, and applies them when that game is detected."));
+        Add(games, Note("Game profiles: FrameFX remembers preset, frame generation, SSGI, steadier lighting, ray-traced lighting, upscaler, output resolution and CPU options for each game, and applies them when that game is detected."));
         _wrap.Add(_profileEmpty);
         _profileRows.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         _profileRows.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
@@ -332,6 +358,52 @@ public sealed class MainForm : Form
         Add(adv, _gpuNote);
         Add(adv, gpuRestart);
         GpuNote();
+
+        // CPU (collapsed by default): legitimate, reversible help for the detected game. Everything off until checked.
+        var cpu = Section("CPU", false);
+        Add(cpu, Note("Get more performance out of your CPU for games. This can't make your CPU faster than its hardware allows; results depend on the game and your PC. Everything is undone when the game closes, when FrameFX closes, or with Restore defaults."));
+        Add(cpu, CpuGroup("Power"));
+        Add(cpu, _cpuPower);
+        Add(cpu, _cpuMin);
+        Add(cpu, _cpuPark);
+        Add(cpu, Note("Processor boost while gaming (may ask for admin):"));
+        _cpuBoost.Items.Add("Leave as it is");
+        _cpuBoost.Items.Add("Strong boost");
+        _cpuBoost.Items.Add("Efficient boost");
+        _cpuBoost.SelectedIndex = 0;
+        Add(cpu, Stretch(_cpuBoost));
+        Add(cpu, _cpuThrottle);
+        Add(cpu, CpuGroup("Single-core"));
+        Add(cpu, _cpuPrio);
+        Add(cpu, _cpuFast);
+        Add(cpu, _cpuSmt);
+        Add(cpu, _cpuTimer);
+        Add(cpu, CpuGroup("Multi-core"));
+        Add(cpu, _cpuAll);
+        Add(cpu, _cpuSelf);
+        Add(cpu, Note("Slow down these background apps while gaming (one .exe per line):"));
+        Add(cpu, Stretch(_cpuBg));
+        var cpuRow = new FlowLayoutPanel { AutoSize = true, WrapContents = true, Margin = new Padding(0, 6, 0, 0), BackColor = Theme.Card };
+        _cpuBench.Click += (_, _) => _ = RunCpuBenchAsync();
+        _cpuDefaults.Click += (_, _) =>
+        {
+            WriteCpuUi(new CpuBoostSettings());
+            _cpuKey = "";
+            OnCpuEdited();
+        };
+        cpuRow.Controls.Add(_cpuBench);
+        cpuRow.Controls.Add(_cpuDefaults);
+        Add(cpu, cpuRow);
+        _cpuBenchLbl.MaximumSize = Size.Empty; _wrap.Add(_cpuBenchLbl);
+        _cpuStatus.MaximumSize = Size.Empty; _wrap.Add(_cpuStatus);
+        Add(cpu, _cpuBenchLbl);
+        Add(cpu, _cpuStatus);
+        WriteCpuUi(_ui.Cpu);
+        _cpuStatus.Text = string.Join(Environment.NewLine, CpuBoost.StatusLines(new CpuBoostStatus()));
+        foreach (var sw in new[] { _cpuPower, _cpuMin, _cpuPark, _cpuPrio, _cpuFast, _cpuSmt, _cpuTimer, _cpuAll, _cpuSelf, _cpuThrottle })
+            sw.CheckedChanged += (_, _) => OnCpuEdited();
+        _cpuBoost.SelectedIndexChanged += (_, _) => OnCpuEdited();
+        _cpuBg.Leave += (_, _) => CommitCpuList();
 
         // Updates (collapsed by default)
         var upd = Section("Updates", false);
@@ -462,6 +534,8 @@ public sealed class MainForm : Form
             else { _motionLbl.Text = _motionAvail; _active.ForeColor = Theme.Green; _active.Text = _motionShort; _notice.Visible = false; }
         };
         _uiTimer.Start();
+        _cpuPoll.Tick += (_, _) => CpuTick();
+        _cpuPoll.Start();
         UpdateDirty();
         _baseline = CaptureUiProfile();
         _profilesReady = true;
@@ -1044,6 +1118,7 @@ public sealed class MainForm : Form
         SsrtTemporal = _ui.SsrtTemporal,
         Backend = (int)BackendOrder[Math.Clamp(_backend.SelectedIndex, 0, BackendOrder.Length - 1)],
         Res = Math.Max(0, _res.SelectedIndex),
+        Cpu = ReadCpuSettings(),
     });
 
     /// <summary>Store an explicit edit on the active game, or refresh the global baseline when no game is the source.</summary>
@@ -1063,9 +1138,11 @@ public sealed class MainForm : Form
 
     void PrepareGameSettings(string exe)
     {
-        var (settings, fromProfile) = GameProfiles.Select(_ui.Profiles, exe, _baseline);
+        string name = exe ?? "";
+        var (settings, fromProfile) = GameProfiles.Select(_ui.Profiles, name, _baseline);
         ApplyProfileToUi(settings);
-        _profileBanner = fromProfile ? GameProfiles.AppliedStatus(exe) : "";
+        _cpuShownExe = name;
+        _profileBanner = fromProfile ? GameProfiles.AppliedStatus(name) : "";
     }
 
     void ApplyProfileToUi(GameProfile p)
@@ -1090,6 +1167,7 @@ public sealed class MainForm : Form
             _ssrtPreset.Visible = p.Ssrt;
             _ui.SsrtTemporal = p.SsrtTemporal;
             if (p.Res >= 0 && p.Res < _res.Items.Count) _res.SelectedIndex = p.Res;
+            WriteCpuUi(p.Cpu);
             UpdateUpNote();
         }
         finally
@@ -1500,8 +1578,215 @@ public sealed class MainForm : Form
         f.ShowDialog(this);
     }
 
+    Label CpuGroup(string t) => new() { Text = t, AutoSize = true, ForeColor = Theme.Text, Margin = new Padding(0, 10, 0, 2) };
+
+    string CurrentCpuGameExe()
+    {
+        try { ResolveCpuGame(out _, out string exe); return exe ?? ""; }
+        catch { return ""; }
+    }
+
+    CpuBoostSettings ReadCpuSettings() => CpuBoost.Sanitize(new CpuBoostSettings
+    {
+        PowerPlan = _cpuPower.Checked,
+        MinProcessorState100 = _cpuMin.Checked,
+        DisableCoreParking = _cpuPark.Checked,
+        BoostMode = _cpuBoost.SelectedIndex is 1 or 2 ? _cpuBoost.SelectedIndex : 0,
+        HighPriority = _cpuPrio.Checked,
+        PreferFastCores = _cpuFast.Checked,
+        AvoidSmtSiblings = _cpuSmt.Checked,
+        TimerResolution1ms = _cpuTimer.Checked,
+        AllPhysicalCores = _cpuAll.Checked,
+        LowerFrameFxPriority = _cpuSelf.Checked,
+        DisablePowerThrottling = _cpuThrottle.Checked,
+        BackgroundProcesses = CpuBoost.NormalizeBackgroundList(_cpuBg.Text.Split('\n'), CurrentCpuGameExe()),
+    });
+
+    void WriteCpuUi(CpuBoostSettings? s)
+    {
+        s = CpuBoost.Sanitize(s);
+        bool prev = _suppressCpu;
+        _suppressCpu = true;
+        try
+        {
+            _cpuPower.Checked = s.PowerPlan;
+            _cpuMin.Checked = s.MinProcessorState100;
+            _cpuPark.Checked = s.DisableCoreParking;
+            if (_cpuBoost.Items.Count > 0) _cpuBoost.SelectedIndex = s.BoostMode is 1 or 2 ? s.BoostMode : 0;
+            _cpuPrio.Checked = s.HighPriority;
+            _cpuFast.Checked = s.PreferFastCores;
+            _cpuSmt.Checked = s.AvoidSmtSiblings;
+            _cpuTimer.Checked = s.TimerResolution1ms;
+            _cpuAll.Checked = s.AllPhysicalCores;
+            _cpuSelf.Checked = s.LowerFrameFxPriority;
+            _cpuThrottle.Checked = s.DisablePowerThrottling;
+            _cpuBg.Text = string.Join(Environment.NewLine, s.BackgroundProcesses);
+        }
+        finally { _suppressCpu = prev; }
+    }
+
+    void CommitCpuList()
+    {
+        if (_suppressCpu || _suppressProfile) return;
+        var list = CpuBoost.NormalizeBackgroundList(_cpuBg.Text.Split('\n'), CurrentCpuGameExe());
+        string text = string.Join(Environment.NewLine, list);
+        if (!string.Equals(_cpuBg.Text.Replace("\r\n", "\n"), text.Replace("\r\n", "\n"), StringComparison.Ordinal))
+        {
+            _suppressCpu = true;
+            _cpuBg.Text = text;
+            _suppressCpu = false;
+        }
+        OnCpuEdited();
+    }
+
+    void OnCpuEdited()
+    {
+        if (_suppressCpu || _suppressProfile || !_profilesReady) return;
+        CpuBoostWin.NotifyUserEdit();
+        var snap = CaptureUiProfile();
+        ResolveCpuGame(out _, out string fgExe);
+        string? exe = ActiveGameExe();
+        if (string.IsNullOrEmpty(exe) && fgExe.Length > 0) exe = fgExe;
+        if (!string.IsNullOrEmpty(exe) && GameProfiles.ShouldRemember(true, !PersistOk, exe))
+        {
+            GameProfiles.Remember(_ui.Profiles, exe, snap);
+            RebuildProfileList();
+        }
+        else
+        {
+            _ui.Cpu = CpuBoost.Sanitize(snap.Cpu);
+            _baseline = snap;
+        }
+        SaveUi();
+        _cpuKey = "";
+        QueueCpuSync();
+    }
+
+    void CpuTick()
+    {
+        if (_suppressProfile || _suppressCpu || _cpuClosing) return;
+        if (!CpuBoost.AnyEnabled(ReadCpuSettings()) && _cpuKey.Length == 0 && _cpuJob == 0) return;
+        if (!_ui.GamesOnly && !_gamesArmed)
+        {
+            try
+            {
+                var v = _detector.Classify(FgScript != null ? ScriptForeground() : Native.GetForegroundWindow());
+                _lastVerdict = v;
+                if (v.Pid != 0 && v.Pid != Environment.ProcessId) _lastExternal = v;
+            }
+            catch { }
+        }
+        MaybeLoadCpu();
+        QueueCpuSync();
+    }
+
+    void MaybeLoadCpu()
+    {
+        if (_cpuBg.ContainsFocus) return;
+        ResolveCpuGame(out _, out string exe);
+        if (exe.Length == 0)
+        {
+            _cpuShownExe = "";
+            return;
+        }
+        if (string.Equals(exe, _cpuShownExe, StringComparison.OrdinalIgnoreCase)) return;
+        var (settings, _) = GameProfiles.Select(_ui.Profiles, exe, _baseline);
+        _cpuShownExe = exe;
+        WriteCpuUi(settings.Cpu);
+        _cpuKey = "";
+    }
+
+    void ResolveCpuGame(out int pid, out string exe)
+    {
+        pid = 0;
+        exe = "";
+        try
+        {
+            if (_lastVerdict is { IsGame: true, Pid: > 0, Exe.Length: > 0 } v)
+            {
+                pid = v.Pid;
+                exe = v.Exe;
+                return;
+            }
+            var o = _out;
+            if (o != null && o.Source != IntPtr.Zero)
+            {
+                var c = _detector.Classify(o.Source);
+                if (c.IsGame && c.Pid > 0 && c.Exe.Length > 0) { pid = c.Pid; exe = c.Exe; }
+            }
+        }
+        catch { pid = 0; exe = ""; }
+    }
+
+    void QueueCpuSync()
+    {
+        if (_cpuClosing || _suppressCpu || _suppressProfile) return;
+        ResolveCpuGame(out int fgPid, out string fgExe);
+        var settings = ReadCpuSettings();
+        string key = fgPid + "\n" + fgExe + "\n" + CpuBoost.ToJson(settings);
+        long now = Environment.TickCount64;
+        if (key == _cpuKey && now - _cpuPollAt < 2000) return;
+        if (Interlocked.CompareExchange(ref _cpuJob, 1, 0) != 0)
+        {
+            _cpuAgain = true;
+            return;
+        }
+        _cpuPollAt = now;
+        _cpuKey = key;
+        Task.Run(() =>
+        {
+            CpuBoostStatus st;
+            try { st = CpuBoostWin.Sync(fgPid, fgExe, settings); }
+            catch { st = new CpuBoostStatus { Notes = { "Could not finish applying CPU options." } }; }
+            try
+            {
+                if (!_cpuClosing && IsHandleCreated)
+                    BeginInvoke(new Action(() =>
+                    {
+                        _cpuStatus.Text = string.Join(Environment.NewLine, CpuBoost.StatusLines(st));
+                        Interlocked.Exchange(ref _cpuJob, 0);
+                        if (!CpuBoost.AnyEnabled(ReadCpuSettings())) _cpuKey = "";
+                        if (_cpuAgain && !_cpuClosing) { _cpuAgain = false; _cpuKey = ""; QueueCpuSync(); }
+                    }));
+                else Interlocked.Exchange(ref _cpuJob, 0);
+            }
+            catch { Interlocked.Exchange(ref _cpuJob, 0); }
+        });
+    }
+
+    async Task RunCpuBenchAsync()
+    {
+        _cpuBench.Enabled = false;
+        _cpuBenchLbl.Text = "Running a quick benchmark…";
+        try
+        {
+            int n = Math.Max(1, Environment.ProcessorCount);
+            var score = await Task.Run(() => CpuBench.Measure(n, 3000));
+            if (IsDisposed) return;
+            if (_benchSingle0 is null || _benchMulti0 is null)
+            {
+                _benchSingle0 = score.Single;
+                _benchMulti0 = score.Multi;
+                _cpuBenchLbl.Text = $"Single-core: {score.Single:0}{Environment.NewLine}Multi-core: {score.Multi:0}{Environment.NewLine}Run again after you turn options on to compare.";
+            }
+            else
+            {
+                _cpuBenchLbl.Text = "Single-core: " + CpuBench.Compare(_benchSingle0.Value, score.Single)
+                    + Environment.NewLine + "Multi-core: " + CpuBench.Compare(_benchMulti0.Value, score.Multi);
+            }
+        }
+        catch
+        {
+            _cpuBenchLbl.Text = "The benchmark could not finish.";
+        }
+        finally { if (!IsDisposed) _cpuBench.Enabled = true; }
+    }
+
     protected override void OnFormClosing(FormClosingEventArgs e)
     {
+        _cpuClosing = true;
+        _cpuPoll.Stop();
+        try { CpuBoostWin.RestoreSession(); } catch { }
         _ui.CaptureFrom(this);
         SaveUi();   // tests don't overwrite the user's layout
         _out?.Close();
@@ -1557,6 +1842,8 @@ public sealed class UiState
     public bool SsrtTemporal { get; set; } = global::UniversalFrameFX.Ssrt.TemporalDefault;
     /// <summary>Per-game profiles, keyed by lowercase exe name.</summary>
     public Dictionary<string, GameProfile> Profiles { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>CPU options used when the foreground game has no saved profile. Missing on older ui.json files, so everything stays off.</summary>
+    public CpuBoostSettings Cpu { get; set; } = new();
 
     static string PathOf => System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Universal-FrameFX", "ui.json");
 
@@ -1567,6 +1854,7 @@ public sealed class UiState
         if (s.SettingsVersion < 132) { s.GamesOnly = true; s.SettingsVersion = 132; }
         if (s.FgDefault4 == 0) { if (s.FgMultiplier == 2) s.FgMultiplier = 4; s.FgDefault4 = 1; }   // old default 2× -> new default 4×
         s.Profiles = GameProfiles.NormalizeMap(s.Profiles);
+        s.Cpu = CpuBoost.Sanitize(s.Cpu);
         return s;
     }
 

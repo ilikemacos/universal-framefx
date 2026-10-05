@@ -128,8 +128,8 @@ public static class Ssgi
 /// When it is on it takes the place of SSGI. The image processing itself is in the closed engine.</summary>
 public static class Ssrt
 {
-    /// <summary>Steadier picture while ray-traced lighting is on. UFX_SSRT_TEMPORAL=0/1 overrides the saved choice.</summary>
-    public const bool TemporalDefault = true;
+    /// <summary>Steadier picture while ray-traced lighting is on. Off by default. UFX_SSRT_TEMPORAL=0/1 overrides it.</summary>
+    public const bool TemporalDefault = false;
     public static readonly string[] PresetNames = { "Auto", "GTX 1050 Ti", "GTX 980 Ti" };
 
     /// <summary>Saved toggle, unless UFX_SSRT is 0 or 1.</summary>
@@ -141,13 +141,14 @@ public static class Ssrt
         return setting;
     }
 
-    /// <summary>Saved choice, unless UFX_SSRT_TEMPORAL is 0 or 1.</summary>
+    /// <summary>UFX_SSRT_TEMPORAL if it is 0 or 1; otherwise TemporalDefault. A saved true does not turn it on.</summary>
     public static bool TemporalEnabled(bool setting)
     {
         string? e = Environment.GetEnvironmentVariable("UFX_SSRT_TEMPORAL");
         if (e == "0") return false;
         if (e == "1") return true;
-        return setting;
+        _ = setting;
+        return TemporalDefault;
     }
 
     /// <summary>1 = GTX 1050 Ti settings, 2 = GTX 980 Ti settings. Auto uses the 1050 Ti settings at 1080p and below,

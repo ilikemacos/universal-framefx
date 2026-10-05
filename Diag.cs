@@ -36,7 +36,12 @@ public static class Diag
     /// <summary>Hooks every unhandled-exception path so crashes leave a readable log.</summary>
     public static void InstallCrashHandlers()
     {
-        AppDomain.CurrentDomain.UnhandledException += (_, e) => WriteCrash("unhandled (fatal=" + e.IsTerminating + ")", e.ExceptionObject as Exception);
+        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+        {
+            WriteCrash("unhandled (fatal=" + e.IsTerminating + ")", e.ExceptionObject as Exception);
+            if (e.IsTerminating)
+                try { CpuBoostWin.RestoreSession(); } catch { }
+        };
         TaskScheduler.UnobservedTaskException += (_, e) => { WriteCrash("unobserved task", e.Exception); e.SetObserved(); };
     }
 
