@@ -6,22 +6,8 @@ using System.Text.Json;
 
 namespace UniversalFrameFX;
 
-/// <summary>One entry of latest.json.</summary>
 public sealed record UpdateInfo(string Version, string Url, string Sha256, long Size, string Notes, string MinVersion);
 
-/// <summary>
-/// Auto-update. The site publishes https://chopstickshq.com/universal-framefx/latest.json
-/// ({version, url, sha256, size, notes, minVersion}), generated from the real zip at deploy time.
-/// The app checks it in the background on launch and every 6 hours; downloads go over HTTPS only to
-/// %LOCALAPPDATA%\Universal-FrameFX\updates\ and are refused unless size and SHA-256 match.
-/// Installing hands over to a copy of this exe running in "--apply-update" mode: it waits for the app
-/// to exit, checks that the zip's Universal-FrameFX.exe is a valid x64 PE image (refusing the update
-/// before anything is touched if not), backs the install folder up to "&lt;folder&gt;.prev", extracts the
-/// new files, starts the new version and waits for it to report a successful start; if it doesn't, the
-/// backup is restored and the previous version is started again.
-/// UFX_UPDATE_URL overrides the manifest URL for testing and is the only way to allow a non-HTTPS
-/// (file:// or http://localhost) manifest or download.
-/// </summary>
 public static class Updater
 {
     public const string ProductionManifest = "https://chopstickshq.com/universal-framefx/latest.json";
@@ -33,7 +19,6 @@ public static class Updater
     public static string DataDir => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Universal-FrameFX");
     public static string UpdatesDir => Path.Combine(DataDir, "updates");
     public static string LogPath => Path.Combine(UpdatesDir, "update.log");
-    /// <summary>The folder the running exe lives in (normally %LOCALAPPDATA%\Programs\Universal-FrameFX).</summary>
     public static string InstallDir => Path.GetDirectoryName(Environment.ProcessPath ?? Path.Combine(AppContext.BaseDirectory, "Universal-FrameFX.exe"))!;
 
     public static void Log(string line)
@@ -56,7 +41,6 @@ public static class Updater
         return await resp.Content.ReadAsStreamAsync(ct);
     }
 
-    /// <summary>Semver-aware: "1.4.0" > "1.4.0-beta.5" > "1.4.0-beta.4" > "1.4.0-beta.3" > "1.4.0-beta.2" > "1.4.0-beta.1" > "1.3.3". Build metadata (+...) is ignored.</summary>
     public static bool IsNewer(string a, string b) => CompareVersions(a, b) > 0;
 
     public static int CompareVersions(string a, string b)
@@ -75,7 +59,7 @@ public static class Updater
             int p = i < x.Length ? x[i] : 0, q = i < y.Length ? y[i] : 0;
             if (p != q) return p.CompareTo(q);
         }
-        if (xp == null || yp == null) return xp == null ? (yp == null ? 0 : 1) : -1;   // release > prerelease
+        if (xp == null || yp == null) return xp == null ? (yp == null ? 0 : 1) : -1;
         for (int i = 0; i < Math.Max(xp.Length, yp.Length); i++)
         {
             if (i >= xp.Length) return -1; if (i >= yp.Length) return 1;
@@ -86,7 +70,6 @@ public static class Updater
         return 0;
     }
 
-    /// <summary>Fetch latest.json; returns the entry if it is newer than the running version.</summary>
     public static async Task<UpdateInfo?> CheckAsync(CancellationToken ct = default)
     {
         using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
@@ -105,10 +88,8 @@ public static class Updater
         return IsNewer(info.Version, MainForm.Version) ? info : null;
     }
 
-    /// <summary>The running version is too old to update itself to this one (the user must reinstall).</summary>
     public static bool NeedsManualInstall(UpdateInfo u) => u.MinVersion.Length > 0 && IsNewer(u.MinVersion, MainForm.Version);
 
-    /// <summary>Download to the updates folder and verify size + SHA-256. Throws (and deletes the file) on mismatch.</summary>
     public static async Task<string> DownloadAsync(UpdateInfo u, IProgress<double>? progress, CancellationToken ct = default)
     {
         Directory.CreateDirectory(UpdatesDir);
@@ -151,8 +132,6 @@ public static class Updater
         return Convert.ToHexString(await SHA256.HashDataAsync(f, ct)).ToLowerInvariant();
     }
 
-    /// <summary>Start the helper (a copy of this exe) that swaps the files once this process has exited.
-    /// The caller must then close the app.</summary>
     public static void StartInstaller(string zip, UpdateInfo u)
     {
         string helperDir = Path.Combine(UpdatesDir, "helper");
@@ -166,25 +145,20 @@ public static class Updater
         Process.Start(psi);
     }
 
-    // ───────────────────────── helper side (--apply-update) ─────────────────────────
-
     public static string MarkerFor(string version) => Path.Combine(UpdatesDir, $"started-{version}.ok");
 
-    /// <summary>Runs in the helper process. Returns the process exit code.</summary>
     public static int ApplyUpdate(string zip, int pid, string dir, string from, string to)
     {
         Log($"helper: applying {to} over {from} in {dir}");
         string prev = dir.TrimEnd('\\', '/') + ".prev";
         string exe = Path.Combine(dir, "Universal-FrameFX.exe");
-        bool backedUp = false; // only a backup made by this run may be rolled back
+        bool backedUp = false;
         try
         {
             try { using var p = Process.GetProcessById(pid); if (!p.WaitForExit(60000)) { Log("helper: the app did not exit within 60 s; update cancelled"); return 2; } }
-            catch (ArgumentException) { /* already gone */ }
+            catch (ArgumentException) { }
             Thread.Sleep(500);
 
-            // Validate the new exe before anything in the install folder is touched: a file that is not
-            // a real x64 PE would make Process.Start fail (or hang on a modal OS error dialog) later.
             using (var za = ZipFile.OpenRead(zip))
             {
                 var exeEntry = za.GetEntry("Universal-FrameFX.exe") ?? za.Entries.FirstOrDefault(e => e.FullName.EndsWith("/Universal-FrameFX.exe"));
@@ -196,13 +170,11 @@ public static class Updater
                 }
             }
 
-            // Backup (kept afterwards as the rollback copy).
             if (Directory.Exists(prev)) Directory.Delete(prev, true);
             CopyDir(dir, prev);
             backedUp = true;
             Log($"helper: backed up to {prev}");
 
-            // Extract (flat zip; tolerate a single top-level folder); guard against paths escaping the folder.
             using (var za = ZipFile.OpenRead(zip))
             {
                 string strip = "";
@@ -225,7 +197,6 @@ public static class Updater
             }
             Log("helper: files replaced");
 
-            // Start the new version and wait for it to report a good start.
             string marker = MarkerFor(to);
             try { File.Delete(marker); } catch { }
             Process np;
@@ -264,7 +235,7 @@ public static class Updater
     {
         try
         {
-            byte[] buf = new byte[(int)Math.Min(e.Length, 8192)]; // the first 8 KB, or the whole entry
+            byte[] buf = new byte[(int)Math.Min(e.Length, 8192)];
             int n = 0;
             using (var s = e.Open())
                 while (n < buf.Length)
@@ -274,11 +245,11 @@ public static class Updater
                     n += r;
                 }
             if (n < 0x40 || buf[0] != (byte)'M' || buf[1] != (byte)'Z') return false;
-            int pe = BitConverter.ToInt32(buf, 0x3C); // e_lfanew
-            if (pe < 0x40 || pe >= 4096 || pe + 26 > n) return false; // sane and inside what we read
+            int pe = BitConverter.ToInt32(buf, 0x3C);
+            if (pe < 0x40 || pe >= 4096 || pe + 26 > n) return false;
             if (buf[pe] != (byte)'P' || buf[pe + 1] != (byte)'E' || buf[pe + 2] != 0 || buf[pe + 3] != 0) return false;
-            if (BitConverter.ToUInt16(buf, pe + 4) != 0x8664) return false; // IMAGE_FILE_MACHINE_AMD64
-            return BitConverter.ToUInt16(buf, pe + 24) == 0x20B;            // PE32+ (x64) optional-header magic
+            if (BitConverter.ToUInt16(buf, pe + 4) != 0x8664) return false;
+            return BitConverter.ToUInt16(buf, pe + 24) == 0x20B;
         }
         catch { return false; }
     }
@@ -287,7 +258,6 @@ public static class Updater
     {
         try
         {
-            // Remove what the update added, then put the backup back.
             var keep = new HashSet<string>(Directory.EnumerateFiles(prev, "*", SearchOption.AllDirectories).Select(f => Path.GetRelativePath(prev, f)), StringComparer.OrdinalIgnoreCase);
             foreach (var f in Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories).ToList())
                 if (!keep.Contains(Path.GetRelativePath(dir, f))) { try { File.Delete(f); } catch { } }

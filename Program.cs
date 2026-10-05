@@ -15,7 +15,6 @@ internal static class Program
             Console.WriteLine($"Universal-FrameFX {MainForm.DisplayVersion} ({MainForm.Version})");
             return 0;
         }
-        // Updater helper: a copy of this exe, started by the app, that swaps the files after it exits.
         int ai = Array.IndexOf(args, "--apply-update");
         if (ai >= 0 && ai + 1 < args.Length)
         {
@@ -25,8 +24,6 @@ internal static class Program
         if (args.Contains("--gamecheck"))
         {
             Native.AttachConsole(-1);
-            // Same per-monitor DPI awareness as the app, so window and monitor rectangles are not virtualized
-            // (otherwise a fullscreen game on a scaled secondary monitor reads as "not fullscreen").
             Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
             int goi = Array.IndexOf(args, "--out");
             string? outPath = goi >= 0 && goi + 1 < args.Length ? args[goi + 1] : null;
@@ -67,7 +64,7 @@ internal static class Program
         }
         Diag.Mark("main");
         {
-            int gi = Array.IndexOf(args, "--gpu");   // auto|igpu|dgpu: this run only (not saved)
+            int gi = Array.IndexOf(args, "--gpu");
             if (gi >= 0 && gi + 1 < args.Length)
                 MainForm.CliGpu = args[gi + 1].ToLowerInvariant() switch { "igpu" or "integrated" => GpuChoice.Integrated, "dgpu" or "dedicated" => GpuChoice.Dedicated, _ => GpuChoice.Auto };
         }
@@ -91,12 +88,12 @@ internal static class Program
         int mi = Array.IndexOf(args, "--motion");
         string? Arg(string name) { int i = Array.IndexOf(args, name); return i >= 0 && i + 1 < args.Length ? args[i + 1] : null; }
         form.AutoBackend = Arg("--backend");
-        form.AutoRes = Arg("--res");           // auto|1080|1440|4k|source
-        form.AutoFgKind = Arg("--fgkind");     // framefx|fsr3
-        form.AutoFgMul = Arg("--fgx");         // 1.3.4: 2|3|4|8 (this run only, not saved)
-        form.AutoPreset = Arg("--preset");     // performance|quality|competitive
-        form.CliCompareOff = args.Contains("--compare-off");   // this run starts with FrameFX processing off (compare)
-        form.UpdateMarker = Arg("--update-marker");   // set by the updater: write this file once started
+        form.AutoRes = Arg("--res");
+        form.AutoFgKind = Arg("--fgkind");
+        form.AutoFgMul = Arg("--fgx");
+        form.AutoPreset = Arg("--preset");
+        form.CliCompareOff = args.Contains("--compare-off");
+        form.UpdateMarker = Arg("--update-marker");
         form.UpdatedFrom = Arg("--updated-from");
         form.UpdateFailed = Arg("--update-failed");
         string? mode = args.Contains("--overlay") ? "overlay" : args.Contains("--fullscreen") ? "fullscreen" : "window";

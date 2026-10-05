@@ -4,11 +4,6 @@ using Color = System.Drawing.Color;
 
 namespace UniversalFrameFX;
 
-/// <summary>The output window: either a click-through overlay on top of the game window, a separate window, or a
-/// separate fullscreen window. This class owns everything the app does to the desktop while FrameFX runs:
-/// the overlay window styles, global hotkeys, following the game window, starting/stopping the window capture,
-/// and the HUD text. The captured picture is handed to the (closed) engine through <see cref="IFrameEngine"/>,
-/// which draws the result into this window.</summary>
 public sealed class OutputForm : Form
 {
     readonly Gpu _gpu;
@@ -36,7 +31,6 @@ public sealed class OutputForm : Form
     public string? Error { get; private set; }
     public string Warning { get; private set; } = "";
     public string Hint { get; private set; } = "";
-    /// <summary>Compare mode: processing is off for this output only. Saved settings and profiles are not touched.</summary>
     public bool CompareOff { get; private set; }
     public string CompareStatus => CompareOff ? "FrameFX OFF (compare)" : "FrameFX ON";
     public string FgStatus { get; private set; } = "";
@@ -45,13 +39,9 @@ public sealed class OutputForm : Form
     public string SwapInfo => _engine?.SwapInfo ?? "";
     public string MotionSource => _pipe.MotionSource;
     public string HudText => _hud.Text;
-    /// <summary>The captured source window (IntPtr.Zero = no window).</summary>
     public IntPtr Source => _source;
     public long Processed => _engine?.Processed ?? 0;
-    /// <summary>Games-only: hidden and idle while the foreground is not a game (call SetPaused on the UI thread).</summary>
     public bool Paused { get; private set; }
-    /// <summary>Set when the user stopped this output (Esc, Ctrl+Alt+Q, the Stop button), as opposed to the source
-    /// window closing itself.</summary>
     public bool UserStop;
 
     bool OverlayFollowsWindow => Mode == OutputMode.Overlay && (_res == OutputRes.Auto || _res == OutputRes.Source);
@@ -63,7 +53,7 @@ public sealed class OutputForm : Form
         _outW = outW; _outH = outH;
         if (mode == OutputMode.Overlay && source == IntPtr.Zero) mode = OutputMode.Window;
         Mode = mode;
-        if (mode == OutputMode.Overlay) _resumeMark = 0;   // stay hidden until the first processed frame
+        if (mode == OutputMode.Overlay) _resumeMark = 0;
         Text = mode == OutputMode.Overlay ? "Universal-FrameFX overlay" : "Universal-FrameFX — Output (Esc or Ctrl+Alt+Q to stop)";
         BackColor = Color.Black;
         KeyPreview = true;
@@ -104,7 +94,6 @@ public sealed class OutputForm : Form
         Resize += (_, _) => { try { lock (Gpu.Lock) _engine?.ResizeOutput(ClientSize.Width, ClientSize.Height); } catch { } };
     }
 
-    // Overlay: borderless, click-through, always on top, never activated, so the game keeps mouse and keyboard focus.
     protected override bool ShowWithoutActivation => Mode == OutputMode.Overlay;
 
     protected override CreateParams CreateParams
@@ -121,14 +110,9 @@ public sealed class OutputForm : Form
     protected override void OnHandleCreated(EventArgs e)
     {
         base.OnHandleCreated(e);
-        // The overlay starts fully transparent and becomes opaque once the first frame is ready (no black flash).
         if (Mode == OutputMode.Overlay) { Native.SetLayeredWindowAttributes(Handle, 0, 0, Native.LWA_ALPHA); _transparent = true; }
-        // Keep FrameFX's own window out of screen captures, so it never captures itself (Windows 10 2004+).
-        // UFX_ALLOW_CAPTURE=1 is for testing.
         if (Environment.GetEnvironmentVariable("UFX_ALLOW_CAPTURE") != "1")
             try { Native.SetWindowDisplayAffinity(Handle, Native.WDA_EXCLUDEFROMCAPTURE); } catch { }
-        // Global hotkeys (work while the game has focus). Registered only while an output is running.
-        // Overlay stays click-through either way.
         bool hkF = Native.RegisterHotKey(Handle, HkToggle, Native.MOD_CONTROL | Native.MOD_ALT | Native.MOD_NOREPEAT, (uint)Keys.F);
         bool hkQ = Native.RegisterHotKey(Handle, HkStop, Native.MOD_CONTROL | Native.MOD_ALT | Native.MOD_NOREPEAT, (uint)Keys.Q);
         bool hkC = Native.RegisterHotKey(Handle, HkCompare, Native.MOD_CONTROL | Native.MOD_ALT | Native.MOD_NOREPEAT, (uint)Keys.C);
@@ -155,7 +139,6 @@ public sealed class OutputForm : Form
         base.WndProc(ref m);
     }
 
-    /// <summary>Ctrl+Alt+F: hide/show the overlay (window modes: toggle the HUD).</summary>
     public void ToggleOverlay()
     {
         if (Mode != OutputMode.Overlay) { _settings.Hud = !_settings.Hud; return; }
@@ -164,8 +147,6 @@ public sealed class OutputForm : Form
         else if (!Paused) Native.ShowWindow(Handle, Native.SW_SHOWNOACTIVATE);
     }
 
-    /// <summary>Ctrl+Alt+C: show the captured picture with FrameFX processing off for this output.
-    /// Does not write saved settings or profiles.</summary>
     public void ToggleCompare() => SetCompareOff(!CompareOff);
 
     public void SetCompareOff(bool off)
@@ -180,8 +161,6 @@ public sealed class OutputForm : Form
         }
     }
 
-    /// <summary>Games-only pause/resume (UI thread). Pause hides the window immediately; resume shows it again only
-    /// after a fresh frame has been processed.</summary>
     public void SetPaused(bool paused)
     {
         if (paused == Paused) return;
@@ -198,7 +177,6 @@ public sealed class OutputForm : Form
         }
     }
 
-    /// <summary>Overlay area: the source window itself, or the whole monitor it is on for a fixed output size.</summary>
     Native.RECT OverlayRect()
     {
         if (OverlayFollowsWindow) return Native.FrameBounds(_source);
@@ -206,7 +184,6 @@ public sealed class OutputForm : Form
         return new Native.RECT { Left = b.Left, Top = b.Top, Right = b.Right, Bottom = b.Bottom };
     }
 
-    /// <summary>Keeps the overlay on top of the game window (position/size only; the game window is never changed).</summary>
     void FollowSource()
     {
         if (!Native.IsWindow(_source)) { _status = "Source window closed."; Close(); return; }
@@ -233,7 +210,6 @@ public sealed class OutputForm : Form
             lock (Gpu.Lock) _engine.AttachOutput(Handle, ClientSize.Width, ClientSize.Height, Mode == OutputMode.Overlay);
             if (_source != IntPtr.Zero)
             {
-                // Windows.Graphics.Capture of the chosen window only: the same picture Windows shows on screen.
                 _capture = new WindowCapture(_gpu.Device, _source, OnCaptured);
                 _capture.Closed += () => BeginInvoke(new Action(() => { _status = "Source window closed."; Close(); }));
             }
@@ -305,7 +281,6 @@ public sealed class OutputForm : Form
         _hud.Visible = _settings.Hud;
     }
 
-    /// <summary>Exclusive-fullscreen warning and fps-lock hints (two cheap Windows queries, twice a second).</summary>
     void UpdateWarnings(double srcFps)
     {
         string w = "";
@@ -318,7 +293,7 @@ public sealed class OutputForm : Form
         Hint = "";
         if (_source == IntPtr.Zero || Paused) { _srcHist.Clear(); return; }
         _srcHist.Enqueue(srcFps);
-        while (_srcHist.Count > 24) _srcHist.Dequeue();   // ~12 s at 2 Hz
+        while (_srcHist.Count > 24) _srcHist.Dequeue();
         if (_srcHist.Count < 20) return;
         double mean = _srcHist.Average(), sd = Math.Sqrt(_srcHist.Select(x => (x - mean) * (x - mean)).Average());
         Hint = FpsLock.Hint(mean, sd, Native.OnBattery(), _engine?.GpuMs ?? 0);

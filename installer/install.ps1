@@ -1,14 +1,3 @@
-# Universal-FrameFX installer for Windows 10/11 (x64). Per-user, no admin needed.
-#
-#   irm https://chopstickshq.com/universal-framefx/install.ps1 | iex
-#
-# Installs to %LOCALAPPDATA%\Programs\Universal-FrameFX, verifies the zip's
-# SHA-256 against version.json, adds a Start Menu shortcut and runs the GPU
-# self-test. Installs the current version, which also ships the AMD FidelityFX
-# and Intel XeSS runtimes and their licences next to the exe. To install an older build:
-#   & ([scriptblock]::Create((irm https://chopstickshq.com/universal-framefx/install.ps1))) -Version 1.2
-# To uninstall:
-#   & ([scriptblock]::Create((irm https://chopstickshq.com/universal-framefx/install.ps1))) -Uninstall
 param([switch]$Uninstall, [switch]$NoLaunch, [string]$Version = '')
 
 & {
@@ -72,8 +61,6 @@ param([switch]$Uninstall, [switch]$NoLaunch, [string]$Version = '')
     }
 
     $sh = New-Object -ComObject WScript.Shell
-    # Remove stale Start Menu shortcuts left by the old PowerShell-based "Universal FrameFX" tool (v0.x),
-    # which point at powershell.exe + UniversalFrameFX.ps1. The old tool's files and data are left alone.
     $progs = [Environment]::GetFolderPath('Programs')
     Get-ChildItem -Path $progs -Filter '*.lnk' -Recurse -ErrorAction SilentlyContinue |
         Where-Object { $_.FullName -ne $Lnk -and $_.Name -match 'Frame\s*FX' } | ForEach-Object {

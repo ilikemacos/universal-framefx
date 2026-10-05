@@ -23,7 +23,6 @@
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <DebugType>none</DebugType>
-    <!-- Precompiled (ReadyToRun) code for faster startup. -->
     <PublishReadyToRun>true</PublishReadyToRun>
     <TieredPGO>true</TieredPGO>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
@@ -36,7 +35,6 @@
     <EmbeddedResource Include="NOTICE.md" LogicalName="NOTICE.md" />
     <EmbeddedResource Include="app.ico" LogicalName="app.ico" />
   </ItemGroup>
-  <!-- Vendor runtimes (AMD FidelityFX, Intel XeSS): shipped unmodified next to the exe. -->
   <ItemGroup Condition="Exists('vendor\bin')">
     <Content Include="vendor\bin\*.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" Link="%(Filename)%(Extension)" />
   </ItemGroup>

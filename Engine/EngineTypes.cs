@@ -2,15 +2,11 @@ using Vortice.DXGI;
 
 namespace UniversalFrameFX;
 
-// Settings types shared between the app shell and the closed engine. These are plain option lists shown in the UI;
-// the engine code that acts on them is not part of this repository. Enum order is persisted by index: append only.
-
 public enum Backend { Temporal, Spatial, Bilinear, Fsr1, Fsr2, Fsr3, Fsr4, XeSS }
 public enum GpuChoice { Auto, Integrated, Dedicated }
 public enum MotionPreference { Auto, Nvof, D3D12, Software }
 public enum FgKind { FrameFX, Fsr3 }
 public enum OutputMode { Overlay, Window, Fullscreen }
-/// <summary>Output resolution choice (index order is persisted).</summary>
 public enum OutputRes { Auto, P1440, P2160, Source, P1080 }
 
 public static class BackendNames
@@ -28,7 +24,6 @@ public static class BackendNames
     };
     public static string Short(Backend b) => Long(b);
 
-    /// <summary>Name -> option. Accepts current and older names so saved settings and shortcuts keep working.</summary>
     public static Backend Parse(string? name)
     {
         var n = (name ?? "").ToLowerInvariant().Replace("-", "").Replace(" ", "").Replace("_", "");
@@ -48,7 +43,6 @@ public static class BackendNames
 
 public static class Backends
 {
-    /// <summary>Runs in a third-party runtime shipped with the app (AMD FidelityFX / Intel XeSS).</summary>
     public static bool IsVendor(Backend b) => b is Backend.Fsr2 or Backend.Fsr3 or Backend.Fsr4 or Backend.XeSS;
 }
 
@@ -75,11 +69,9 @@ public static class OutputResNames
     public static (int w, int h) Size(OutputRes r) => r switch { OutputRes.P1080 => (1920, 1080), OutputRes.P1440 => (2560, 1440), OutputRes.P2160 => (3840, 2160), _ => (0, 0) };
 }
 
-/// <summary>Frame generation multipliers offered in the UI (output frames per game frame).</summary>
 public static class FgMul
 {
     public static readonly int[] Allowed = { 2, 3, 4, 8 };
-    /// <summary>UFX_FG_ADVANCED=1 lists 8× in the multiplier menu.</summary>
     public static readonly bool Advanced = Environment.GetEnvironmentVariable("UFX_FG_ADVANCED") == "1";
     public static int Clamp(int n) => n is 3 or 4 or 8 ? n : 2;
     public static int IndexOf(int n)
@@ -89,8 +81,6 @@ public static class FgMul
     }
 }
 
-/// <summary>Which third-party options can run on this PC. The real check lives in the engine; the public build
-/// reports every third-party option as unavailable.</summary>
 public static class VendorSupport
 {
     public sealed record Info(bool Ok, string Why, string Detail);
@@ -103,7 +93,6 @@ public static class VendorSupport
 
 public static class LatencyBudget
 {
-    /// <summary>Default target for FrameFX's added response time per frame (ms). UFX_LATENCY_BUDGET overrides.</summary>
     public static double DefaultMs = double.TryParse(Environment.GetEnvironmentVariable("UFX_LATENCY_BUDGET"), System.Globalization.NumberStyles.Float,
         System.Globalization.CultureInfo.InvariantCulture, out var v) && v > 0 ? v : 1.5;
 }
@@ -111,10 +100,8 @@ public static class LatencyBudget
 public static class Ssgi
 {
     public static readonly string[] PresetNames = { "Auto", "GTX 1050 Ti (1080p)", "GTX 980 Ti (1440p)" };
-    /// <summary>Steadier lighting while moving. UFX_SSGI_TEMPORAL=0/1 overrides a saved choice.</summary>
     public const bool TemporalDefault = false;
 
-    /// <summary>Saved choice, unless UFX_SSGI_TEMPORAL is 0 or 1.</summary>
     public static bool TemporalEnabled(bool setting)
     {
         string? e = Environment.GetEnvironmentVariable("UFX_SSGI_TEMPORAL");
@@ -124,15 +111,11 @@ public static class Ssgi
     }
 }
 
-/// <summary>Ray-traced lighting (experimental). Off unless the user turns it on.
-/// When it is on it takes the place of SSGI. The image processing itself is in the closed engine.</summary>
 public static class Ssrt
 {
-    /// <summary>Steadier picture while ray-traced lighting is on. Off by default. UFX_SSRT_TEMPORAL=0/1 overrides it.</summary>
     public const bool TemporalDefault = false;
     public static readonly string[] PresetNames = { "Auto", "GTX 1050 Ti", "GTX 980 Ti" };
 
-    /// <summary>Saved toggle, unless UFX_SSRT is 0 or 1.</summary>
     public static bool Enabled(bool setting)
     {
         string? e = Environment.GetEnvironmentVariable("UFX_SSRT");
@@ -141,7 +124,6 @@ public static class Ssrt
         return setting;
     }
 
-    /// <summary>UFX_SSRT_TEMPORAL if it is 0 or 1; otherwise TemporalDefault. A saved true does not turn it on.</summary>
     public static bool TemporalEnabled(bool setting)
     {
         string? e = Environment.GetEnvironmentVariable("UFX_SSRT_TEMPORAL");
@@ -151,8 +133,6 @@ public static class Ssrt
         return TemporalDefault;
     }
 
-    /// <summary>1 = GTX 1050 Ti settings, 2 = GTX 980 Ti settings. Auto uses the 1050 Ti settings at 1080p and below,
-    /// and on GPUs in that class or slower. A manual 1 or 2 is kept.</summary>
     public static int Resolve(int preset, int outW, int outH, string? adapter)
     {
         if (preset is 1 or 2) return preset;
@@ -161,7 +141,6 @@ public static class Ssrt
         return 2;
     }
 
-    /// <summary>True when the adapter is clearly faster than a GTX 1050 Ti. Unknown names are not.</summary>
     public static bool Above1050Ti(string? name)
     {
         if (string.IsNullOrWhiteSpace(name)) return false;
@@ -191,7 +170,6 @@ public static class MotionEngines
     };
 }
 
-/// <summary>The user's settings for a session, read by the engine.</summary>
 public sealed class SessionSettings
 {
     public volatile FgKind FgKind = FgKind.FrameFX;
@@ -202,14 +180,10 @@ public sealed class SessionSettings
     public volatile int FgMultiplier = 4;
     public volatile bool Ssgi;
     public volatile int SsgiPreset;
-    /// <summary>Steadier SSGI lighting while the view moves. UFX_SSGI_TEMPORAL overrides this at the call site.</summary>
     public volatile bool SsgiTemporal = global::UniversalFrameFX.Ssgi.TemporalDefault;
-    /// <summary>Ray-traced lighting (experimental). Off by default. UFX_SSRT=0/1 overrides the saved toggle.</summary>
     public volatile bool Ssrt;
     public volatile int SsrtPreset;
-    /// <summary>Steadier picture while ray-traced lighting is on. UFX_SSRT_TEMPORAL overrides the saved choice.</summary>
     public volatile bool SsrtTemporal = global::UniversalFrameFX.Ssrt.TemporalDefault;
-    /// <summary>Compare mode for this run: FrameFX processing is off. Not saved.</summary>
     public volatile bool CompareOff;
     public volatile bool LatencyBudget = true;
     public volatile bool Hud = true;
@@ -217,12 +191,9 @@ public sealed class SessionSettings
     public volatile bool Competitive;
 }
 
-/// <summary>GPU device owned by the engine. The public build can list adapters (read-only DXGI query) but cannot
-/// create the engine's device.</summary>
 public sealed class Gpu : IDisposable
 {
     public static readonly object Lock = new();
-    /// <summary>Settings → Advanced → Processing GPU, or --gpu auto|igpu|dgpu.</summary>
     public static GpuChoice Choice = GpuChoice.Auto;
 
     public Vortice.Direct3D11.ID3D11Device Device => throw new EngineNotIncludedException();
@@ -233,7 +204,6 @@ public sealed class Gpu : IDisposable
 
     public Gpu() => throw new EngineNotIncludedException();
 
-    /// <summary>Adapter Windows returns for a preference (name, or null), without creating a device.</summary>
     public static string? AdapterNameFor(GpuChoice c)
     {
         try
@@ -251,14 +221,12 @@ public sealed class Gpu : IDisposable
     public void Dispose() { }
 }
 
-/// <summary>A compiled GPU program (placeholder type for ShaderCache).</summary>
 public sealed class CompiledProgram : IDisposable
 {
     public Span<byte> AsSpan() => Span<byte>.Empty;
     public void Dispose() { }
 }
 
-/// <summary>Per-app engine state (placeholder).</summary>
 public sealed class FramePipeline : IDisposable
 {
     public FramePipeline(Gpu gpu) => throw new EngineNotIncludedException();

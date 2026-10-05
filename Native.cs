@@ -25,7 +25,6 @@ internal static class Native
     [DllImport("user32.dll")] public static extern bool UnregisterHotKey(IntPtr hwnd, int id);
     [DllImport("user32.dll")] public static extern bool IsWindow(IntPtr hwnd);
     [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
-    // Beta2: exclusive-fullscreen detection (QUNS_RUNNING_D3D_FULL_SCREEN = 3) and AC/battery state.
     [DllImport("shell32.dll")] public static extern int SHQueryUserNotificationState(out int state);
     [StructLayout(LayoutKind.Sequential)] public struct SYSTEM_POWER_STATUS { public byte ACLineStatus, BatteryFlag, BatteryLifePercent, SystemStatusFlag; public int BatteryLifeTime, BatteryFullLifeTime; }
     [DllImport("kernel32.dll")] public static extern bool GetSystemPowerStatus(out SYSTEM_POWER_STATUS s);
@@ -76,7 +75,7 @@ internal static class Native
         EnumWindows((h, _) =>
         {
             if (h == shell || !IsWindowVisible(h) || IsIconic(h)) return true;
-            if (GetAncestor(h, 2) != h) return true; // GA_ROOT
+            if (GetAncestor(h, 2) != h) return true;
             if ((GetWindowLong(h, GWL_EXSTYLE) & WS_EX_TOOLWINDOW) != 0) return true;
             GetWindowThreadProcessId(h, out uint pid);
             if (pid == me) return true;

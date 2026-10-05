@@ -8,7 +8,6 @@ using WinRT;
 
 namespace UniversalFrameFX;
 
-/// <summary>Windows.Graphics.Capture of one window, delivered as D3D11 textures on a pool thread.</summary>
 public sealed class WindowCapture : IDisposable
 {
     [ComImport, Guid("3628E81B-3CAC-4C60-B7F4-23CE0E0C3356"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
@@ -89,7 +88,7 @@ public sealed class WindowCapture : IDisposable
                 pool.Recreate(_rtDevice, DirectXPixelFormat.B8G8R8A8UIntNormalized, 2, _size);
                 return;
             }
-            _onFrame(frame);   // ownership passes to the consumer, which must Dispose it
+            _onFrame(frame);
         }
         catch (Exception ex)
         {
@@ -97,7 +96,6 @@ public sealed class WindowCapture : IDisposable
         }
     }
 
-    /// <summary>Returns the frame's D3D11 texture (caller disposes the returned wrapper).</summary>
     public static ID3D11Texture2D? TextureOf(Direct3D11CaptureFrame frame)
     {
         var access = frame.Surface.As<IDirect3DDxgiInterfaceAccess>();

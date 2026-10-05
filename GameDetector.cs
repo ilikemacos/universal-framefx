@@ -4,42 +4,33 @@ using System.Text;
 
 namespace UniversalFrameFX;
 
-/// <summary>Classifies a foreground window as "game or not" for the 1.3.2 apply-to-games-only feature.</summary>
 public class GameDetector
 {
     public sealed record GameVerdict(bool IsGame, IntPtr Hwnd, int Pid, string Exe, string Path, string Reason);
 
-    /// <summary>Exe file names (e.g. "game.exe") that are always games, case-insensitive.</summary>
     public HashSet<string> Always { get; } = new(StringComparer.OrdinalIgnoreCase);
-    /// <summary>Exe file names that are never games, case-insensitive.</summary>
     public HashSet<string> Never { get; } = new(StringComparer.OrdinalIgnoreCase);
 
     public double LastClassifyMs { get; private set; }
     public double AvgClassifyMs { get; private set; }
     int _avgN;
 
-    // Built-in exclusions: exe file names, lower-case.
     static readonly HashSet<string> Exclusions = new(StringComparer.OrdinalIgnoreCase)
     {
-        // shell / system
         "explorer.exe", "shellexperiencehost.exe", "startmenuexperiencehost.exe", "searchhost.exe",
         "searchapp.exe", "textinputhost.exe", "lockapp.exe", "applicationframehost.exe",
         "systemsettings.exe", "taskmgr.exe", "dwm.exe", "csrss.exe",
-        // browsers
         "chrome.exe", "msedge.exe", "msedgewebview2.exe", "firefox.exe", "opera.exe", "opera_gx.exe",
         "brave.exe", "vivaldi.exe", "iexplore.exe", "arc.exe",
-        // launcher UIs themselves
         "steam.exe", "steamwebhelper.exe", "epicgameslauncher.exe", "epicwebhelper.exe",
         "battle.net.exe", "agent.exe", "riotclientservices.exe", "riotclientux.exe",
         "riotclientuxrender.exe", "eadesktop.exe", "eabackgroundservice.exe", "origin.exe",
         "galaxyclient.exe", "galaxyclient helper.exe", "upc.exe", "ubisoftconnect.exe",
         "xboxpcapp.exe", "gamingservices.exe", "gamebar.exe",
-        // common desktop apps where fullscreen is normal
         "vlc.exe", "mpc-hc64.exe", "mpc-be64.exe", "potplayermini64.exe", "code.exe", "devenv.exe",
         "winword.exe", "excel.exe", "powerpnt.exe", "teams.exe", "ms-teams.exe", "discord.exe",
         "spotify.exe", "obs64.exe", "windowsterminal.exe", "powershell.exe", "cmd.exe",
         "conhost.exe", "notepad.exe",
-        // 1.3.2: more browsers, IDEs, Office, chat/streaming, media, remote desktop, creative tools
         "chromium.exe", "librewolf.exe", "waterfox.exe", "floorp.exe", "zen.exe", "thorium.exe", "yandex.exe",
         "rider64.exe", "idea64.exe", "pycharm64.exe", "webstorm64.exe", "clion64.exe", "goland64.exe", "studio64.exe",
         "cursor.exe", "windsurf.exe", "zed.exe", "sublime_text.exe", "notepad++.exe", "unity.exe", "unityhub.exe",
@@ -52,7 +43,6 @@ public class GameDetector
         "mstsc.exe", "vmconnect.exe", "wallpaper32.exe", "wallpaper64.exe", "ui32.exe", "grok bot.exe",
     };
 
-    /// <summary>In order of preference for the reason string: the most specific API wins over dxgi.dll.</summary>
     static readonly string[] GraphicsModules =
     {
         "d3d12.dll", "vulkan-1.dll", "d3d11.dll", "opengl32.dll",
@@ -74,28 +64,27 @@ public class GameDetector
 
     sealed class CacheEntry
     {
-        public DateTime StartTime;          // process start time (cache key, PID-reuse safe)
+        public DateTime StartTime;
         public string Exe = "", Path = "";
-        public bool Graphics;               // any D3D/Vulkan/OpenGL module loaded
-        public string GraphicsModule = ""; // which one matched (for the reason string)
-        public bool GraphicsChecked;        // at least one snapshot taken
-        public int ModulesScanned, SnapError; // diagnostics for the reason string
-        public bool GraphicsUnreadable;     // module list denied (anti-cheat / protected / elevated process)
-        public long GraphicsCheckedAt;      // Environment.TickCount64 of last check
-        public string? Launcher;            // launcher reason (null = not a launcher)
+        public bool Graphics;
+        public string GraphicsModule = "";
+        public bool GraphicsChecked;
+        public int ModulesScanned, SnapError;
+        public bool GraphicsUnreadable;
+        public long GraphicsCheckedAt;
+        public string? Launcher;
         public bool LauncherChecked;
-        public bool Excluded;               // hit a built-in exclusion / our own process
+        public bool Excluded;
         public string Exclusion = "";
     }
 
     readonly Dictionary<int, CacheEntry> _cache = new();
     long _lastPrune;
 
-    const long GraphicsRetryMs = 2000;   // re-check a "no graphics yet" process at most every 2 s
+    const long GraphicsRetryMs = 2000;
     const int PruneThreshold = 64;
     const long PruneIntervalMs = 30000;
 
-    /// <summary>Never throws. Classifies the foreground window (or any window) as game / not game.</summary>
     public GameVerdict Classify(IntPtr foregroundHwnd)
     {
         var sw = Stopwatch.StartNew();
@@ -110,7 +99,7 @@ public class GameDetector
 
     GameVerdict ClassifyCore(IntPtr foregroundHwnd, Stopwatch sw)
     {
-        IntPtr root = foregroundHwnd == IntPtr.Zero ? IntPtr.Zero : Native.GetAncestor(foregroundHwnd, 2 /* GA_ROOT */);
+        IntPtr root = foregroundHwnd == IntPtr.Zero ? IntPtr.Zero : Native.GetAncestor(foregroundHwnd, 2);
         if (root == IntPtr.Zero) { Tick(sw); return new(false, foregroundHwnd, 0, "", "", "no window"); }
         Native.GetWindowThreadProcessId(root, out uint pid);
         int p = (int)pid;
@@ -120,22 +109,15 @@ public class GameDetector
         var e = GetEntry(p, root);
         string exeLower = e.Exe.ToLowerInvariant();
 
-        // (a) our own binary, renamed or otherwise
         if (exeLower.StartsWith("universal-framefx")) { Tick(sw); return new(false, root, p, e.Exe, e.Path, "FrameFX itself"); }
-        // (b) user lists
         if (Never.Contains(e.Exe)) { Tick(sw); return new(false, root, p, e.Exe, e.Path, "never list"); }
         if (Always.Contains(e.Exe)) { Tick(sw); return new(true, root, p, e.Exe, e.Path, "always list"); }
-        // (c) built-in exclusions
         if (e.Excluded) { Tick(sw); return new(false, root, p, e.Exe, e.Path, e.Exclusion); }
-        // (d) graphics modules
         CheckGraphics(p, e);
         if (!e.Graphics && !e.GraphicsUnreadable) { Tick(sw); return new(false, root, p, e.Exe, e.Path, $"no D3D/Vulkan/OpenGL modules ({e.ModulesScanned} scanned{(e.SnapError != 0 ? $", error {e.SnapError}" : "")})"); }
-        // (e) launcher
         CheckLauncher(p, e);
-        // (f) fullscreen
         bool fullscreen = IsFullscreen(root);
 
-        // A protected (anti-cheat) or elevated game hides its module list: then fullscreen/launcher alone decides.
         bool isGame = e.Launcher != null || fullscreen;
         string gfx = e.Graphics ? e.GraphicsModule : "modules unreadable (protected process)";
         string reason = isGame
@@ -180,7 +162,7 @@ public class GameDetector
                 using var proc = Process.GetProcessById(kv.Key);
                 if (proc.StartTime.ToUniversalTime() != kv.Value.StartTime) (dead ??= new()).Add(kv.Key);
             }
-            catch { (dead ??= new()).Add(kv.Key); } // ArgumentException = exited, Win32Exception = gone
+            catch { (dead ??= new()).Add(kv.Key); }
         }
         if (dead != null) foreach (int pid in dead) _cache.Remove(pid);
     }
@@ -188,18 +170,16 @@ public class GameDetector
     void CheckGraphics(int pid, CacheEntry e)
     {
         long now = Environment.TickCount64;
-        if (e.Graphics) return;                     // once true, never re-check
+        if (e.Graphics) return;
         if (e.GraphicsChecked && now - e.GraphicsCheckedAt < GraphicsRetryMs) return;
         e.GraphicsChecked = true;
         e.GraphicsCheckedAt = now;
 
         IntPtr snap = N.CreateToolhelp32Snapshot(N.TH32CS_SNAPMODULE | N.TH32CS_SNAPMODULE32, (uint)pid);
-        if (snap == new IntPtr(-1)) { e.GraphicsUnreadable = true; return; }   // access denied (protected/elevated) or gone
+        if (snap == new IntPtr(-1)) { e.GraphicsUnreadable = true; return; }
         e.GraphicsUnreadable = false;
         try
         {
-            // Raw MODULEENTRY32W buffer (x64 layout: dwSize @0, modBaseAddr @24, modBaseSize @32, hModule @40, szModule @48, 1080 bytes); the
-            // earlier struct had hModule/modBaseSize swapped, which shifted szModule and garbled every name.
             IntPtr buf = Marshal.AllocHGlobal(N.ModuleEntrySize);
             try
             {
@@ -234,7 +214,6 @@ public class GameDetector
                 e.Launcher = LabelForPath(dir);
                 return;
             }
-        // Game Pass / Xbox PC games ship a MicrosoftGame.config next to the exe
         try
         {
             string dir = Path.GetDirectoryName(e.Path) ?? "";
@@ -268,7 +247,6 @@ public class GameDetector
         if (snap == new IntPtr(-1)) return null;
         try
         {
-            // Raw PROCESSENTRY32W buffer (x64 layout: th32ProcessID @8, th32ParentProcessID @32, szExeFile @44, 568 bytes).
             IntPtr buf = Marshal.AllocHGlobal(N.ProcessEntrySize);
             try
             {
@@ -298,7 +276,7 @@ public class GameDetector
         try
         {
             if (!Native.IsWindowVisible(root) || Native.IsIconic(root)) return false;
-            var r = Native.FrameBounds(root);            // DWM extended frame bounds
+            var r = Native.FrameBounds(root);
             if (r.Right <= r.Left || r.Bottom <= r.Top)
             {
                 if (!N.GetWindowRect(root, out r)) return false;
@@ -350,7 +328,6 @@ public class GameDetector
         catch { e.Exe = ""; }
     }
 
-    /// <summary>New P/Invokes kept here so Native.cs stays untouched (existing signatures unchanged).</summary>
     static class N
     {
         public const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;

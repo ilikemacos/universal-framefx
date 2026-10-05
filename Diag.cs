@@ -4,7 +4,6 @@ using System.Text;
 
 namespace UniversalFrameFX;
 
-/// <summary>Startup timing trace (startup.log) and crash logging (crash.log) under %LOCALAPPDATA%\Universal-FrameFX.</summary>
 public static class Diag
 {
     static readonly Stopwatch _sw = Stopwatch.StartNew();
@@ -15,13 +14,11 @@ public static class Diag
     public static string CrashLog => Path.Combine(Dir, "crash.log");
     public static double ElapsedMs => _sw.Elapsed.TotalMilliseconds;
 
-    /// <summary>Records a named startup step with the time since process start.</summary>
     public static void Mark(string step)
     {
         lock (_lk) _trace.AppendLine($"{_sw.Elapsed.TotalMilliseconds,9:F1} ms  {step}");
     }
 
-    /// <summary>Writes the startup trace (overwriting the previous one).</summary>
     public static void FlushStartup()
     {
         try
@@ -33,7 +30,6 @@ public static class Diag
         catch { }
     }
 
-    /// <summary>Hooks every unhandled-exception path so crashes leave a readable log.</summary>
     public static void InstallCrashHandlers()
     {
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
@@ -63,13 +59,10 @@ public static class Diag
     }
 }
 
-/// <summary>On-disk cache of compiled GPU programs used by the (closed) engine, so only the first launch after an
-/// install pays for compilation. This is the only file the engine writes: %LOCALAPPDATA%\Universal-FrameFX\shadercache.
-/// Programs shipped with the app are read from the program folder.</summary>
 public static class ShaderCache
 {
     const string Salt = "ufx-shadercache-v1";
-    public static string? OverrideDir;   // build-time only: write the cache here (shipped next to the exe)
+    public static string? OverrideDir;
     static string CacheDir => OverrideDir ?? Path.Combine(Updater.DataDir, "shadercache");
     public static int Hits, Misses;
 
@@ -84,7 +77,6 @@ public static class ShaderCache
     {
         string key = Key(src, entry, profile, fileName);
         string path = Path.Combine(CacheDir, key + ".cso");
-        // Cache shipped with the app (generated at publish time).
         try
         {
             string shipped = OverrideDir != null ? "" : Path.Combine(AppContext.BaseDirectory, "shadercache", key + ".cso");
@@ -114,7 +106,6 @@ public static class ShaderCache
         return blob;
     }
 
-    /// <summary>Compiles (or loads) many entry points of one source in parallel.</summary>
     public static Dictionary<string, byte[]> GetMany(string src, IEnumerable<(string entry, string profile)> items, string fileName)
     {
         var list = items.ToList();

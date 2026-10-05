@@ -6,37 +6,31 @@ using System.Windows.Forms;
 
 namespace UniversalFrameFX;
 
-/// <summary>Dark theme: palette from 101mogged.replit.app (shadcn-style zinc: background hsl(240 10% 4%),
-/// card hsl(240 8% 7%), border hsl(240 6% 15%), muted text hsl(240 5% 55%), near-white primary)
-/// on a Grok-like layout (rounded cards, pill buttons, generous padding).</summary>
 public static class Theme
 {
-    public static readonly Color Bg = Color.FromArgb(9, 9, 11);          // --background
-    public static readonly Color Card = Color.FromArgb(17, 17, 20);      // --card
-    public static readonly Color CardBorder = Color.FromArgb(29, 29, 33);// --card-border
-    public static readonly Color Border = Color.FromArgb(36, 36, 40);    // --border
-    public static readonly Color Input = Color.FromArgb(43, 43, 48);     // --input
+    public static readonly Color Bg = Color.FromArgb(9, 9, 11);
+    public static readonly Color Card = Color.FromArgb(17, 17, 20);
+    public static readonly Color CardBorder = Color.FromArgb(29, 29, 33);
+    public static readonly Color Border = Color.FromArgb(36, 36, 40);
+    public static readonly Color Input = Color.FromArgb(43, 43, 48);
     public static readonly Color InputHover = Color.FromArgb(52, 52, 58);
-    public static readonly Color Muted = Color.FromArgb(29, 29, 33);     // --muted
-    public static readonly Color Text = Color.FromArgb(242, 242, 242);   // --foreground
-    public static readonly Color TextMuted = Color.FromArgb(138, 138, 147); // --muted-foreground
-    public static readonly Color TextDim = Color.FromArgb(88, 88, 96);      // disabled items
-    public static readonly Color Primary = Color.FromArgb(237, 237, 237);   // near-white primary pill
+    public static readonly Color Muted = Color.FromArgb(29, 29, 33);
+    public static readonly Color Text = Color.FromArgb(242, 242, 242);
+    public static readonly Color TextMuted = Color.FromArgb(138, 138, 147);
+    public static readonly Color TextDim = Color.FromArgb(88, 88, 96);
+    public static readonly Color Primary = Color.FromArgb(237, 237, 237);
     public static readonly Color PrimaryHover = Color.FromArgb(255, 255, 255);
     public static readonly Color PrimaryText = Color.FromArgb(9, 9, 11);
-    public static readonly Color Green = Color.FromArgb(51, 204, 128);   // chart-3 hsl(150 60% 50%)
-    public static readonly Color Amber = Color.FromArgb(244, 191, 38);   // chart-4 hsl(45 90% 55%)
+    public static readonly Color Green = Color.FromArgb(51, 204, 128);
+    public static readonly Color Amber = Color.FromArgb(244, 191, 38);
     public static readonly Color Red = Color.FromArgb(207, 48, 48);
 
-    // 1.3.3: font lookups are cached and probe only the few families we use (enumerating every installed
-    // font, which DisplayFamily did on every call, cost hundreds of ms at startup on font-heavy systems).
     static bool Has(string name)
     {
         try { using var f = new FontFamily(name); return string.Equals(f.Name, name, StringComparison.OrdinalIgnoreCase); }
         catch { return false; }
     }
     static string? _family, _display;
-    /// <summary>Inter if installed, else Segoe UI Variable Text, else Segoe UI.</summary>
     public static string Family => _family ??= Has("Inter") ? "Inter" : Has("Segoe UI Variable Text") ? "Segoe UI Variable Text" : "Segoe UI";
     public static string DisplayFamily => _display ??= Has("Space Grotesk") ? "Space Grotesk" : Has("Segoe UI Variable Display") ? "Segoe UI Variable Display" : "Segoe UI Semibold";
     public static Font Body(float pt = 9.75f, FontStyle st = FontStyle.Regular) => new(Family, pt, st);
@@ -57,22 +51,20 @@ public static class Theme
 
     public static float Scale(Control c) => c.DeviceDpi / 96f;
 
-    // ── Window chrome (Windows 11: dark title bar, rounded corners, Mica backdrop; Windows 10 20H1+: dark title bar)
     [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
     [DllImport("uxtheme.dll", CharSet = CharSet.Unicode)] static extern int SetWindowTheme(IntPtr hwnd, string? app, string? idList);
 
     public static void DarkChrome(Form f)
     {
         int on = 1;
-        if (DwmSetWindowAttribute(f.Handle, 20, ref on, 4) != 0) DwmSetWindowAttribute(f.Handle, 19, ref on, 4); // immersive dark mode
-        int round = 2; DwmSetWindowAttribute(f.Handle, 33, ref round, 4);        // DWMWCP_ROUND
-        int mica = 2; DwmSetWindowAttribute(f.Handle, 38, ref mica, 4);          // DWMSBT_MAINWINDOW (Mica title bar)
+        if (DwmSetWindowAttribute(f.Handle, 20, ref on, 4) != 0) DwmSetWindowAttribute(f.Handle, 19, ref on, 4);
+        int round = 2; DwmSetWindowAttribute(f.Handle, 33, ref round, 4);
+        int mica = 2; DwmSetWindowAttribute(f.Handle, 38, ref mica, 4);
         int caption = ColorTranslator.ToWin32(Bg); DwmSetWindowAttribute(f.Handle, 35, ref caption, 4);
         int text = ColorTranslator.ToWin32(Text); DwmSetWindowAttribute(f.Handle, 36, ref text, 4);
         int border = ColorTranslator.ToWin32(Border); DwmSetWindowAttribute(f.Handle, 34, ref border, 4);
     }
 
-    /// <summary>Dark native scroll bars / combo drop-downs.</summary>
     public static void DarkNative(Control c, string theme = "DarkMode_Explorer")
     {
         if (c.IsHandleCreated) SetWindowTheme(c.Handle, theme, null);
@@ -82,13 +74,11 @@ public static class Theme
 
 public enum PillKind { Primary, Secondary, Ghost }
 
-/// <summary>Rounded pill button (owner-drawn; keeps Button's keyboard, click and accessibility behaviour).</summary>
 public class PillButton : Button
 {
     PillKind _kind = PillKind.Secondary;
     bool _hover, _down, _ring;
     [DefaultValue(PillKind.Secondary)] public PillKind Kind { get => _kind; set { _kind = value; Invalidate(); } }
-    /// <summary>Amber ring: "there is something to apply".</summary>
     [DefaultValue(false)] public bool Ring { get => _ring; set { _ring = value; Invalidate(); } }
 
     public PillButton()
@@ -151,7 +141,6 @@ public class PillButton : Button
     }
 }
 
-/// <summary>Rounded card (a TableLayoutPanel so it auto-sizes and stretches like the rest of the layout).</summary>
 public class CardPanel : TableLayoutPanel
 {
     public CardPanel()
@@ -175,7 +164,6 @@ public class CardPanel : TableLayoutPanel
     }
 }
 
-/// <summary>Clickable section header with a chevron (inside a card).</summary>
 public class SectionHeader : Control
 {
     bool _open, _hover;
@@ -216,7 +204,6 @@ public class SectionHeader : Control
     }
 }
 
-/// <summary>Flat dark slider (replaces TrackBar): thin rounded track, near-white fill and thumb.</summary>
 public class FlatSlider : Control
 {
     int _min, _max = 100, _val;
@@ -277,7 +264,6 @@ public class FlatSlider : Control
     }
 }
 
-/// <summary>Pill toggle switch (a CheckBox, so Checked / CheckedChanged / keyboard / accessibility still work).</summary>
 public class ToggleSwitch : CheckBox
 {
     bool _hover;
@@ -315,7 +301,6 @@ public class ToggleSwitch : CheckBox
     }
 }
 
-/// <summary>Dark flat combo box: owner-drawn rounded field and list items, dark native drop-down.</summary>
 public class DarkCombo : ComboBox
 {
     bool _hover;
@@ -333,7 +318,6 @@ public class DarkCombo : ComboBox
     protected override void OnFontChanged(EventArgs e) { base.OnFontChanged(e); ItemHeight = (int)(Font.Height * 1.6f); }
     protected override void OnMouseEnter(EventArgs e) { _hover = true; Invalidate(); base.OnMouseEnter(e); }
     protected override void OnMouseLeave(EventArgs e) { _hover = false; Invalidate(); base.OnMouseLeave(e); }
-    /// <summary>Items that cannot be chosen: return the reason (shown greyed, with a tooltip), or null if selectable.</summary>
     public Func<int, string?>? DisabledReason { get; set; }
     readonly ToolTip _tip = new() { InitialDelay = 200, AutoPopDelay = 8000 };
     int _lastValid = -1, _tipIndex = -1;
@@ -342,7 +326,6 @@ public class DarkCombo : ComboBox
     {
         if (ReasonFor(SelectedIndex) is { } why)
         {
-            // Not selectable: go back to the previous choice and say why.
             int back = _lastValid >= 0 && _lastValid < Items.Count ? _lastValid : 0;
             _tip.Show(why, this, 0, Height + 2, 4000);
             BeginInvoke(new Action(() => SelectedIndex = back));

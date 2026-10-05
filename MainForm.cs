@@ -9,7 +9,6 @@ namespace UniversalFrameFX;
 
 public sealed class MainForm : Form
 {
-    /// <summary>From the assembly's InformationalVersion (the csproj Version), so a build can be stamped with -p:Version=x.y.z.</summary>
     public static string Version => AppVersion.Version;
     public static string DisplayVersion => AppVersion.Display;
     const string SiteUrl = "https://chopstickshq.com/universal-framefx/";
@@ -25,31 +24,25 @@ public sealed class MainForm : Form
     readonly Label _sharpLbl = new() { AutoSize = true, ForeColor = Theme.TextMuted };
     readonly ToggleSwitch _fg = new() { Text = "Frame generation (adds latency)" };
     readonly DarkCombo _fgKind = new() { Width = 300 };
-    /// <summary>1.3.4 frame-generation multiplier (index into FgMul.Allowed: 2×, 3×, 4×, 8×).</summary>
     readonly DarkCombo _fgMul = new() { Width = 300 };
-    /// <summary>SSGI (experimental, off by default).</summary>
     readonly ToggleSwitch _ssgi = new() { Text = "SSGI (experimental)" };
     readonly DarkCombo _ssgiPreset = new() { Width = 300 };
     readonly ToggleSwitch _ssgiSteady = new() { Text = "Steadier SSGI lighting" };
     readonly ToggleSwitch _ssrt = new() { Text = "Ray-traced lighting (experimental)" };
     readonly DarkCombo _ssrtPreset = new() { Width = 300 };
-    /// <summary>1.3.4 latency budget toggle (live, saved in ui.json).</summary>
     readonly ToggleSwitch _lowLat = new() { Text = $"Latency budget: keep FrameFX under {LatencyBudget.DefaultMs:0.0} ms per frame" };
     readonly DarkCombo _res = new() { Width = 300 };
     readonly DarkCombo _preset = new() { Width = 300 };
     readonly Label _upNote = new() { AutoSize = true, MaximumSize = new Size(470, 0), ForeColor = Theme.TextMuted, Margin = new Padding(0, 4, 0, 4) };
     readonly PillButton _coffee = new() { Text = "☕ Buy me a coffee", AutoSize = true, Kind = PillKind.Ghost };
-    /// <summary>Dropdown order: our own engine (CSR 1.3, CSR 1.2) first, then the vendor upscalers.</summary>
     static readonly Backend[] BackendOrder = { Backend.Temporal, Backend.Spatial, Backend.Fsr1, Backend.Fsr2, Backend.Fsr3, Backend.Fsr4, Backend.XeSS, Backend.Bilinear };
     public string? AutoBackend, AutoRes, AutoFgKind, AutoPreset, AutoFgMul;
-    /// <summary>--compare-off: this run starts with processing off. A later hotkey toggle is kept across output restarts.</summary>
     public bool CliCompareOff { get => _compareOff; set { if (value) _compareOff = true; } }
     readonly ToggleSwitch _hud = new() { Text = "Performance HUD", Checked = true };
     readonly DarkCombo _mode = new() { Width = 300 };
     readonly DarkCombo _motion = new() { Width = 300 };
     readonly DarkCombo _gpuChoice = new() { Width = 300 };
     readonly Label _gpuNote = new() { AutoSize = true, MaximumSize = new Size(470, 0), ForeColor = Theme.TextMuted };
-    /// <summary>--gpu on the command line (this run only).</summary>
     public static GpuChoice? CliGpu;
     readonly Label _motionLbl = new() { AutoSize = true, MaximumSize = new Size(470, 0), ForeColor = Theme.Green };
     readonly System.Windows.Forms.Timer _uiTimer = new() { Interval = 500 };
@@ -58,34 +51,28 @@ public sealed class MainForm : Form
     readonly PillButton _apply = new() { Text = "Apply", AutoSize = true, Kind = PillKind.Primary };
     readonly Label _pending = new() { AutoSize = true, MaximumSize = new Size(470, 0), ForeColor = Theme.Amber, Margin = new Padding(2, 8, 0, 0) };
 
-    // ── 1.3.2 "Apply to games only": capture the foreground game, pause everywhere else.
     readonly GameDetector _detector = new();
-    /// <summary>Runs only while games-only is on, so the idle cost is zero when it is off.</summary>
-    readonly System.Windows.Forms.Timer _gameTimer = new() { Interval = 500 };   // ~2 polls/s; the detector caches per PID
+    readonly System.Windows.Forms.Timer _gameTimer = new() { Interval = 500 };
     readonly PillButton _gamesOnly = new() { Text = "Apply to games only", AutoSize = true, Kind = PillKind.Ghost };
-    /// <summary>Games status line in the action bar; visible only while games-only is on.</summary>
     readonly Label _gameStatus = new() { AutoSize = true, ForeColor = Theme.Green, Margin = new Padding(2, 2, 0, 0), Visible = false };
     readonly TextBox _gamesAlwaysBox = NewGameListBox();
     readonly TextBox _gamesNeverBox = NewGameListBox();
     readonly Label _gamesListNote = new() { AutoSize = true, ForeColor = Theme.Green, Margin = new Padding(2, 6, 0, 0) };
-    bool _gamesArmed;                     // games-only on AND the user pressed Apply/Start (or switched it on while running)
-    /// <summary>Settings used for a game that has no saved profile. Updated only by explicit edits while no game is the source.</summary>
+    bool _gamesArmed;
     GameProfile _baseline = new();
     bool _profilesReady;
     string _profileBanner = "";
-    /// <summary>Compare hotkey state for this run (not saved). Restored onto the next output after a restart.</summary>
     bool _compareOff;
     readonly TableLayoutPanel _profileRows = new() { ColumnCount = 2, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Anchor = AnchorStyles.Left | AnchorStyles.Right, Margin = new Padding(0, 2, 0, 0), BackColor = Theme.Card };
     readonly Label _profileEmpty = new() { AutoSize = true, ForeColor = Theme.TextMuted, Margin = new Padding(0, 4, 0, 2), Text = "No saved profiles yet. They appear when you change settings while a game is running." };
     readonly PillButton _profileResetAll = new() { Text = "Reset all", AutoSize = true, Kind = PillKind.Ghost, Margin = new Padding(0, 4, 0, 0) };
     readonly List<Label> _profileLabels = new();
-    GameDetector.GameVerdict? _lastExternal; // last foreground window that was not FrameFX itself (for "Add current game")
+    GameDetector.GameVerdict? _lastExternal;
     GameDetector.GameVerdict? _lastVerdict;
-    IntPtr _gameHwnd;                     // window the armed output is on
+    IntPtr _gameHwnd;
     string _gameLabel = "";
-    IntPtr _pendingHwnd;                  // restart target while armed (game switch or Apply)
+    IntPtr _pendingHwnd;
     string _pendingLabel = "";
-    // Test hooks (the test PC may be locked): UFX_GAMELOG=<file>, UFX_FG_SCRIPT="title:secs;..."
     static readonly string? GameLogPath = Environment.GetEnvironmentVariable("UFX_GAMELOG") is { Length: > 0 } p ? p : null;
     static readonly string? FgScript = Environment.GetEnvironmentVariable("UFX_FG_SCRIPT") is { Length: > 0 } s ? s : null;
     static readonly List<(string title, int sec)> ScriptSteps = ParseScript(FgScript);
@@ -94,13 +81,11 @@ public sealed class MainForm : Form
     int _hbTicks;
     bool GamesOnlyOn => _ui.GamesOnly || FgScript != null;
 
-    /// <summary>Settings as last applied to the running output (null = nothing running).</summary>
     sealed record Applied(IntPtr Source, int Backend, int Quality, int Sharp, bool Fg, int Mode, int Motion, int FgKind, int Res, int Preset, int FgMul);
     Applied? _applied;
     bool _restartPending;
     bool _suppressDirty, _suppressMulSave, _suppressProfile;
     readonly Label _status = new() { AutoSize = true, MaximumSize = new Size(470, 0), ForeColor = Theme.TextMuted, Margin = new Padding(2, 6, 0, 0) };
-    // Updates: banner in the header, settings in the "Updates" section.
     readonly FlowLayoutPanel _updBar = new() { AutoSize = true, WrapContents = true, Visible = false, Margin = new Padding(0, 4, 0, 2), BackColor = Theme.Bg };
     readonly Label _updText = new() { AutoSize = true, ForeColor = Theme.Green, Margin = new Padding(2, 7, 8, 0) };
     readonly PillButton _updInstall = new() { Text = "Install", AutoSize = true, Kind = PillKind.Primary, Margin = new Padding(0, 0, 6, 0) };
@@ -119,14 +104,12 @@ public sealed class MainForm : Form
     static readonly (string name, double ratio)[] Qualities =
         { ("Quality (1.5x)", 1.5), ("Balanced (1.7x)", 1.7), ("Performance (2.0x)", 2.0), ("Ultra Performance (3.0x)", 3.0) };
 
-    // ── Layout: header (top) · scrolling stack of collapsible sections (fill) · pinned action bar (bottom)
     readonly TableLayoutPanel _stack = new() { ColumnCount = 1, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Dock = DockStyle.Top, Padding = new Padding(18, 2, 18, 16), BackColor = Theme.Bg };
     readonly Panel _scroll = new() { Dock = DockStyle.Fill, AutoScroll = true, BackColor = Theme.Bg };
     readonly List<Label> _wrap = new();
     readonly Dictionary<string, (SectionHeader head, Control body)> _sections = new();
     readonly Label _notice = new() { AutoSize = true, MaximumSize = new Size(470, 0), ForeColor = Theme.Amber, Margin = new Padding(2, 4, 0, 0), Visible = false };
     readonly Label _active = new() { AutoSize = true, ForeColor = Theme.Green, Margin = new Padding(2, 2, 0, 0) };
-    // CPU section (collapsed by default). Options stay off until the user turns them on.
     readonly ToggleSwitch _cpuPower = new() { Text = "Use the high performance power mode while gaming (may ask for admin)" };
     readonly ToggleSwitch _cpuMin = new() { Text = "Keep the processor at full speed while gaming (may ask for admin)" };
     readonly ToggleSwitch _cpuPark = new() { Text = "Keep all cores awake (may ask for admin)" };
@@ -156,7 +139,6 @@ public sealed class MainForm : Form
 
     public MainForm()
     {
-        // Layout values below are in 96-dpi pixels; WinForms scales them to the monitor DPI (100-200%).
         AutoScaleDimensions = new SizeF(96f, 96f);
         AutoScaleMode = AutoScaleMode.Dpi;
         Text = $"Universal-FrameFX {DisplayVersion}";
@@ -185,19 +167,16 @@ public sealed class MainForm : Form
             _start.Enabled = false;
         }
 
-        // Header
         var header = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 1, Padding = new Padding(20, 16, 20, 8), BackColor = Theme.Bg };
         var title = new Label { Text = "Universal-FrameFX", Font = new Font(Theme.DisplayFamily, 18f, Theme.DisplayFamily == "Segoe UI Semibold" ? FontStyle.Regular : FontStyle.Bold), AutoSize = true, ForeColor = Theme.Text, Margin = new Padding(0) };
         var sub = new Label { Text = $"{DisplayVersion} · GPU: {_gpu?.AdapterName ?? "unavailable"}", AutoSize = true, ForeColor = Theme.TextMuted, Margin = new Padding(2, 2, 0, 4) };
         _updBar.Controls.Add(_updText); _updBar.Controls.Add(_updInstall); _updBar.Controls.Add(_updLater);
         header.Controls.Add(title); header.Controls.Add(sub); header.Controls.Add(_updBar);
 
-        // Scrolling settings stack (stretches with the window)
         _stack.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         _scroll.Controls.Add(_stack);
         _scroll.Resize += (_, _) => Reflow();
 
-        // Source
         var src = Section("Source", true);
         var srcRow = new TableLayoutPanel { ColumnCount = 2, AutoSize = true, Anchor = AnchorStyles.Left | AnchorStyles.Right, Margin = new Padding(0) };
         srcRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
@@ -209,7 +188,6 @@ public sealed class MainForm : Form
         Add(src, srcRow);
         Add(src, Note("Windows are captured with Windows.Graphics.Capture at their native size, then upscaled to the output resolution you pick below (up to 4×; vendor upscalers up to 3×)."));
 
-        // Upscaling
         var up = Section("Upscaling", true);
         foreach (var b in BackendOrder) _backend.Items.Add(BackendNames.Long(b));
         _backend.DisabledReason = i => VendorSupport.Get(BackendOrder[i]) is { Ok: false } v ? (VendorSupport.Probed ? v.Why : "Checking this GPU…") : null;
@@ -241,7 +219,6 @@ public sealed class MainForm : Form
         _sharp.Scroll += (_, _) => { UpdateSharp(); UpdateDirty(); };
         UpdateSharp();
 
-        // Frame generation
         var fgs = Section("Frame generation", true);
         Add(fgs, _fg);
         _fgKind.Items.Add("FrameFX frame generation");
@@ -252,7 +229,6 @@ public sealed class MainForm : Form
         _fgMul.Items.Add("2× (1 generated frame per real frame)");
         _fgMul.Items.Add("3× (2 generated frames)");
         _fgMul.Items.Add("4× (3 generated frames, default)");
-        // 8× is advanced: shown only with UFX_FG_ADVANCED=1 (or when already selected / passed with --fgx 8).
         if (FgMul.Advanced || FgMul.Clamp(_ui.FgMultiplier) == 8)
             _fgMul.Items.Add("8× (7 generated frames, advanced)");
         _fgMul.SelectedIndex = FgMul.IndexOf(_ui.FgMultiplier);
@@ -264,7 +240,6 @@ public sealed class MainForm : Form
         Add(fgs, Note("Multiplier: 2×, 3×, 4× (and 8× advanced) multiply the frames you see. Output is capped at your refresh rate and the multiplier is lowered automatically when needed (the HUD shows the effective multiplier). Frame generation never raises the game's real fps, adds about one captured frame of latency, and steps down automatically if the game's fps drops more than 5% while it runs."));
         Add(fgs, Note("Smoother motion when the game runs below half your display's refresh rate; adds about one frame of latency."));
 
-        // Output
         var outs = Section("Output", true);
         foreach (var m in Enum.GetValues<OutputMode>()) _mode.Items.Add(OutputModeNames.Long(m));
         _mode.SelectedIndex = 0;
@@ -277,7 +252,6 @@ public sealed class MainForm : Form
         Add(outs, Note("Overlay: a click-through, always-on-top window over the source that follows it; the source keeps mouse and keyboard focus. Ctrl+Alt+F hides/shows it, Ctrl+Alt+Q stops, Ctrl+Alt+C compares the picture with FrameFX off. Separate/fullscreen output: Esc stops, Ctrl+Alt+C compares."));
         Add(outs, _hud);
 
-        // Games (1.3.2, collapsed by default): the "Apply to games only" lists.
         var games = Section("Games", false);
         Add(games, Note("When \"Apply to games only\" is on, FrameFX captures the foreground game with the overlay and pauses on the desktop, browsers and normal apps: the overlay is hidden and no GPU work is done. A game is a fullscreen or borderless-fullscreen D3D/Vulkan/OpenGL window, or a game started from Steam, Epic, Xbox/Game Pass, GOG, Battle.net, Riot, EA or Ubisoft. The lists below override that."));
         Add(games, Note("Always treat as game (one .exe per line):"));
@@ -308,9 +282,7 @@ public sealed class MainForm : Form
         Add(games, _profileResetAll);
         RebuildProfileList();
 
-        // Advanced (collapsed by default)
         var adv = Section("Advanced", false);
-        // SSGI (experimental): live toggle + preset, saved in ui.json.
         _ssgi.Checked = _ui.Ssgi;
         Add(adv, _ssgi);
         foreach (var n in Ssgi.PresetNames) _ssgiPreset.Items.Add("SSGI preset: " + n);
@@ -335,7 +307,6 @@ public sealed class MainForm : Form
         _motionLbl.MaximumSize = Size.Empty; _wrap.Add(_motionLbl);
         Add(adv, _motionLbl);
         Add(adv, Note("The motion source setting applies to the Quality preset. The built-in test scene shows the full-quality result."));
-        // 1.3.4 GPU switch.
         string hiName = Gpu.AdapterNameFor(GpuChoice.Dedicated) ?? "?", loName = Gpu.AdapterNameFor(GpuChoice.Integrated) ?? "?";
         _gpuChoice.Items.Add($"Auto (dedicated GPU when there is one): {hiName}");
         _gpuChoice.Items.Add($"Integrated (power saving): {loName}");
@@ -359,7 +330,6 @@ public sealed class MainForm : Form
         Add(adv, gpuRestart);
         GpuNote();
 
-        // CPU (collapsed by default): legitimate, reversible help for the detected game. Everything off until checked.
         var cpu = Section("CPU", false);
         Add(cpu, Note("Get more performance out of your CPU for games. This can't make your CPU faster than its hardware allows; results depend on the game and your PC. Everything is undone when the game closes, when FrameFX closes, or with Restore defaults."));
         Add(cpu, CpuGroup("Power"));
@@ -405,7 +375,6 @@ public sealed class MainForm : Form
         _cpuBoost.SelectedIndexChanged += (_, _) => OnCpuEdited();
         _cpuBg.Leave += (_, _) => CommitCpuList();
 
-        // Updates (collapsed by default)
         var upd = Section("Updates", false);
         _autoCheck.Checked = _ui.AutoCheckUpdates;
         _autoInstall.Checked = _ui.AutoInstallUpdates;
@@ -482,7 +451,6 @@ public sealed class MainForm : Form
         };
         _settings.Ssrt = _ui.Ssrt; _settings.SsrtPreset = Math.Clamp(_ui.SsrtPreset, 0, 2); _settings.SsrtTemporal = _ui.SsrtTemporal;
 
-        // Pinned action bar: Apply is always visible
         var bar = new TableLayoutPanel { Dock = DockStyle.Bottom, AutoSize = true, ColumnCount = 1, Padding = new Padding(20, 12, 20, 14), BackColor = Theme.Bg };
         bar.Paint += (_, e) => { using var p = new Pen(Theme.Border); e.Graphics.DrawLine(p, 0, 0, bar.Width, 0); };
         bar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
@@ -500,7 +468,6 @@ public sealed class MainForm : Form
         bar.Controls.Add(_pending); bar.Controls.Add(_status); bar.Controls.Add(_notice); bar.Controls.Add(_active); bar.Controls.Add(_gameStatus);
         bar.Resize += (_, _) => Reflow();
 
-        // Dock order: fill first, then edges.
         Controls.Add(_scroll);
         Controls.Add(header);
         Controls.Add(bar);
@@ -545,8 +512,6 @@ public sealed class MainForm : Form
         Diag.Mark("form: ctor done");
     }
 
-    /// <summary>After launch: report an update that just happened (or was rolled back), confirm a good start to the
-    /// updater, and run the first background check.</summary>
     protected override void OnShown(EventArgs e)
     {
         base.OnShown(e);
@@ -566,8 +531,6 @@ public sealed class MainForm : Form
             t2.Tick += (_, _) => { t2.Stop(); _ = CheckForUpdateAsync(false); };
             t2.Start();
         }
-        // UFX_FG_SCRIPT: turn games-only on for this run only (nothing is saved), arm it and
-        // step the "foreground" through the scripted windows instead of the real foreground.
         if (FgScript != null && ScriptSteps.Count > 0)
         {
             GamesOnlyLook(true);
@@ -594,14 +557,11 @@ public sealed class MainForm : Form
     {
         if (_updBusy) return;
         if (_ui.AutoCheckUpdates && DateTime.Now - _lastCheck >= Updater.Interval) { _ = CheckForUpdateAsync(false); return; }
-        // An update found while capturing is installed automatically once capture has stopped.
         if (_updAvail != null && _ui.AutoInstallUpdates && _out == null && _updAvail.Version != _ui.FailedUpdate && !Updater.NeedsManualInstall(_updAvail)) _ = InstallUpdateAsync(true);
     }
 
     string _motionShort = "";
 
-    // Restore the saved size/position after WinForms' DPI/font auto-scaling has run,
-    // otherwise the saved size would be scaled again on every launch.
     [System.Runtime.InteropServices.DllImport("user32.dll")] static extern bool PrintWindow(IntPtr hwnd, IntPtr hdc, uint flags);
     static readonly bool QuietShot = Environment.GetEnvironmentVariable("UFX_SHOT") is { Length: > 0 };
     protected override bool ShowWithoutActivation => QuietShot || base.ShowWithoutActivation;
@@ -618,8 +578,6 @@ public sealed class MainForm : Form
     {
         Diag.Mark("form: load start");
         base.OnLoad(e);
-        // UFX_SHOT=path.png: render this window (off-screen, never activated, so nothing on the desktop is disturbed)
-        // with PrintWindow(PW_RENDERFULLCONTENT) including the DWM title bar, save it, then quit. Used for docs/site screenshots.
         if (Environment.GetEnvironmentVariable("UFX_SHOT") is { Length: > 0 } shot)
         {
             var t = new System.Windows.Forms.Timer { Interval = 3000 };
@@ -645,7 +603,6 @@ public sealed class MainForm : Form
         Diag.Mark("form: load done");
     }
 
-    /// <summary>Collapsible section: a rounded card with a clickable header; open/closed state is remembered.</summary>
     TableLayoutPanel Section(string name, bool defaultOpen)
     {
         bool open = _ui.Expanded.TryGetValue(name, out var o) ? o : defaultOpen;
@@ -672,7 +629,6 @@ public sealed class MainForm : Form
     static void Add(TableLayoutPanel body, Control c) => body.Controls.Add(c);
     static Control Stretch(Control c) { c.Anchor = AnchorStyles.Left | AnchorStyles.Right; c.Width = 200; return c; }
 
-    /// <summary>Re-wraps the text labels to the current width so everything reflows when the window is resized.</summary>
     void Reflow()
     {
         int w = Math.Max(200, _scroll.ClientSize.Width - (int)(80 * DeviceDpi / 96f));
@@ -682,7 +638,6 @@ public sealed class MainForm : Form
         ResumeLayout(true);
     }
 
-    /// <summary>The motion-hardware check (part of the engine) runs in the background so the window appears at once.</summary>
     void ProbeMotionAsync()
     {
         if (_gpu is null) return;
@@ -699,7 +654,6 @@ public sealed class MainForm : Form
 
     (string avail, string shrt) ProbeMotionCore()
     {
-        // The hardware motion check is part of the closed engine.
         return ("Motion hardware: checked by the FrameFX engine (not included in this build).", "Motion hardware: engine not included");
     }
 
@@ -711,7 +665,7 @@ public sealed class MainForm : Form
     {
         IntPtr hwnd = (_source.SelectedItem as SourceItem)?.Hwnd ?? IntPtr.Zero;
         int modeIdx = _mode.SelectedIndex;
-        if (_gamesArmed) { hwnd = _gameHwnd; modeIdx = (int)OutputMode.Overlay; }   // games mode ignores the Source section
+        if (_gamesArmed) { hwnd = _gameHwnd; modeIdx = (int)OutputMode.Overlay; }
         return new(hwnd, _backend.SelectedIndex, _quality.SelectedIndex,
                    _sharp.Value, _fg.Checked, modeIdx, _motion.SelectedIndex, _fgKind.SelectedIndex, _res.SelectedIndex, _preset.SelectedIndex, _fgMul.SelectedIndex);
     }
@@ -736,7 +690,6 @@ public sealed class MainForm : Form
         };
     }
 
-    /// <summary>Marks changed-but-unapplied settings: Apply turns bright and lists what is pending.</summary>
     void UpdateDirty()
     {
         if (_suppressDirty) return;
@@ -771,16 +724,13 @@ public sealed class MainForm : Form
         _pending.Visible = dirty;
     }
 
-    /// <summary>Apply: push the chosen settings to the running output, or start it if nothing is running.
-    /// Upscaler, sharpness, frame generation and motion source switch live; source, quality and output
-    /// mode need a new output window, so the output restarts.</summary>
     void Apply()
     {
         if (_gpu is null || _pipe is null) return;
         if (_out == null)
         {
-            if (_gamesArmed) return;   // armed, waiting for a game: there is nothing to apply yet
-            Toggle();                  // starts the output — or arms games mode when games-only is on
+            if (_gamesArmed) return;
+            Toggle();
             return;
         }
         var c = Current(); var a = _applied!;
@@ -790,8 +740,8 @@ public sealed class MainForm : Form
         {
             _restartPending = true;
             _status.Text = "Applying: restarting output…";
-            if (_gamesArmed) { _pendingHwnd = _out.Source; _pendingLabel = _gameLabel; }   // restart the current game output with the new settings
-            _out.Close();          // FormClosed handler starts the new output
+            if (_gamesArmed) { _pendingHwnd = _out.Source; _pendingLabel = _gameLabel; }
+            _out.Close();
             return;
         }
         PushLive();
@@ -843,18 +793,16 @@ public sealed class MainForm : Form
     {
         if (_out != null) { _out.UserStop = true; _out.Close(); return; }
         if (_gamesArmed) { DisarmGames(); _start.Text = "Start"; return; }
-        if (GamesOnlyOn) { ArmGames(); return; }   // Start while games-only is on arms games mode instead
+        if (GamesOnlyOn) { ArmGames(); return; }
         if (_gpu is null || _pipe is null || _source.SelectedItem is not SourceItem src) return;
         StartOutput(src.Hwnd, (OutputMode)_mode.SelectedIndex, src.Label);
     }
 
-    /// <summary>Starts the output on the given source with the given mode — the normal path passes the
-    /// Source section's choices; games mode passes the game window and always the overlay.</summary>
     void StartOutput(IntPtr hwnd, OutputMode mode, string label)
     {
         if (_gpu is null || _pipe is null) return;
         var screen = hwnd != IntPtr.Zero ? Screen.FromHandle(hwnd) : Screen.FromControl(this);
-        var res = _preset.SelectedIndex == 2 ? OutputRes.P1080 : (OutputRes)Math.Max(0, _res.SelectedIndex);   // Competitive: 1080p
+        var res = _preset.SelectedIndex == 2 ? OutputRes.P1080 : (OutputRes)Math.Max(0, _res.SelectedIndex);
         int outW = screen.Bounds.Width & ~1, outH = screen.Bounds.Height & ~1;
         if (OutputResNames.Size(res) is { w: > 0 } fixedSize) { outW = fixedSize.w; outH = fixedSize.h; }
         double ratio = Qualities[_quality.SelectedIndex].ratio;
@@ -882,9 +830,6 @@ public sealed class MainForm : Form
         _status.Text = f.Error is { } err ? "Stopped: " + err : "Stopped.";
         bool userStop = f.UserStop;
         _out = null; _applied = null;
-        // While armed, a close that the user asked for (Stop, Ctrl+Alt+Q, Esc) disarms; the game
-        // window closing itself does not — we stay armed and wait for the next game. A failed start
-        // disarms too, so it is not retried every tick.
         if (_gamesArmed && !_restartPending && (userStop || f.Error != null)) DisarmGames();
         _start.Text = _gamesArmed ? "Stop" : "Start";
         if (_restartPending)
@@ -894,8 +839,6 @@ public sealed class MainForm : Form
             {
                 if (_gamesArmed)
                 {
-                    // Internal restart (game switch or Apply with changed settings): the overlay goes
-                    // back onto the game, paused if the foreground is not a game right now.
                     _gameHwnd = _pendingHwnd; _gameLabel = _pendingLabel;
                     bool paused = _lastVerdict is { IsGame: false };
                     StartOutput(_pendingHwnd, OutputMode.Overlay, _pendingLabel);
@@ -908,8 +851,6 @@ public sealed class MainForm : Form
         UpdateDirty();
     }
 
-    // ── Games-only mode (1.3.2)
-
     void SetGamesOnly(bool on)
     {
         _ui.GamesOnly = on;
@@ -918,7 +859,7 @@ public sealed class MainForm : Form
         if (on)
         {
             _gameTimer.Start();
-            if (_out != null) ArmGames();   // switched on while an output was already running: armed
+            if (_out != null) ArmGames();
             UpdateGamesStatus();
         }
         else
@@ -929,7 +870,7 @@ public sealed class MainForm : Form
                 DisarmGames();
                 if (_out != null)
                 {
-                    if (_out.Paused) _out.SetPaused(false);   // keep it running on its window as a normal capture
+                    if (_out.Paused) _out.SetPaused(false);
                     _start.Text = "Stop";
                 }
                 else _start.Text = "Start";
@@ -940,7 +881,7 @@ public sealed class MainForm : Form
 
     void GamesOnlyLook(bool on)
     {
-        _gamesOnly.Kind = on ? PillKind.Secondary : PillKind.Ghost;   // secondary + amber ring: on, but distinguishable from Apply
+        _gamesOnly.Kind = on ? PillKind.Secondary : PillKind.Ghost;
         _gamesOnly.Ring = on;
         _gamesOnly.Text = on ? "✓ Apply to games only" : "Apply to games only";
     }
@@ -949,9 +890,9 @@ public sealed class MainForm : Form
     {
         if (_gamesArmed || !GamesOnlyOn) return;
         _gamesArmed = true;
-        _start.Text = "Stop";   // armed, even with no game up yet
+        _start.Text = "Stop";
         _gameTimer.Start();
-        GameTick();             // classify and act immediately instead of waiting for the first tick
+        GameTick();
     }
 
     void DisarmGames()
@@ -963,8 +904,6 @@ public sealed class MainForm : Form
         UpdateGamesStatus();
     }
 
-    /// <summary>Watcher tick (every 500 ms, only while games-only is on): classify the foreground, start,
-    /// switch or pause the armed output, refresh the status line and the test log.</summary>
     void GameTick()
     {
         var v = _detector.Classify(FgScript != null ? ScriptForeground() : Native.GetForegroundWindow());
@@ -978,7 +917,6 @@ public sealed class MainForm : Form
                 var o = _out;
                 if (o == null)
                 {
-                    // A restart already in flight (Apply or a game switch) starts the output from OnOutputClosed.
                     if (!_restartPending)
                     {
                         PrepareGameSettings(v.Exe);
@@ -988,8 +926,6 @@ public sealed class MainForm : Form
                 }
                 else if (o.Source != v.Hwnd)
                 {
-                    // A different game came to the front: restart the overlay on it (close first, so
-                    // the hotkeys are unregistered before the new output registers them).
                     PrepareGameSettings(v.Exe);
                     _pendingHwnd = v.Hwnd; _pendingLabel = v.Exe;
                     _restartPending = true;
@@ -999,7 +935,7 @@ public sealed class MainForm : Form
             }
             else if (_out is { Paused: false } o)
             {
-                o.SetPaused(true);   // desktop, browser, normal app or FrameFX itself: pause, keep the output alive
+                o.SetPaused(true);
             }
         }
         UpdateGamesStatus(v);
@@ -1010,7 +946,7 @@ public sealed class MainForm : Form
             if (verdict != _lastLoggedVerdict) { _lastLoggedVerdict = verdict; GameLog(verdict); }
             string state = GameLogState();
             if (state != _lastLoggedState) { _lastLoggedState = state; GameLog("state " + state); }
-            if (++_hbTicks >= 10)   // ~5 s at a 500 ms tick
+            if (++_hbTicks >= 10)
             {
                 _hbTicks = 0;
                 GameLog($"stats avg={_detector.AvgClassifyMs:0.000}ms last={_detector.LastClassifyMs:0.000}ms processed={_out?.Processed ?? 0}");
@@ -1027,7 +963,7 @@ public sealed class MainForm : Form
         if (!_gamesArmed)
             _gameStatus.Text = "Games only: press Apply to start";
         else if (o == null || o.Paused)
-            _gameStatus.Text = "Waiting for a game…";   // desktop, browser, normal app: overlay hidden, no GPU work
+            _gameStatus.Text = "Waiting for a game…";
         else
         {
             string exe = v is { IsGame: true, Exe.Length: > 0 } ? v.Exe : _gameLabel;
@@ -1040,15 +976,12 @@ public sealed class MainForm : Form
         $"armed={_gamesArmed} running={_out != null} source={_out?.Source.ToString() ?? "0"} paused={_out?.Paused ?? false} " +
         $"visible={_out != null && _out.IsHandleCreated && Native.IsWindowVisible(_out.Handle)} processed={_out?.Processed ?? 0}";
 
-    /// <summary>UFX_GAMELOG: one timestamped line per change; never throws.</summary>
     static void GameLog(string line)
     {
         if (GameLogPath == null) return;
         try { File.AppendAllText(GameLogPath, $"{DateTime.Now:HH:mm:ss.fff}  {line}\n"); } catch { }
     }
 
-    /// <summary>UFX_FG_SCRIPT stand-in for GetForegroundWindow: the first visible top-level window whose
-    /// title contains the step's substring; "desktop" means the shell's desktop window.</summary>
     IntPtr ScriptForeground()
     {
         if (_scriptStep < 0 || _scriptStep >= ScriptSteps.Count) return IntPtr.Zero;
@@ -1088,8 +1021,6 @@ public sealed class MainForm : Form
         return list;
     }
 
-    /// <summary>Exe of the game the output is on, or null when the source is not a detected game.
-    /// Paused games-only output still counts: the user is editing that game's settings.</summary>
     string? ActiveGameExe()
     {
         try
@@ -1121,7 +1052,6 @@ public sealed class MainForm : Form
         Cpu = ReadCpuSettings(),
     });
 
-    /// <summary>Store an explicit edit on the active game, or refresh the global baseline when no game is the source.</summary>
     void UserProfileTouch()
     {
         if (!_profilesReady || _suppressProfile) return;
@@ -1228,12 +1158,11 @@ public sealed class MainForm : Form
             Multiline = true, ScrollBars = ScrollBars.Vertical, WordWrap = false,
             BackColor = Theme.Input, ForeColor = Theme.Text, BorderStyle = BorderStyle.FixedSingle, Font = Theme.Body(),
         };
-        b.Height = (int)(b.Font.Height * 4.6f);   // about four lines
+        b.Height = (int)(b.Font.Height * 4.6f);
         Theme.DarkNative(b);
         return b;
     }
 
-    /// <summary>Trim, drop empty lines, append ".exe" where missing, dedupe case-insensitively.</summary>
     static List<string> NormalizeGameList(string text)
     {
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -1256,8 +1185,6 @@ public sealed class MainForm : Form
         _detector.Never.Clear(); foreach (var e in _ui.GamesNever) _detector.Never.Add(e);
     }
 
-    /// <summary>Parse the two list boxes and push them into the detector (on TextChanged); on Leave also
-    /// rewrite the normalized text and save.</summary>
     void SyncGameLists(bool rewrite)
     {
         _ui.GamesAlways = NormalizeGameList(_gamesAlwaysBox.Text);
@@ -1271,8 +1198,6 @@ public sealed class MainForm : Form
         SaveUi();
     }
 
-    /// <summary>"Add current game" / "Never treat current app as game": the exe of the last foreground
-    /// window that was not FrameFX itself, as tracked by the watcher.</summary>
     void AddToGameList(bool always)
     {
         if (_lastExternal is not { Exe.Length: > 0 })
@@ -1293,9 +1218,6 @@ public sealed class MainForm : Form
         SaveUi();
     }
 
-    /// <summary>--demo: start output (test scene, or --source "title"); --overlay / --window; --motion auto|nvof|d3d12|sw;
-    /// --fg; --exit-after N --out file: log status and quit. With --overlay and a source, also checks that the
-    /// source keeps focus, that clicks pass through, and the hotkeys.</summary>
     public void Automate(bool demo, int exitAfterSec, string? outPath, string? sourceTitle = null,
                          string? mode = null, string? motion = null, bool fg = false)
     {
@@ -1322,7 +1244,6 @@ public sealed class MainForm : Form
                     for (int i = 1; i < _source.Items.Count; i++)
                         if (_source.Items[i]!.ToString()!.Contains(sourceTitle, StringComparison.OrdinalIgnoreCase)) { _source.SelectedIndex = i; break; }
                 srcHwnd = (_source.SelectedItem as SourceItem)?.Hwnd ?? IntPtr.Zero;
-                // Hand focus to the source first (as if the user clicked back into it), then start.
                 if (srcHwnd != IntPtr.Zero && mode == "overlay") Native.SetForegroundWindow(srcHwnd);
                 Toggle();
                 if (srcHwnd != IntPtr.Zero && mode == "overlay" && exitAfterSec >= 8)
@@ -1343,7 +1264,6 @@ public sealed class MainForm : Form
                 if (outPath != null) File.WriteAllText(outPath, report);
                 if (_out != null && mode == "overlay" && srcHwnd != IntPtr.Zero)
                 {
-                    // Stop with the hotkey, as a user would.
                     SendKeys3(Keys.ControlKey, Keys.Menu, Keys.Q);
                     var t2 = new System.Windows.Forms.Timer { Interval = 800 };
                     t2.Tick += (_, _) =>
@@ -1382,11 +1302,10 @@ public sealed class MainForm : Form
                     checks.Add($"foreground is source after overlay shown: {Root(Native.GetForegroundWindow()) == src}");
                     var hit = Root(Native.WindowFromPoint(new Native.POINT { X = cx, Y = cy }));
                     checks.Add($"window under source centre is the source (click-through): {hit == src}{(hit == o.Handle ? " (overlay!)" : "")}");
-                    // A real click through the overlay.
                     Native.SetCursorPos(cx, cy);
                     var inp = new Native.INPUT[2];
-                    inp[0].type = 0; inp[0].u.mi.dwFlags = 0x0002;   // left down
-                    inp[1].type = 0; inp[1].u.mi.dwFlags = 0x0004;   // left up
+                    inp[0].type = 0; inp[0].u.mi.dwFlags = 0x0002;
+                    inp[1].type = 0; inp[1].u.mi.dwFlags = 0x0004;
                     Native.SendInput(2, inp, System.Runtime.InteropServices.Marshal.SizeOf<Native.INPUT>());
                     break;
                 case 1:
@@ -1512,7 +1431,6 @@ public sealed class MainForm : Form
         if (autoInstall) await InstallUpdateAsync(true);
     }
 
-    /// <summary>Stop capture, download + verify, hand over to the updater and close. Auto mode never interrupts capture.</summary>
     async Task InstallUpdateAsync(bool auto)
     {
         if (_updAvail is not { } u || _updBusy) return;
@@ -1536,7 +1454,7 @@ public sealed class MainForm : Form
         {
             Updater.Log($"{u.Version}: install failed: {ex.Message}");
             ShowUpdBanner($"Update to {u.Version} failed: {ex.Message}", true, "Retry");
-            if (auto) _updAvail = null;   // don't loop; the next scheduled check tries again
+            if (auto) _updAvail = null;
         }
         finally { _updBusy = false; _updInstall.Enabled = true; _updLater.Enabled = true; _checkNow.Enabled = true; }
     }
@@ -1788,7 +1706,7 @@ public sealed class MainForm : Form
         _cpuPoll.Stop();
         try { CpuBoostWin.RestoreSession(); } catch { }
         _ui.CaptureFrom(this);
-        SaveUi();   // tests don't overwrite the user's layout
+        SaveUi();
         _out?.Close();
         base.OnFormClosing(e);
     }
@@ -1800,7 +1718,6 @@ public sealed class MainForm : Form
     }
 }
 
-/// <summary>Remembered window size/position and expanded sections (%APPDATA%\Universal-FrameFX\ui.json).</summary>
 public sealed class UiState
 {
     public int X { get; set; } = int.MinValue;
@@ -1811,38 +1728,22 @@ public sealed class UiState
     public Dictionary<string, bool> Expanded { get; set; } = new();
     public bool AutoCheckUpdates { get; set; } = true;
     public bool AutoInstallUpdates { get; set; }
-    /// <summary>1.3.2 "Apply to games only": capture the foreground game, pause everywhere else.</summary>
     public bool GamesOnly { get; set; } = true;
-    /// <summary>Settings schema: below 132 means written by 1.3.1 or an early 1.3.2 test build; Load() then
-    /// switches GamesOnly on once (the 1.3.2 default) and stamps 132.</summary>
     public int SettingsVersion { get; set; }
-    /// <summary>Exe names always treated as games (one per line in the Games section).</summary>
     public List<string> GamesAlways { get; set; } = new();
-    /// <summary>Exe names never treated as games.</summary>
     public List<string> GamesNever { get; set; } = new();
-    /// <summary>A version whose install was rolled back: never auto-installed again (Install still works).</summary>
     public string FailedUpdate { get; set; } = "";
-    /// <summary>1.3.4 GPU switch (GpuChoice index: 0 Auto, 1 Integrated, 2 Dedicated).</summary>
     public int GpuChoice { get; set; }
-    /// <summary>1.3.4 frame-generation multiplier (2, 3, 4 or 8; anything else reads as 2). Default 4×.</summary>
     public int FgMultiplier { get; set; } = 4;
-    /// <summary>1.3.4: 1 once the ×2 → ×4 default change has been applied to this ui.json.</summary>
     public int FgDefault4 { get; set; }
-    /// <summary>1.3.4 latency budget (default on).</summary>
     public bool LatencyBudget { get; set; } = true;
-    /// <summary>SSGI (experimental): off by default; preset 0 Auto, 1 GTX 1050 Ti, 2 GTX 980 Ti.</summary>
     public bool Ssgi { get; set; }
     public int SsgiPreset { get; set; }
-    /// <summary>Steadier lighting while moving (with SSGI).</summary>
     public bool SsgiTemporal { get; set; } = global::UniversalFrameFX.Ssgi.TemporalDefault;
-    /// <summary>Ray-traced lighting (experimental). Off by default. Preset 0 Auto, 1 GTX 1050 Ti, 2 GTX 980 Ti.</summary>
     public bool Ssrt { get; set; }
     public int SsrtPreset { get; set; }
-    /// <summary>Steadier picture while ray-traced lighting is on.</summary>
     public bool SsrtTemporal { get; set; } = global::UniversalFrameFX.Ssrt.TemporalDefault;
-    /// <summary>Per-game profiles, keyed by lowercase exe name.</summary>
     public Dictionary<string, GameProfile> Profiles { get; set; } = new(StringComparer.OrdinalIgnoreCase);
-    /// <summary>CPU options used when the foreground game has no saved profile. Missing on older ui.json files, so everything stays off.</summary>
     public CpuBoostSettings Cpu { get; set; } = new();
 
     static string PathOf => System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Universal-FrameFX", "ui.json");
@@ -1852,7 +1753,7 @@ public sealed class UiState
         UiState s = new();
         try { if (File.Exists(PathOf)) s = JsonSerializer.Deserialize<UiState>(File.ReadAllText(PathOf)) ?? new(); } catch { }
         if (s.SettingsVersion < 132) { s.GamesOnly = true; s.SettingsVersion = 132; }
-        if (s.FgDefault4 == 0) { if (s.FgMultiplier == 2) s.FgMultiplier = 4; s.FgDefault4 = 1; }   // old default 2× -> new default 4×
+        if (s.FgDefault4 == 0) { if (s.FgMultiplier == 2) s.FgMultiplier = 4; s.FgDefault4 = 1; }
         s.Profiles = GameProfiles.NormalizeMap(s.Profiles);
         s.Cpu = CpuBoost.Sanitize(s.Cpu);
         return s;
@@ -1872,7 +1773,6 @@ public sealed class UiState
     {
         if (X == int.MinValue || W < f.MinimumSize.Width || H < f.MinimumSize.Height) return;
         var r = new Rectangle(X, Y, W, H);
-        // Only restore if the title bar would be on a connected screen.
         if (!Screen.AllScreens.Any(s => s.WorkingArea.IntersectsWith(new Rectangle(r.X, r.Y, r.Width, 40)))) return;
         f.StartPosition = FormStartPosition.Manual;
         f.Bounds = r;

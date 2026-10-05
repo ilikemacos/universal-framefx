@@ -3,7 +3,6 @@ using System.Text.RegularExpressions;
 
 namespace UniversalFrameFX;
 
-/// <summary>One place for the version. Internal semver from the csproj (e.g. 1.4.0-beta.5), shown as "v1.4.0 Beta5".</summary>
 public static class AppVersion
 {
     public static readonly string Version = (typeof(AppVersion).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "1.4.0-beta.5").Split('+')[0];
@@ -18,10 +17,8 @@ public static class AppVersion
     }
 }
 
-/// <summary>Beta2: hints for a source frame rate pinned by a platform limiter.</summary>
 public static class FpsLock
 {
-    /// <summary>A source pinned at ~40 / ~30 fps (tiny variance) is a limiter, not a slow GPU. Pure function (unit-tested).</summary>
     public static string Hint(double meanFps, double sdFps, bool onBattery, double frameFxGpuMs)
     {
         if (sdFps > 1.2) return "";

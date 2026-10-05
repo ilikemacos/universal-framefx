@@ -5,10 +5,6 @@ using System.Text;
 
 namespace UniversalFrameFX;
 
-/// <summary>Applies <see cref="CpuBoostSettings"/> with user-mode Windows facilities and puts them back afterwards.
-/// Power-mode edits go on a FrameFX-owned copy. The app itself is never elevated. A failed non-elevated
-/// power step is retried once, with every remaining command in that step, and a declined prompt is not asked again
-/// until the power options change or the user edits the CPU section.</summary>
 public static class CpuBoostWin
 {
     const int ErrorCancelled = 1223;
@@ -36,8 +32,6 @@ public static class CpuBoostWin
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "Universal-FrameFX", "cpu-restore.json");
 
-    /// <summary>Loads a crash-recovery file and puts settings back on a background thread so startup is not held
-    /// on an admin prompt. At most one prompt, with short command timeouts.</summary>
     public static void StartupRecover()
     {
         lock (Gate)
@@ -68,7 +62,6 @@ public static class CpuBoostWin
         });
     }
 
-    /// <summary>A CPU-section edit. Allows one new restore attempt. Does not by itself retry a declined power apply.</summary>
     public static void NotifyUserEdit()
     {
         lock (Gate) _restoreDenied = false;
@@ -84,7 +77,6 @@ public static class CpuBoostWin
         }
     }
 
-    /// <summary>Apply while <paramref name="foregroundPid"/> is a game, or keep the current game until that process exits.</summary>
     public static CpuBoostStatus Sync(int foregroundPid, string? foregroundExe, CpuBoostSettings? settings)
     {
         settings = CpuBoost.Sanitize(settings);
@@ -162,8 +154,6 @@ public static class CpuBoostWin
         }
     }
 
-    /// <summary>False when a power command still needs administrator approval, so the ledger file is kept for the next try.
-    /// Power is one prompt. A declined prompt is not repeated until <see cref="NotifyUserEdit"/>.</summary>
     static bool RestoreLocked()
     {
         bool powerOk = true;
@@ -310,7 +300,6 @@ public static class CpuBoostWin
         FillPower(settings, st, ultimate, true);
     }
 
-    /// <summary>Later syncs: read the active scheme only. No writes and no elevation.</summary>
     static void TouchPowerStatus(CpuBoostSettings settings)
     {
         var st = Last;
@@ -422,7 +411,6 @@ public static class CpuBoostWin
         return true;
     }
 
-    /// <summary>Duplicates the template again when the first result was only the built-in scheme.</summary>
     static Guid DuplicateOwnCopy(Guid template, ref Guid previous, out bool denied, out bool cancelled)
     {
         denied = false;
@@ -627,7 +615,6 @@ public static class CpuBoostWin
     static bool IsPowerStep(string? action) =>
         action != null && action.StartsWith("power.", StringComparison.Ordinal);
 
-    /// <summary>Switch back and delete the FrameFX copy in one admin prompt at most.</summary>
     static bool RestorePowerTogether()
     {
         Guid? previous = Ledger.State.PreviousPowerScheme;
@@ -802,7 +789,7 @@ public static class CpuBoostWin
                             snap.HasAffinity = true;
                             Ledger.Record($"{kind}:{pid}:affinity", snap.AffinityMask.ToString());
                         }
-                        catch { /* affinity may be unreadable; still try to set it */ }
+                        catch { }
                     }
                     try
                     {
@@ -1089,8 +1076,6 @@ public static class CpuBoostWin
             || o.Contains("invalid", StringComparison.OrdinalIgnoreCase);
     }
 
-    /// <summary>Runs commands without elevation. On the first access-denied result, the failed command and
-    /// everything after it run in one elevated script.</summary>
     static PowerCmd RunPowerSequence(IReadOnlyList<string> argsList)
     {
         for (int i = 0; i < argsList.Count; i++)

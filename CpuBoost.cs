@@ -2,39 +2,24 @@ using System.Text.Json;
 
 namespace UniversalFrameFX;
 
-/// <summary>What the CPU section asks for. Everything defaults off. Pure data: no Windows calls.</summary>
 public sealed class CpuBoostSettings
 {
-    /// <summary>High or Ultimate performance power mode while a game is running.</summary>
     public bool PowerPlan { get; set; }
-    /// <summary>Minimum processor state 100% on the FrameFX power plan.</summary>
     public bool MinProcessorState100 { get; set; }
-    /// <summary>Keep cores unparked (minimum cores 100%).</summary>
     public bool DisableCoreParking { get; set; }
-    /// <summary>0 leave boost alone, 1 aggressive, 2 efficient aggressive. See <see cref="CpuBoost.PerfBoostModeValue"/>.</summary>
     public int BoostMode { get; set; }
-    /// <summary>Game priority High. Never Realtime.</summary>
     public bool HighPriority { get; set; }
-    /// <summary>Prefer the highest efficiency class, then the highest scheduling class.</summary>
     public bool PreferFastCores { get; set; }
-    /// <summary>One logical processor per physical core (lowest logical index).</summary>
     public bool AvoidSmtSiblings { get; set; }
-    /// <summary>Request a 1 ms timer while a game is running.</summary>
     public bool TimerResolution1ms { get; set; }
-    /// <summary>Use every physical core (all logicals, or one per core when avoiding siblings).</summary>
     public bool AllPhysicalCores { get; set; }
-    /// <summary>Move FrameFX itself to a lower priority and off the game's cores.</summary>
     public bool LowerFrameFxPriority { get; set; }
-    /// <summary>Process names to slow down while a game is running. Empty by default.</summary>
     public List<string> BackgroundProcesses { get; set; } = new();
-    /// <summary>Ask Windows not to throttle the game.</summary>
     public bool DisablePowerThrottling { get; set; }
 }
 
-/// <summary>One logical processor. <see cref="CpuSetId"/> is what we hand the scheduler; <see cref="CoreIndex"/> is the physical core inside <see cref="Group"/>.</summary>
 public sealed record CpuCoreInfo(int LogicalIndex, int CpuSetId, int CoreIndex, byte EfficiencyClass, byte SchedulingClass, int Group);
 
-/// <summary>Original priority, affinity, CPU sets and throttling for one process, plus identity so a reused PID is not restored.</summary>
 public sealed class ProcSnapshot
 {
     public int Pid { get; set; }
@@ -52,26 +37,22 @@ public sealed class ProcSnapshot
     public bool HasThrottle { get; set; }
 }
 
-/// <summary>What to put back. Persisted so a crash can be undone on the next start.</summary>
 public sealed class CpuRestoreState
 {
     public Guid? PreviousPowerScheme { get; set; }
     public Guid? CreatedScheme { get; set; }
     public bool TimerRaised { get; set; }
     public string TimerMethod { get; set; } = "";
-    /// <summary>"ultimate" or "high": which template the FrameFX copy was made from.</summary>
     public string PowerTemplate { get; set; } = "";
     public Dictionary<int, ProcSnapshot> Processes { get; set; } = new();
 }
 
-/// <summary>One undo step. <see cref="Action"/> is the target key; the first recorded original wins.</summary>
 public sealed class CpuRestoreStep
 {
     public string Action { get; set; } = "";
     public string Original { get; set; } = "";
 }
 
-/// <summary>Ordered book of originals. Re-applying does not overwrite the first value. <see cref="PlanRestore"/> is reverse application order.</summary>
 public sealed class CpuRestoreLedger
 {
     public List<CpuRestoreStep> Steps { get; set; } = new();
@@ -85,7 +66,6 @@ public sealed class CpuRestoreLedger
         && string.IsNullOrEmpty(State.TimerMethod)
         && State.Processes.Count == 0;
 
-    /// <summary>Records <paramref name="original"/> the first time <paramref name="action"/> is seen.</summary>
     public void Record(string action, string original)
     {
         if (string.IsNullOrWhiteSpace(action)) return;
@@ -144,7 +124,6 @@ public sealed class CpuRestoreLedger
     static readonly JsonSerializerOptions JsonOpts = new() { WriteIndented = true };
 }
 
-/// <summary>What the CPU section is currently doing, in words the status lines can show.</summary>
 public sealed class CpuBoostStatus
 {
     public bool PowerApplied { get; set; }
@@ -167,7 +146,6 @@ public sealed class CpuBoostStatus
     public List<string> Notes { get; set; } = new();
 }
 
-/// <summary>Pure CPU-boost decisions: core selection, protected processes, settings cleanup, status text. No P/Invoke.</summary>
 public static class CpuBoost
 {
     public static readonly Guid HighPerformanceScheme = new("8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c");
@@ -179,8 +157,6 @@ public static class CpuBoost
     public static readonly Guid MinCoresSetting = new("0cc5b647-c1df-4637-891a-dec35c318583");
     public static readonly Guid PerfBoostModeSetting = new("be337238-0d82-4146-a960-4f3749d470c7");
 
-    /// <summary>Standard PERFBOOSTMODE index for <paramref name="boostMode"/>, or -1 to leave the setting alone.
-    /// 1 → 2 (Aggressive), 2 → 4 (Efficient Aggressive).</summary>
     public static int PerfBoostModeValue(int boostMode) => boostMode switch
     {
         1 => 2,
@@ -246,7 +222,6 @@ public static class CpuBoost
         return s.PowerPlan || s.MinProcessorState100 || s.DisableCoreParking || s.BoostMode != 0;
     }
 
-    /// <summary>Identity of the power-related options only. Other options do not change it.</summary>
     public static string PowerApplyKey(CpuBoostSettings? s)
     {
         s = Sanitize(s);
@@ -256,9 +231,6 @@ public static class CpuBoost
             + s.BoostMode.ToString();
     }
 
-    /// <summary>Whether this sync should run power commands again.
-    /// Same key as a cancel or a failed apply: do not retry. A different power key: retry.
-    /// The same key as a successful apply: only check that the gaming power mode is still active.</summary>
     public readonly record struct PowerRetry(bool Retry, bool VerifyOnly, bool NeedsAdmin);
 
     public static PowerRetry ShouldRetryPowerApply(string? powerKey, string? appliedKey, string? deniedKey, bool wantsPower)
@@ -274,15 +246,12 @@ public static class CpuBoost
         return new PowerRetry(true, false, false);
     }
 
-    /// <summary>Try the Ultimate template first, even when it is not listed. After that attempt fails, use High performance.</summary>
     public static Guid DuplicateTemplate(bool ultimateAttemptFailed) =>
         ultimateAttemptFailed ? HighPerformanceScheme : UltimatePerformanceScheme;
 
     public static string PowerModeLabel(bool ultimate) =>
         ultimate ? "Ultimate performance" : "High performance";
 
-    /// <summary>The FrameFX-owned copy: a new scheme that is not the template and not a built-in scheme.
-    /// Prefers a GUID parsed from command output, then one that appeared in the after-list.</summary>
     public static Guid PickCreatedScheme(IEnumerable<Guid>? fromOutput, Guid template, IEnumerable<Guid>? after, IEnumerable<Guid>? before)
     {
         if (fromOutput != null)
@@ -318,7 +287,6 @@ public static class CpuBoost
         return false;
     }
 
-    /// <summary>Drops protected, blank, FrameFX, and <paramref name="excludeExe"/> names, appends ".exe", lowercases, dedupes.</summary>
     public static List<string> NormalizeBackgroundList(IEnumerable<string>? names, string? excludeExe = null)
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -357,8 +325,6 @@ public static class CpuBoost
         return s.Trim();
     }
 
-    /// <summary>CPU set ids for the game. Never empty when <paramref name="cores"/> is not empty
-    /// (falls back to every logical processor). A single core is always returned as-is.</summary>
     public static int[] SelectCores(IReadOnlyList<CpuCoreInfo>? cores, CpuBoostSettings? settings)
     {
         if (cores == null || cores.Count == 0) return Array.Empty<int>();
@@ -384,8 +350,6 @@ public static class CpuBoost
             .ToArray();
     }
 
-    /// <summary>CPU set ids not chosen for the game. If the game uses every logical processor, the slowest
-    /// (or the last) cores are returned instead. Never empty when <paramref name="cores"/> is not empty.</summary>
     public static int[] SelectBackgroundCores(IReadOnlyList<CpuCoreInfo>? cores, CpuBoostSettings? settings)
     {
         if (cores == null || cores.Count == 0) return Array.Empty<int>();
@@ -404,7 +368,6 @@ public static class CpuBoost
             .ToArray();
     }
 
-    /// <summary>True when <paramref name="snap"/> is still the same process. A different start time means the PID was reused and must be skipped.</summary>
     public static bool ShouldRestoreProcess(ProcSnapshot? snap, int pid, long liveStartUtcTicks)
     {
         if (snap == null || pid <= 0) return false;
@@ -452,7 +415,6 @@ public static class CpuBoost
         return lines;
     }
 
-    /// <summary>Every GUID written as 8-4-4-4-12 in <paramref name="text"/>.</summary>
     public static Guid[] GuidsIn(string? text)
     {
         var list = new List<Guid>();
@@ -508,7 +470,6 @@ public static class CpuBoost
     }
 }
 
-/// <summary>Deterministic integer and float work used by the quick benchmark.</summary>
 public static class CpuBench
 {
     public readonly record struct Scores(double Single, double Multi);
@@ -529,7 +490,6 @@ public static class CpuBench
         return unchecked((int)(h ^ (uint)(f * 1000000.0)));
     }
 
-    /// <summary>Higher when more work finished or the same work took less time. Non-positive inputs score 0.</summary>
     public static double Score(long iterationsDone, double seconds)
     {
         if (iterationsDone <= 0 || seconds <= 0 || double.IsNaN(seconds) || double.IsInfinity(seconds)) return 0;
@@ -543,7 +503,6 @@ public static class CpuBench
         return $"Before: {before:0} · After: {after:0} ({body})";
     }
 
-    /// <summary>About <paramref name="milliseconds"/> of single-thread work, then the same with one worker per logical processor.</summary>
     public static Scores Measure(int logicalCpus, int milliseconds)
     {
         int ms = Math.Clamp(milliseconds, 200, 30_000);
