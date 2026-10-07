@@ -8,7 +8,7 @@ No account · no telemetry · FrameFX itself needs no admin rights.
 **Canonical site:** [https://chopstickshq.com/universal-framefx/](https://chopstickshq.com/universal-framefx/)
 **Hub:** [https://chopstickshq.com/](https://chopstickshq.com/)
 
-[![Download](https://img.shields.io/badge/download-v1.4.0%20Beta5-4d9eff)](https://chopstickshq.com/universal-framefx/)
+[![Download](https://img.shields.io/badge/download-v1.4.0%20Beta6-4d9eff)](https://chopstickshq.com/universal-framefx/)
 [![Windows 10/11](https://img.shields.io/badge/Windows-10%20%2F%2011%20x64-111111)](https://chopstickshq.com/universal-framefx/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-6b6b8a)](LICENSE)
 [![Build](https://github.com/ilikemacos/universal-framefx/actions/workflows/build.yml/badge.svg)](https://github.com/ilikemacos/universal-framefx/actions/workflows/build.yml)
@@ -62,6 +62,7 @@ Or:
 - Shows FrameFX's output fps next to the game's own fps, and warns when the game is in exclusive fullscreen
 - Ctrl+Alt+F hides/shows the overlay, Ctrl+Alt+Q stops it, and Ctrl+Alt+C turns compare on or off (FrameFX processing off). Those hotkeys are registered only while an output is running
 - CPU section (off by default, remembered per game): optional help while a game is running. It can't make the CPU faster than its hardware. Everything is undone when the game closes, when FrameFX closes, or with Restore defaults. A quick benchmark lets you compare before and after. Some power options may ask for admin approval
+- A separate ROG Ally / Ally X edition is available on [chopstickshq.com/universal-framefx](https://chopstickshq.com/universal-framefx/), with Ally-tuned defaults
 
 **Requires:** Windows 10 version 2004 (build 19041) or later, 64-bit, a DirectX 11 GPU.
 
