@@ -271,6 +271,17 @@ public sealed class OutputForm : Form
             string label = Ssrt.PresetLabel(Ssrt.Resolve(_settings.SsrtPreset, _outW, _outH, _gpu.AdapterName));
             lines.Add("Ray-traced lighting: " + label);
         }
+        int reqN = _settings.FgMultiplier;
+        if (_settings.FrameGen && _settings.FgV2 && reqN >= 10)
+        {
+            int hz = Native.RefreshHz(Handle);
+            if (hz > 0 && hz < 360)
+            {
+                string hzWarn = $"CSR 2.0 ×{reqN} wants ≥360 Hz; this display is {hz:0} Hz.";
+                lines.Add(hzWarn);
+                Warning = Warning.Length == 0 ? hzWarn : Warning + " " + hzWarn;
+            }
+        }
         FgStatus = _engine?.Status ?? "";
         lines.Add(keys);
         if (Warning.Length > 0) lines.Insert(1, "⚠ " + Warning);

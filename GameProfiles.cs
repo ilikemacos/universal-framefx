@@ -6,6 +6,7 @@ public sealed class GameProfile
 {
     public int Preset { get; set; }
     public bool FrameGen { get; set; }
+    public int FgSelect { get; set; } = -1;
     public int FgMultiplier { get; set; } = 4;
     public bool Ssgi { get; set; }
     public int SsgiPreset { get; set; }
@@ -47,7 +48,12 @@ public static class GameProfiles
         _ => "Performance",
     };
 
-    public static int Mul(int n) => n is 0 or 2 or 3 or 4 or 8 ? n : 4;
+    public static int Mul(int n, int fgSelect = -1)
+    {
+        if (n is 0 or 2 or 3 or 4 or 8) return n;
+        if (fgSelect == (int)UniversalFrameFX.FgSelect.Csr20 && n is 5 or 6 or 10 or 20) return n;
+        return 4;
+    }
 
     public static string Summary(GameProfile p)
     {
@@ -56,7 +62,7 @@ public static class GameProfiles
         string rt = p.Ssrt ? " · RT on" : "";
         string cpu = CpuBoost.AnyEnabled(p.Cpu) ? " · CPU boost" : "";
         if (p.Preset == 2) return $"Competitive · FG 8× · {ssgi}{rt}{cpu}";
-        string fg = p.FrameGen ? (p.FgMultiplier == 0 ? "FG Auto" : $"FG {Mul(p.FgMultiplier)}×") : "FG off";
+        string fg = p.FrameGen ? (p.FgMultiplier == 0 ? "FG Auto" : $"FG {Mul(p.FgMultiplier, p.FgSelect)}×") : "FG off";
         return $"{PresetName(p.Preset)} · {fg} · {ssgi}{rt}{cpu}";
     }
 
@@ -67,11 +73,13 @@ public static class GameProfiles
         p ??= new GameProfile();
         int backend = Enum.IsDefined(typeof(Backend), p.Backend) ? p.Backend : 0;
         int res = p.Res is >= 0 and <= 4 ? p.Res : 0;
+        int fgSel = p.FgSelect is >= 0 and <= 3 ? p.FgSelect : (p.FrameGen ? (int)UniversalFrameFX.FgSelect.Csr13 : (int)UniversalFrameFX.FgSelect.Off);
         return new GameProfile
         {
             Preset = p.Preset is 1 or 2 ? p.Preset : 0,
-            FrameGen = p.FrameGen,
-            FgMultiplier = Mul(p.FgMultiplier),
+            FrameGen = fgSel != (int)UniversalFrameFX.FgSelect.Off,
+            FgSelect = fgSel,
+            FgMultiplier = Mul(p.FgMultiplier, fgSel),
             Ssgi = p.Ssgi,
             SsgiPreset = p.SsgiPreset is 1 or 2 ? p.SsgiPreset : 0,
             SsgiTemporal = p.SsgiTemporal,

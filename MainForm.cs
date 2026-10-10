@@ -22,18 +22,16 @@ public sealed class MainForm : Form
     readonly DarkCombo _quality = new() { Width = 300 };
     readonly FlatSlider _sharp = new() { Minimum = 0, Maximum = 200, Value = 25, Width = 300 };
     readonly Label _sharpLbl = new() { AutoSize = true, ForeColor = Theme.TextMuted };
-    readonly ToggleSwitch _fg = new() { Text = "Frame generation (adds latency)" };
-    readonly DarkCombo _fgKind = new() { Width = 300 };
+    readonly DarkCombo _fgSelect = new() { Width = 300 };
     readonly DarkCombo _fgMul = new() { Width = 300 };
     readonly ToggleSwitch _ssgi = new() { Text = "SSGI (experimental)" };
     readonly DarkCombo _ssgiPreset = new() { Width = 300 };
     readonly ToggleSwitch _ssgiSteady = new() { Text = "Steadier SSGI lighting" };
     readonly ToggleSwitch _ssrt = new() { Text = "Ray-traced lighting (experimental)" };
-    readonly ToggleSwitch _fgV2 = new() { Text = "CSR 2.0 frame generation (experimental)" };
-    readonly ToggleSwitch _fgV2Vsync = new() { Text = "Smooth pacing at any frame rate (CSR 2.0)" };
-    readonly ToggleSwitch _fgV2Extrap = new() { Text = "Lowest-latency mode (CSR 2.0)" };
-    readonly ToggleSwitch _fgV2LowRes = new() { Text = "Lighter frame generation for weaker GPUs (CSR 2.0)" };
-    readonly ToggleSwitch _fgV2Cursor = new() { Text = "Show the cursor on generated frames (CSR 2.0)" };
+    readonly ToggleSwitch _fgV2Vsync = new() { Text = "Smooth pacing" };
+    readonly ToggleSwitch _fgV2Extrap = new() { Text = "Low-latency mode (Competitive)" };
+    readonly ToggleSwitch _fgV2LowRes = new() { Text = "Lighter mode for weaker GPUs" };
+    readonly ToggleSwitch _fgV2Cursor = new() { Text = "Show cursor on generated frames" };
     readonly DarkCombo _fpsCap = new() { Width = 300 };
     readonly ToggleSwitch _fixedPace = new() { Text = "Fixed frame pacing" };
     static readonly int[] FpsCapVals = { 0, 60, 90, 120, 144, 165, 240 };
@@ -95,6 +93,7 @@ public sealed class MainForm : Form
     Applied? _applied;
     bool _restartPending;
     bool _suppressDirty, _suppressMulSave, _suppressProfile;
+    bool _fgMulCsr20;
     readonly Label _status = new() { AutoSize = true, MaximumSize = new Size(470, 0), ForeColor = Theme.TextMuted, Margin = new Padding(2, 6, 0, 0) };
     readonly FlowLayoutPanel _updBar = new() { AutoSize = true, WrapContents = true, Visible = false, Margin = new Padding(0, 4, 0, 2), BackColor = Theme.Bg };
     readonly Label _updText = new() { AutoSize = true, ForeColor = Theme.Green, Margin = new Padding(2, 7, 8, 0) };
@@ -211,7 +210,12 @@ public sealed class MainForm : Form
         _preset.Items.Add("Quality: best image quality");
         _preset.Items.Add("Competitive: 1080p output, 8× frame generation, lowest latency");
         _preset.SelectedIndex = 0;
-        _preset.SelectedIndexChanged += (_, _) => { UserProfileTouch(); UpdateUpNote(); UpdateDirty(); };
+        _preset.SelectedIndexChanged += (_, _) =>
+        {
+            if (_preset.SelectedIndex == 2 && _fgSelect.SelectedIndex == (int)FgSelect.Csr20 && !_suppressProfile)
+                _fgV2Extrap.Checked = true;
+            UserProfileTouch(); UpdateUpNote(); UpdateDirty();
+        };
         Add(up, Note("Preset:"));
         Add(up, Stretch(_preset));
         foreach (var q in Qualities) _quality.Items.Add(q.name);
@@ -230,26 +234,30 @@ public sealed class MainForm : Form
         UpdateSharp();
 
         var fgs = Section("Frame generation", true);
-        Add(fgs, _fg);
-        _fgKind.Items.Add("CSR 1.3 frame generation (classic)");
-        _fgKind.Items.Add("AMD FSR 3 frame generation");
-        _fgKind.DisabledReason = i => i == (int)FgKind.Fsr3 && !VendorSupport.FsrFrameGen.Ok ? (VendorSupport.Probed ? VendorSupport.FsrFrameGen.Why : "Checking this GPU…") : null;
-        _fgKind.SelectedIndex = 0;
-        Add(fgs, Stretch(_fgKind));
-        _fgMul.Items.Add("Auto");
-        _fgMul.Items.Add("2× (1 generated frame per real frame)");
-        _fgMul.Items.Add("3× (2 generated frames)");
-        _fgMul.Items.Add("4× (3 generated frames, default)");
-        if (FgMul.Advanced || FgMul.Clamp(_ui.FgMultiplier) == 8)
-            _fgMul.Items.Add("8× (7 generated frames, advanced)");
-        _fgMul.SelectedIndex = FgMul.MenuIndex(_ui.FgMultiplier);
+        _fgSelect.Items.Add("Off");
+        _fgSelect.Items.Add("CSR 1.3 frame generation (classic)");
+        _fgSelect.Items.Add("CSR 2.0 frame generation");
+        _fgSelect.Items.Add("AMD FSR 3 frame generation");
+        _fgSelect.DisabledReason = i => i == (int)FgSelect.Fsr3 && !VendorSupport.FsrFrameGen.Ok ? (VendorSupport.Probed ? VendorSupport.FsrFrameGen.Why : "Checking this GPU…") : null;
+        _fgSelect.SelectedIndex = Math.Clamp(_ui.FgSelect, 0, 3);
+        Add(fgs, Stretch(_fgSelect));
+        RebuildFgMulItems(_ui.FgMultiplier);
         Add(fgs, Stretch(_fgMul));
         _lowLat.Checked = _ui.LatencyBudget;
         Add(fgs, _lowLat);
         Add(fgs, Note($"Latency budget: keeps FrameFX's added response time under {LatencyBudget.DefaultMs:0.0} ms (shown as \"Response\" in the HUD) by automatically trading a little quality for speed, and restores quality when there is headroom. Frame generation itself still adds up to about one captured frame of latency."));
-        Add(fgs, Note("CSR 1.3 frame generation (classic): FrameFX's own classic frame generation. AMD FSR 3 frame generation: AMD's frame generation. Either pauses automatically while the source already runs at ≥75% of your refresh rate."));
-        Add(fgs, Note("Multiplier: 2×, 3×, 4× (and 8× advanced) multiply the frames you see. Output is capped at your refresh rate and the multiplier is lowered automatically when needed (the HUD shows the effective multiplier). Frame generation never raises the game's real fps, adds about one captured frame of latency, and steps down automatically if the game's fps drops more than 5% while it runs."));
+        Add(fgs, Note("CSR 1.3 frame generation (classic): FrameFX's own classic frame generation. CSR 2.0 frame generation: FrameFX's newer engine, with the options below. AMD FSR 3 frame generation: AMD's own. All pause automatically while the source already runs at ≥75% of your refresh rate."));
+        Add(fgs, Note("Multiplier: 2×, 3×, 4× (and 8× advanced) multiply the frames you see. CSR 2.0 also lists 5×, 6×, 10× and 20×. Output is capped at your refresh rate and the multiplier is lowered automatically when needed (the HUD shows the effective multiplier). Frame generation never raises the game's real fps, adds about one captured frame of latency, and steps down automatically if the game's fps drops more than 5% while it runs."));
+        _fgV2Vsync.Checked = _ui.FgV2Vsync || Environment.GetEnvironmentVariable("UFX_FG_V2_VSYNC") == "1";
+        Add(fgs, _fgV2Vsync); _settings.FgV2Vsync = _fgV2Vsync.Checked;
+        _fgV2Extrap.Checked = _ui.FgV2Extrap;
+        Add(fgs, _fgV2Extrap); _settings.FgV2Extrap = _fgV2Extrap.Checked;
+        _fgV2Cursor.Checked = _ui.FgV2Cursor;
+        Add(fgs, _fgV2Cursor); _settings.FgV2Cursor = _fgV2Cursor.Checked;
+        _fgV2LowRes.Checked = _ui.FgV2LowResGen || Environment.GetEnvironmentVariable("UFX_FG_V2_LOWRES") == "1";
+        Add(fgs, _fgV2LowRes); _settings.FgV2LowResGen = _fgV2LowRes.Checked;
         Add(fgs, Note("Smoother motion when the game runs below half your display's refresh rate; adds about one frame of latency."));
+        UpdateCsr2OptionsVisibility();
 
         var outs = Section("Output", true);
         foreach (var m in Enum.GetValues<OutputMode>()) _mode.Items.Add(OutputModeNames.Long(m));
@@ -310,21 +318,6 @@ public sealed class MainForm : Form
         _ssrtPreset.Visible = _ssrt.Checked;
         Add(adv, Stretch(_ssrtPreset));
         Add(adv, Note("Ray-traced lighting (experimental) is off unless you turn it on. It adds extra light, reflections and contact shadows, including on cards without hardware ray tracing such as the GTX 1050 Ti and GTX 980 Ti. While it is on, it is used instead of SSGI. Auto picks lighter settings at 1080p and on a GTX 1050 Ti or a slower card."));
-        _fgV2.Checked = _ui.FgV2 || Environment.GetEnvironmentVariable("UFX_FG_V2") == "1";
-        Add(adv, _fgV2);
-        _settings.FgV2 = _fgV2.Checked;
-        _fgV2Vsync.Checked = _ui.FgV2Vsync || Environment.GetEnvironmentVariable("UFX_FG_V2_VSYNC") == "1";
-        Add(adv, _fgV2Vsync);
-        _settings.FgV2Vsync = _fgV2Vsync.Checked;
-        _fgV2Extrap.Checked = _ui.FgV2Extrap;
-        Add(adv, _fgV2Extrap);
-        _settings.FgV2Extrap = _fgV2Extrap.Checked;
-        _fgV2LowRes.Checked = _ui.FgV2LowResGen || Environment.GetEnvironmentVariable("UFX_FG_V2_LOWRES") == "1";
-        Add(adv, _fgV2LowRes);
-        _settings.FgV2LowResGen = _fgV2LowRes.Checked;
-        _fgV2Cursor.Checked = _ui.FgV2Cursor;
-        Add(adv, _fgV2Cursor);
-        _settings.FgV2Cursor = _fgV2Cursor.Checked;
         _fpsCap.Items.Add("Output fps cap: Off");
         _fpsCap.Items.Add("Output fps cap: 60");
         _fpsCap.Items.Add("Output fps cap: 90");
@@ -434,15 +427,24 @@ public sealed class MainForm : Form
         _updInstall.Click += (_, _) => _ = InstallUpdateAsync(false);
         _updLater.Click += (_, _) => { _updBar.Visible = false; };
 
-        _fg.CheckedChanged += (_, _) => { UserProfileTouch(); UpdateDirty(); };
-        _fgKind.SelectedIndexChanged += (_, _) => UpdateDirty();
+        _fgSelect.SelectedIndexChanged += (_, _) =>
+        {
+            UpdateCsr2OptionsVisibility();
+            if (_preset.SelectedIndex == 2 && _fgSelect.SelectedIndex == (int)FgSelect.Csr20 && !_suppressProfile)
+                _fgV2Extrap.Checked = true;
+            SyncExtrapForMul();
+            UserProfileTouch();
+            if (!_suppressProfile && ActiveGameExe() is null) { _ui.FgSelect = _fgSelect.SelectedIndex; SaveUi(); }
+            UpdateDirty();
+        };
         _fgMul.SelectedIndexChanged += (_, _) =>
         {
             if (!_suppressMulSave && !_suppressProfile)
             {
-                if (ActiveGameExe() is null) { _ui.FgMultiplier = FgMul.FromMenu(_fgMul.SelectedIndex); SaveUi(); }
+                if (ActiveGameExe() is null) { _ui.FgMultiplier = MenuMul(); SaveUi(); }
                 UserProfileTouch();
             }
+            SyncExtrapForMul();
             UpdateDirty();
         };
         _res.SelectedIndexChanged += (_, _) => { UserProfileTouch(); UpdateDirty(); };
@@ -490,17 +492,11 @@ public sealed class MainForm : Form
             UserProfileTouch();
         };
         _settings.Ssrt = _ui.Ssrt; _settings.SsrtPreset = Math.Clamp(_ui.SsrtPreset, 0, 2); _settings.SsrtTemporal = _ui.SsrtTemporal;
-        _fgV2.CheckedChanged += (_, _) =>
-        {
-            if (_suppressProfile) return;
-            if (ActiveGameExe() is null) { _ui.FgV2 = _fgV2.Checked; SaveUi(); }
-            _settings.FgV2 = _fgV2.Checked;
-        };
         _fgV2Vsync.CheckedChanged += (_, _) =>
         {
             if (_suppressProfile) return;
             if (ActiveGameExe() is null) { _ui.FgV2Vsync = _fgV2Vsync.Checked; SaveUi(); }
-            _settings.FgV2Vsync = _fgV2Vsync.Checked;
+            _settings.FgV2Vsync = _fgV2Vsync.Checked || (_settings.FgV2 && MenuMul() > 8);
         };
         _fgV2Extrap.CheckedChanged += (_, _) =>
         {
@@ -566,7 +562,7 @@ public sealed class MainForm : Form
         {
             var g = _gpu;
             Task.Run(() => { try { VendorSupport.Probe(g); } catch { } })
-                .ContinueWith(_ => { if (IsHandleCreated) BeginInvoke(new Action(() => { _backend.Invalidate(); _fgKind.Invalidate(); UpdateUpNote(); })); });
+                .ContinueWith(_ => { if (IsHandleCreated) BeginInvoke(new Action(() => { _backend.Invalidate(); _fgSelect.Invalidate(); UpdateUpNote(); })); });
         }
         _uiTimer.Tick += (_, _) =>
         {
@@ -746,13 +742,70 @@ public sealed class MainForm : Form
 
     void UpdateSharp() => _sharpLbl.Text = $"{_sharp.Value / 100f:0.00} stops";
 
+    bool Csr20On => _fgSelect.SelectedIndex == (int)FgSelect.Csr20;
+
+    static string MulLabel(int n) => n switch
+    {
+        0 => "Auto",
+        2 => "2× (1 generated frame per real frame)",
+        3 => "3× (2 generated frames)",
+        4 => "4× (3 generated frames, default)",
+        5 => "5× (4 generated frames)",
+        6 => "6× (5 generated frames)",
+        8 => "8× (7 generated frames, advanced)",
+        10 => "10× (9 generated frames, advanced)",
+        20 => "20× (19 generated frames, advanced, 360 Hz+)",
+        _ => $"{n}×",
+    };
+
+    int MenuMul()
+    {
+        int cur = _fgMul.SelectedIndex >= 0 && _fgMul.Items.Count > 0 ? FgMul.FromMenuFor(_fgMul.SelectedIndex, Csr20On, _ui.FgMultiplier) : _ui.FgMultiplier;
+        return Csr20On ? cur : GameProfiles.Mul(cur, _fgSelect.SelectedIndex);
+    }
+
+    void RebuildFgMulItems(int? keep = null)
+    {
+        int cur = keep ?? (_fgMul.Items.Count > 0 && _fgMul.SelectedIndex >= 0 ? FgMul.FromMenuFor(_fgMul.SelectedIndex, _fgMulCsr20, _ui.FgMultiplier) : _ui.FgMultiplier);
+        if (!Csr20On && cur is 5 or 6 or 10 or 20) cur = 4;
+        bool csr20 = Csr20On;
+        var vals = FgMul.MenuValues(csr20, cur);
+        _suppressMulSave = true;
+        _fgMul.Items.Clear();
+        foreach (int n in vals) _fgMul.Items.Add(MulLabel(n));
+        _fgMul.SelectedIndex = FgMul.MenuIndexFor(cur, csr20, cur);
+        _fgMulCsr20 = csr20;
+        _suppressMulSave = false;
+        SyncExtrapForMul();
+    }
+
+    void SyncExtrapForMul()
+    {
+        bool twenty = Csr20On && MenuMul() == 20;
+        if (twenty)
+        {
+            _fgV2Extrap.Checked = false;
+            _fgV2Extrap.Enabled = false;
+            _settings.FgV2Extrap = false;
+        }
+        else _fgV2Extrap.Enabled = true;
+    }
+
+    void UpdateCsr2OptionsVisibility()
+    {
+        bool v2 = Csr20On;
+        _fgV2Vsync.Visible = _fgV2Extrap.Visible = _fgV2Cursor.Visible = _fgV2LowRes.Visible = v2;
+        RebuildFgMulItems();
+    }
+
     Applied Current()
     {
         IntPtr hwnd = (_source.SelectedItem as SourceItem)?.Hwnd ?? IntPtr.Zero;
         int modeIdx = _mode.SelectedIndex;
         if (_gamesArmed) { hwnd = _gameHwnd; modeIdx = (int)OutputMode.Overlay; }
-        return new(hwnd, _backend.SelectedIndex, _quality.SelectedIndex,
-                   _sharp.Value, _fg.Checked, modeIdx, _motion.SelectedIndex, _fgKind.SelectedIndex, _res.SelectedIndex, _preset.SelectedIndex, _fgMul.SelectedIndex);
+        return new(hwnd, _backend.SelectedIndex, _quality.SelectedIndex, _sharp.Value,
+                   _fgSelect.SelectedIndex != (int)FgSelect.Off, modeIdx, _motion.SelectedIndex,
+                   _fgSelect.SelectedIndex, _res.SelectedIndex, _preset.SelectedIndex, _fgMul.SelectedIndex);
     }
 
     Backend SelectedBackend => _backend.ReasonFor(_backend.SelectedIndex) is null ? BackendOrder[Math.Max(0, _backend.SelectedIndex)] : Backend.Temporal;
@@ -837,12 +890,15 @@ public sealed class MainForm : Form
 
     void PushLive()
     {
-        if (_settings.Backend != SelectedBackend || _settings.FgKind != (FgKind)_fgKind.SelectedIndex) lock (Gpu.Lock) _pipe?.ClearVendorFailures();
+        int fgSel = _fgSelect.SelectedIndex;
+        var fgKindNow = fgSel == (int)FgSelect.Fsr3 ? FgKind.Fsr3 : FgKind.FrameFX;
+        if (_settings.Backend != SelectedBackend || _settings.FgKind != fgKindNow) lock (Gpu.Lock) _pipe?.ClearVendorFailures();
         _settings.Backend = SelectedBackend;
         _settings.Sharpness = _sharp.Value / 100f;
-        _settings.FrameGen = _fg.Checked;
-        _settings.FgKind = (FgKind)Math.Max(0, _fgKind.SelectedIndex);
-        _settings.FgMultiplier = FgMul.FromMenu(_fgMul.SelectedIndex);
+        _settings.FrameGen = fgSel != (int)FgSelect.Off;
+        _settings.FgKind = fgKindNow;
+        _settings.FgMultiplier = MenuMul();
+        if (_settings.FgMultiplier == 20) { _fgV2Extrap.Checked = false; _settings.FgV2Extrap = false; }
         _settings.Motion = (MotionPreference)_motion.SelectedIndex;
         _settings.Performance = _preset.SelectedIndex != 1;
         _settings.LatencyBudget = _lowLat.Checked;
@@ -852,8 +908,8 @@ public sealed class MainForm : Form
         _settings.Ssrt = _ssrt.Checked;
         _settings.SsrtPreset = Math.Max(0, _ssrtPreset.SelectedIndex);
         _settings.SsrtTemporal = _ui.SsrtTemporal;
-        _settings.FgV2 = CliCsr2 || _fgV2.Checked;
-        _settings.FgV2Vsync = CliVsyncFg || _fgV2Vsync.Checked || Environment.GetEnvironmentVariable("UFX_FG_V2_VSYNC") == "1";
+        _settings.FgV2 = CliCsr2 || fgSel == (int)FgSelect.Csr20;
+        _settings.FgV2Vsync = CliVsyncFg || _fgV2Vsync.Checked || Environment.GetEnvironmentVariable("UFX_FG_V2_VSYNC") == "1" || (_settings.FgV2 && MenuMul() > 8);
         _settings.FgV2Extrap = _fgV2Extrap.Checked;
         _settings.FgV2LowResGen = _fgV2LowRes.Checked || Environment.GetEnvironmentVariable("UFX_FG_V2_LOWRES") == "1";
         _settings.FgV2Cursor = _fgV2Cursor.Checked;
@@ -1129,8 +1185,8 @@ public sealed class MainForm : Form
     GameProfile CaptureUiProfile() => GameProfiles.Sanitize(new GameProfile
     {
         Preset = Math.Max(0, _preset.SelectedIndex),
-        FrameGen = _fg.Checked,
-        FgMultiplier = FgMul.FromMenu(_fgMul.SelectedIndex),
+        FgSelect = _fgSelect.SelectedIndex,
+        FgMultiplier = MenuMul(),
         Ssgi = _ssgi.Checked,
         SsgiPreset = Math.Max(0, _ssgiPreset.SelectedIndex),
         SsgiTemporal = _ssgiSteady.Checked,
@@ -1175,10 +1231,10 @@ public sealed class MainForm : Form
             int bi = Array.IndexOf(BackendOrder, (Backend)p.Backend);
             if (bi >= 0) _backend.SelectedIndex = bi;
             _preset.SelectedIndex = p.Preset is 1 or 2 ? p.Preset : 0;
-            _fg.Checked = p.FrameGen;
-            int mi = FgMul.MenuIndex(GameProfiles.Mul(p.FgMultiplier));
-            if (mi >= _fgMul.Items.Count) _fgMul.Items.Add("8× (7 generated frames, advanced)");
-            _fgMul.SelectedIndex = Math.Min(mi, _fgMul.Items.Count - 1);
+            _fgSelect.SelectedIndex = Math.Clamp(p.FgSelect, 0, _fgSelect.Items.Count - 1); UpdateCsr2OptionsVisibility();
+            int keep = GameProfiles.Mul(p.FgMultiplier, p.FgSelect);
+            RebuildFgMulItems(keep);
+            _fgMul.SelectedIndex = FgMul.MenuIndexFor(keep, Csr20On, keep);
             _ssgi.Checked = p.Ssgi;
             if (_ssgiPreset.Items.Count > 0) _ssgiPreset.SelectedIndex = Math.Clamp(p.SsgiPreset, 0, _ssgiPreset.Items.Count - 1);
             _ssgiSteady.Checked = p.SsgiTemporal;
@@ -1319,7 +1375,10 @@ public sealed class MainForm : Form
             {
                 _mode.SelectedIndex = (int)(mode == "overlay" ? OutputMode.Overlay : mode == "fullscreen" ? OutputMode.Fullscreen : OutputMode.Window);
                 _motion.SelectedIndex = (int)(motion switch { "nvof" => MotionPreference.Nvof, "d3d12" => MotionPreference.D3D12, "sw" => MotionPreference.Software, _ => MotionPreference.Auto });
-                _fg.Checked = fg || CliCsr2 || CliVsyncFg;
+                if (CliCsr2 || CliVsyncFg || AutoFgKind == "csr2") _fgSelect.SelectedIndex = (int)FgSelect.Csr20;
+                else if (AutoFgKind == "fsr3") { VendorSupport.Probe(_gpu!); _fgSelect.SelectedIndex = (int)FgSelect.Fsr3; }
+                else if (fg || AutoFgKind is "framefx" or "csr1.3" or "csr13") _fgSelect.SelectedIndex = (int)FgSelect.Csr13;
+                UpdateCsr2OptionsVisibility();
                 if (AutoBackend is { } ab)
                 {
                     var want = BackendNames.Parse(ab);
@@ -1328,13 +1387,12 @@ public sealed class MainForm : Form
                 }
                 if (AutoPreset is { } apr) _preset.SelectedIndex = apr.StartsWith("q", StringComparison.OrdinalIgnoreCase) ? 1 : apr.StartsWith("c", StringComparison.OrdinalIgnoreCase) ? 2 : 0;
                 if (AutoRes is { } ar) _res.SelectedIndex = (int)(ar.ToLowerInvariant() switch { "1080" or "1080p" => OutputRes.P1080, "1440" or "1440p" => OutputRes.P1440, "4k" or "2160" => OutputRes.P2160, "source" => OutputRes.Source, _ => OutputRes.Auto });
-                if (AutoFgKind is "fsr3") { VendorSupport.Probe(_gpu!); _fgKind.SelectedIndex = (int)FgKind.Fsr3; }
                 if (AutoFgMul is { } fx)
                 {
                     _suppressMulSave = true;
-                    int mi = fx.Equals("auto", StringComparison.OrdinalIgnoreCase) ? 0 : FgMul.MenuIndex(int.TryParse(fx.TrimEnd('x', 'X'), out var fxn) ? fxn : 4);
-                    if (mi >= _fgMul.Items.Count) _fgMul.Items.Add("8× (7 generated frames, advanced)");
-                    _fgMul.SelectedIndex = Math.Min(mi, _fgMul.Items.Count - 1);
+                    int fxn = fx.Equals("auto", StringComparison.OrdinalIgnoreCase) ? 0 : (int.TryParse(fx.TrimEnd('x', 'X'), out var parsed) ? parsed : 4);
+                    RebuildFgMulItems(fxn);
+                    _fgMul.SelectedIndex = FgMul.MenuIndexFor(fxn, Csr20On, fxn);
                     _suppressMulSave = false;
                 }
                 _source.SelectedIndex = 0;
@@ -1357,7 +1415,7 @@ public sealed class MainForm : Form
                 t.Stop();
                 var report = $"Universal-FrameFX {DisplayVersion} ({Version})\nGPU: {_gpu?.AdapterName}\nStatus: {_status.Text}\nGPU choice: {_gpu?.ActiveChoice} ({_gpu?.KindName})\nOutput running: {_out != null}\n" +
                              $"Output mode: {_out?.Mode}\nSwap chain: {_out?.SwapInfo}\nMotion source: {_out?.MotionSource}\nError: {_out?.Error ?? "none"}\n" +
-                             $"Requested: backend={SelectedBackend} res={(OutputRes)_res.SelectedIndex} fgkind={(FgKind)_fgKind.SelectedIndex} fgx={FgMul.FromMenu(_fgMul.SelectedIndex)} preset={(_preset.SelectedIndex == 1 ? "quality" : _preset.SelectedIndex == 2 ? "competitive" : "performance")}\n" +
+                             $"Requested: backend={SelectedBackend} res={(OutputRes)_res.SelectedIndex} fgkind={(FgSelect)_fgSelect.SelectedIndex} fgx={MenuMul()} preset={(_preset.SelectedIndex == 1 ? "quality" : _preset.SelectedIndex == 2 ? "competitive" : "performance")}\n" +
                              $"HUD:\n{_out?.HudText}\n" + (checks.Count > 0 ? "Overlay checks:\n" + string.Join("\n", checks) + "\n" : "");
                 if (outPath != null) File.WriteAllText(outPath, report);
                 if (_out != null && mode == "overlay" && srcHwnd != IntPtr.Zero)
@@ -1388,8 +1446,7 @@ public sealed class MainForm : Form
         {
             if (CliCsr2)
             {
-                _fgV2.Checked = true;
-                _fg.Checked = true;
+                _fgSelect.SelectedIndex = (int)FgSelect.Csr20; UpdateCsr2OptionsVisibility();
                 _settings.FgV2 = true;
                 _settings.FrameGen = true;
             }
@@ -1878,6 +1935,7 @@ public sealed class UiState
     public bool Ssrt { get; set; }
     public int SsrtPreset { get; set; }
     public bool SsrtTemporal { get; set; } = global::UniversalFrameFX.Ssrt.TemporalDefault;
+    public int FgSelect { get; set; } = -1;
     public bool FgV2 { get; set; }
     public bool FgV2Vsync { get; set; }
     public bool FgV2Extrap { get; set; }
@@ -1896,6 +1954,7 @@ public sealed class UiState
         try { if (File.Exists(PathOf)) s = JsonSerializer.Deserialize<UiState>(File.ReadAllText(PathOf)) ?? new(); } catch { }
         if (s.SettingsVersion < 132) { s.GamesOnly = true; s.SettingsVersion = 132; }
         if (s.FgDefault4 == 0) { if (s.FgMultiplier == 2) s.FgMultiplier = 4; s.FgDefault4 = 1; }
+        if (s.FgSelect < 0) s.FgSelect = s.FgV2 ? (int)UniversalFrameFX.FgSelect.Csr20 : (int)UniversalFrameFX.FgSelect.Off;
         s.Profiles = GameProfiles.NormalizeMap(s.Profiles);
         s.Cpu = CpuBoost.Sanitize(s.Cpu);
         return s;

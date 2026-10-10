@@ -30,6 +30,17 @@ internal static class Native
     [DllImport("kernel32.dll")] public static extern bool GetSystemPowerStatus(out SYSTEM_POWER_STATUS s);
     public static bool D3DExclusiveFullscreenActive() { try { return SHQueryUserNotificationState(out int st) == 0 && st == 3; } catch { return false; } }
     public static bool OnBattery() { try { return GetSystemPowerStatus(out var p) && p.ACLineStatus == 0; } catch { return false; } }
+    [DllImport("user32.dll")] public static extern IntPtr GetDC(IntPtr hwnd);
+    [DllImport("user32.dll")] public static extern int ReleaseDC(IntPtr hwnd, IntPtr hdc);
+    [DllImport("gdi32.dll")] public static extern int GetDeviceCaps(IntPtr hdc, int index);
+    public static int RefreshHz(IntPtr hwnd)
+    {
+        IntPtr dc = GetDC(hwnd);
+        if (dc == IntPtr.Zero) return 0;
+        int hz = GetDeviceCaps(dc, 116);
+        ReleaseDC(hwnd, dc);
+        return hz;
+    }
     [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hwnd);
     [DllImport("user32.dll")] public static extern IntPtr WindowFromPoint(POINT p);
     [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hwnd, int cmd);

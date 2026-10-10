@@ -6,6 +6,7 @@ public enum Backend { Temporal, Spatial, Bilinear, Fsr1, Fsr2, Fsr3, Fsr4, XeSS 
 public enum GpuChoice { Auto, Integrated, Dedicated }
 public enum MotionPreference { Auto, Nvof, D3D12, Software }
 public enum FgKind { FrameFX, Fsr3 }
+public enum FgSelect { Off, Csr13, Csr20, Fsr3 }
 public enum OutputMode { Overlay, Window, Fullscreen }
 public enum OutputRes { Auto, P1440, P2160, Source, P1080 }
 
@@ -72,8 +73,10 @@ public static class OutputResNames
 public static class FgMul
 {
     public static readonly int[] Allowed = { 2, 3, 4, 8 };
+    public static readonly int[] AllowedV2 = { 2, 3, 4, 5, 6, 8, 10, 20 };
     public static readonly bool Advanced = Environment.GetEnvironmentVariable("UFX_FG_ADVANCED") == "1";
     public static int Clamp(int n) => n is 0 or 3 or 4 or 8 ? n : 2;
+    public static int ClampV2(int n) => n == 0 || Array.IndexOf(AllowedV2, n) >= 0 ? n : 2;
     public static int IndexOf(int n)
     {
         int i = Array.IndexOf(Allowed, n is 3 or 4 or 8 ? n : 2);
@@ -81,6 +84,42 @@ public static class FgMul
     }
     public static int MenuIndex(int n) => n == 0 ? 0 : IndexOf(n) + 1;
     public static int FromMenu(int i) => i <= 0 ? 0 : Allowed[Math.Clamp(i - 1, 0, Allowed.Length - 1)];
+    public static bool ShowAdvanced8(int current) => Advanced || current == 8 || Clamp(current) == 8;
+    public static int[] MenuValues(bool csr20, int current)
+    {
+        if (csr20) return new[] { 0, 2, 3, 4, 5, 6, 8, 10, 20 };
+        return ShowAdvanced8(current) ? new[] { 0, 2, 3, 4, 8 } : new[] { 0, 2, 3, 4 };
+    }
+    public static int MenuIndexFor(int n, bool csr20, int current)
+    {
+        var v = MenuValues(csr20, current);
+        int i = Array.IndexOf(v, n);
+        if (i >= 0) return i;
+        int fall = n == 0 ? 0 : csr20 ? ClampV2(n) : Clamp(n);
+        i = Array.IndexOf(v, fall);
+        return i < 0 ? 0 : i;
+    }
+    public static int FromMenuFor(int i, bool csr20, int current)
+    {
+        var v = MenuValues(csr20, current);
+        return v[Math.Clamp(i, 0, v.Length - 1)];
+    }
+    public static int DownV2(int n)
+    {
+        if (n > 10) return 10;
+        if (n > 8) return 8;
+        if (n > 6) return 6;
+        if (n > 5) return 5;
+        if (n > 4) return 4;
+        if (n > 3) return 3;
+        if (n > 2) return 2;
+        return 0;
+    }
+    public static int UpV2(int n, int cap)
+    {
+        int next = n < 2 ? 2 : n < 3 ? 3 : n < 4 ? 4 : n < 5 ? 5 : n < 6 ? 6 : n < 8 ? 8 : n < 10 ? 10 : 20;
+        return Math.Min(next, Math.Max(0, cap));
+    }
 }
 
 public static class VendorSupport
