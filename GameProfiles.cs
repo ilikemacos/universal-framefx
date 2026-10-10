@@ -47,7 +47,7 @@ public static class GameProfiles
         _ => "Performance",
     };
 
-    public static int Mul(int n) => n is 2 or 3 or 4 or 8 ? n : 4;
+    public static int Mul(int n) => n is 0 or 2 or 3 or 4 or 8 ? n : 4;
 
     public static string Summary(GameProfile p)
     {
@@ -56,7 +56,7 @@ public static class GameProfiles
         string rt = p.Ssrt ? " · RT on" : "";
         string cpu = CpuBoost.AnyEnabled(p.Cpu) ? " · CPU boost" : "";
         if (p.Preset == 2) return $"Competitive · FG 8× · {ssgi}{rt}{cpu}";
-        string fg = p.FrameGen ? $"FG {Mul(p.FgMultiplier)}×" : "FG off";
+        string fg = p.FrameGen ? (p.FgMultiplier == 0 ? "FG Auto" : $"FG {Mul(p.FgMultiplier)}×") : "FG off";
         return $"{PresetName(p.Preset)} · {fg} · {ssgi}{rt}{cpu}";
     }
 

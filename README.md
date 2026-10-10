@@ -8,7 +8,7 @@ No account · no telemetry · FrameFX itself needs no admin rights.
 **Canonical site:** [https://chopstickshq.com/universal-framefx/](https://chopstickshq.com/universal-framefx/)
 **Hub:** [https://chopstickshq.com/](https://chopstickshq.com/)
 
-[![Download](https://img.shields.io/badge/download-v1.4.0%20Beta6-4d9eff)](https://chopstickshq.com/universal-framefx/)
+[![Download](https://img.shields.io/badge/download-v1.4.0%20Beta7-4d9eff)](https://chopstickshq.com/universal-framefx/)
 [![Windows 10/11](https://img.shields.io/badge/Windows-10%20%2F%2011%20x64-111111)](https://chopstickshq.com/universal-framefx/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-6b6b8a)](LICENSE)
 [![Build](https://github.com/ilikemacos/universal-framefx/actions/workflows/build.yml/badge.svg)](https://github.com/ilikemacos/universal-framefx/actions/workflows/build.yml)
@@ -65,6 +65,18 @@ Or:
 - A separate ROG Ally / Ally X edition is available on [chopstickshq.com/universal-framefx](https://chopstickshq.com/universal-framefx/), with Ally-tuned defaults
 
 **Requires:** Windows 10 version 2004 (build 19041) or later, 64-bit, a DirectX 11 GPU.
+
+---
+
+## What's new in v1.4.0 Beta7
+
+* **CSR 2.0 frame generation (experimental), off by default.** Turn it on in Settings → Advanced → "CSR 2.0 frame generation (experimental)". CSR 1.3 frame generation (classic) stays the default.
+  * Smoother frame generation, with generated frames spaced evenly to your display.
+  * Better fast motion: quick camera pans and flicks hold together better.
+  * The HUD and your cursor stay sharp on generated frames.
+  * Adaptive multiplier: choose Auto and FrameFX picks 2×, 3× or 4× to reach your refresh rate or fps cap.
+  * Low-latency mode for competitive play.
+  * Lighter frame generation for weaker GPUs, and an output fps cap.
 
 ---
 

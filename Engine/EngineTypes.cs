@@ -73,12 +73,14 @@ public static class FgMul
 {
     public static readonly int[] Allowed = { 2, 3, 4, 8 };
     public static readonly bool Advanced = Environment.GetEnvironmentVariable("UFX_FG_ADVANCED") == "1";
-    public static int Clamp(int n) => n is 3 or 4 or 8 ? n : 2;
+    public static int Clamp(int n) => n is 0 or 3 or 4 or 8 ? n : 2;
     public static int IndexOf(int n)
     {
-        int i = Array.IndexOf(Allowed, Clamp(n));
+        int i = Array.IndexOf(Allowed, n is 3 or 4 or 8 ? n : 2);
         return i < 0 ? 0 : i;
     }
+    public static int MenuIndex(int n) => n == 0 ? 0 : IndexOf(n) + 1;
+    public static int FromMenu(int i) => i <= 0 ? 0 : Allowed[Math.Clamp(i - 1, 0, Allowed.Length - 1)];
 }
 
 public static class VendorSupport
@@ -189,6 +191,14 @@ public sealed class SessionSettings
     public volatile bool Hud = true;
     public volatile bool Performance = true;
     public volatile bool Competitive;
+    public volatile bool FgV2 = Environment.GetEnvironmentVariable("UFX_FG_V2") == "1";
+    public volatile bool FgV2Async = Environment.GetEnvironmentVariable("UFX_FG_V2_ASYNC") == "1";
+    public volatile bool FgV2Vsync = Environment.GetEnvironmentVariable("UFX_FG_V2_VSYNC") == "1";
+    public volatile bool FgV2LowResGen = Environment.GetEnvironmentVariable("UFX_FG_V2_LOWRES") == "1";
+    public volatile bool FgV2Extrap;
+    public volatile bool FgV2Cursor;
+    public volatile int FpsCap;
+    public volatile bool FixedPacing = Environment.GetEnvironmentVariable("UFX_FG_V2_PACING") == "fixed";
 }
 
 public sealed class Gpu : IDisposable
@@ -231,6 +241,8 @@ public sealed class FramePipeline : IDisposable
 {
     public FramePipeline(Gpu gpu) => throw new EngineNotIncludedException();
     public string MotionSource => "not included";
+    public bool FgV2Active => false;
+    public string Csr20Label => "not included";
     public void ClearVendorFailures() { }
     public void Reset() { }
     public void Dispose() { }
