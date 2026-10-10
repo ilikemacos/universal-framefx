@@ -6,10 +6,14 @@ namespace UniversalFrameFX;
 
 public class GameDetector
 {
-    public sealed record GameVerdict(bool IsGame, IntPtr Hwnd, int Pid, string Exe, string Path, string Reason);
+    public sealed record GameVerdict(bool IsGame, IntPtr Hwnd, int Pid, string Exe, string Path, string Reason)
+    {
+        public string AntiCheatEngine { get; init; } = "";
+    }
 
     public HashSet<string> Always { get; } = new(StringComparer.OrdinalIgnoreCase);
     public HashSet<string> Never { get; } = new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, bool> Overrides { get; } = new(StringComparer.OrdinalIgnoreCase);
 
     public double LastClassifyMs { get; private set; }
     public double AvgClassifyMs { get; private set; }
@@ -76,12 +80,19 @@ public class GameDetector
         public bool LauncherChecked;
         public bool Excluded;
         public string Exclusion = "";
+        public string AcEngine = "";
+        public bool AcChecked;
+        public long AcCheckedAt;
+        public bool? AcFolderMarkers;
     }
 
     readonly Dictionary<int, CacheEntry> _cache = new();
     long _lastPrune;
+    HashSet<string>? _acScan;
+    long _acScanAt;
 
     const long GraphicsRetryMs = 2000;
+    const long AcScanRetryMs = 3000;
     const int PruneThreshold = 64;
     const long PruneIntervalMs = 30000;
 
@@ -111,9 +122,11 @@ public class GameDetector
 
         if (exeLower.StartsWith("universal-framefx")) { Tick(sw); return new(false, root, p, e.Exe, e.Path, "FrameFX itself"); }
         if (Never.Contains(e.Exe)) { Tick(sw); return new(false, root, p, e.Exe, e.Path, "never list"); }
-        if (Always.Contains(e.Exe)) { Tick(sw); return new(true, root, p, e.Exe, e.Path, "always list"); }
+        if (!e.Excluded) CheckAntiCheat(e);
+        if (Always.Contains(e.Exe)) { Tick(sw); return new(true, root, p, e.Exe, e.Path, "always list") { AntiCheatEngine = e.AcEngine }; }
         if (e.Excluded) { Tick(sw); return new(false, root, p, e.Exe, e.Path, e.Exclusion); }
-        CheckGraphics(p, e);
+        if (e.AcEngine.Length > 0) { e.Graphics = false; e.GraphicsUnreadable = true; }
+        else CheckGraphics(p, e);
         if (!e.Graphics && !e.GraphicsUnreadable) { Tick(sw); return new(false, root, p, e.Exe, e.Path, $"no D3D/Vulkan/OpenGL modules ({e.ModulesScanned} scanned{(e.SnapError != 0 ? $", error {e.SnapError}" : "")})"); }
         CheckLauncher(p, e);
         bool fullscreen = IsFullscreen(root);
@@ -124,7 +137,70 @@ public class GameDetector
             ? $"{e.Launcher ?? "fullscreen"} + {gfx}"
             : "not fullscreen, no launcher";
         Tick(sw);
-        return new(isGame, root, p, e.Exe, e.Path, reason);
+        return new(isGame, root, p, e.Exe, e.Path, reason) { AntiCheatEngine = e.AcEngine };
+    }
+
+    void CheckAntiCheat(CacheEntry e)
+    {
+        if (e.AcChecked && e.AcEngine.Length == 0 && Environment.TickCount64 - e.AcCheckedAt < AcScanRetryMs) return;
+        e.AcFolderMarkers ??= HasFolderMarkers(e.Path);
+        var sig = AntiCheat.ComputeSignals(e.Exe, e.AcFolderMarkers.Value, RunningServiceNames());
+        e.AcEngine = AntiCheat.Decide(e.Exe, sig, Overrides);
+        e.AcChecked = true;
+        e.AcCheckedAt = Environment.TickCount64;
+    }
+
+    static bool HasFolderMarkers(string path)
+    {
+        try
+        {
+            string dir = Path.GetDirectoryName(path) ?? "";
+            if (dir.Length == 0) return false;
+            foreach (string m in AntiCheatCatalog.FolderMarkers)
+                if (Directory.Exists(Path.Combine(dir, m))) return true;
+            foreach (string m in AntiCheatCatalog.FileMarkers)
+                if (File.Exists(Path.Combine(dir, m))) return true;
+            foreach (string f in Directory.EnumerateFiles(dir))
+            {
+                string name = Path.GetFileName(f) ?? "";
+                foreach (string s in AntiCheatCatalog.FileSuffixMarkers)
+                    if (name.EndsWith(s, StringComparison.OrdinalIgnoreCase)) return true;
+            }
+        }
+        catch { }
+        return false;
+    }
+
+    HashSet<string> RunningServiceNames()
+    {
+        long now = Environment.TickCount64;
+        if (_acScan != null && now - _acScanAt < AcScanRetryMs) return _acScan;
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        IntPtr snap = N.CreateToolhelp32Snapshot(N.TH32CS_SNAPPROCESS, 0);
+        if (snap != new IntPtr(-1))
+        {
+            try
+            {
+                IntPtr buf = Marshal.AllocHGlobal(N.ProcessEntrySize);
+                try
+                {
+                    Marshal.WriteInt32(buf, 0, N.ProcessEntrySize);
+                    if (N.Process32FirstW(snap, buf))
+                    {
+                        do
+                        {
+                            string exe = (Marshal.PtrToStringUni(buf + 44) ?? "").ToLowerInvariant();
+                            if (exe.Length > 0) names.Add(exe);
+                        } while (N.Process32NextW(snap, buf));
+                    }
+                }
+                finally { Marshal.FreeHGlobal(buf); }
+            }
+            finally { N.CloseHandle(snap); }
+        }
+        _acScan = names;
+        _acScanAt = now;
+        return names;
     }
 
     void Tick(Stopwatch sw)

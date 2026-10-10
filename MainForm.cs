@@ -41,7 +41,7 @@ public sealed class MainForm : Form
     readonly DarkCombo _preset = new() { Width = 300 };
     readonly Label _upNote = new() { AutoSize = true, MaximumSize = new Size(470, 0), ForeColor = Theme.TextMuted, Margin = new Padding(0, 4, 0, 4) };
     readonly PillButton _coffee = new() { Text = "☕ Buy me a coffee", AutoSize = true, Kind = PillKind.Ghost };
-    static readonly Backend[] BackendOrder = { Backend.Temporal, Backend.Spatial, Backend.Fsr1, Backend.Fsr2, Backend.Fsr3, Backend.Fsr4, Backend.XeSS, Backend.Bilinear };
+    static readonly Backend[] BackendOrder = Backends.MenuOrder;
     public string? AutoBackend, AutoRes, AutoFgKind, AutoPreset, AutoFgMul;
     public bool CliCompareOff { get => _compareOff; set { if (value) _compareOff = true; } }
     public bool CliCsr2, CliVsyncFg, CliFixedPacing;
@@ -63,8 +63,11 @@ public sealed class MainForm : Form
     readonly System.Windows.Forms.Timer _gameTimer = new() { Interval = 500 };
     readonly PillButton _gamesOnly = new() { Text = "Apply to games only", AutoSize = true, Kind = PillKind.Ghost };
     readonly Label _gameStatus = new() { AutoSize = true, ForeColor = Theme.Green, Margin = new Padding(2, 2, 0, 0), Visible = false };
+    readonly ToolTip _acTip = new() { InitialDelay = 200, AutoPopDelay = 8000 };
     readonly TextBox _gamesAlwaysBox = NewGameListBox();
     readonly TextBox _gamesNeverBox = NewGameListBox();
+    readonly TextBox _acAlwaysBox = NewGameListBox();
+    readonly TextBox _acNeverBox = NewGameListBox();
     readonly Label _gamesListNote = new() { AutoSize = true, ForeColor = Theme.Green, Margin = new Padding(2, 6, 0, 0) };
     bool _gamesArmed;
     GameProfile _baseline = new();
@@ -279,18 +282,30 @@ public sealed class MainForm : Form
         Add(games, Note("Never treat as game (one .exe per line):"));
         _gamesNeverBox.Text = string.Join(Environment.NewLine, _ui.GamesNever ?? new List<string>());
         Add(games, Stretch(_gamesNeverBox));
+        Add(games, Note("Always treat as protected (one .exe per line):"));
+        _acAlwaysBox.Text = string.Join(Environment.NewLine, _ui.AcAlways ?? new List<string>());
+        Add(games, Stretch(_acAlwaysBox));
+        Add(games, Note("Not protected (one .exe per line):"));
+        _acNeverBox.Text = string.Join(Environment.NewLine, _ui.AcNever ?? new List<string>());
+        Add(games, Stretch(_acNeverBox));
         var gamesRow = new FlowLayoutPanel { AutoSize = true, WrapContents = true, Margin = new Padding(0), BackColor = Theme.Card };
         var addGame = new PillButton { Text = "Add current game", AutoSize = true, Kind = PillKind.Ghost, Margin = new Padding(0, 0, 8, 0) };
         var neverGame = new PillButton { Text = "Never treat current app as game", AutoSize = true, Kind = PillKind.Ghost, Margin = new Padding(0, 0, 8, 0) };
+        var viewAc = new PillButton { Text = "View built-in list", AutoSize = true, Kind = PillKind.Ghost, Margin = new Padding(0, 0, 8, 0) };
         addGame.Click += (_, _) => AddToGameList(always: true);
         neverGame.Click += (_, _) => AddToGameList(always: false);
-        gamesRow.Controls.Add(addGame); gamesRow.Controls.Add(neverGame); gamesRow.Controls.Add(_gamesListNote);
+        viewAc.Click += (_, _) => ShowAcList();
+        gamesRow.Controls.Add(addGame); gamesRow.Controls.Add(neverGame); gamesRow.Controls.Add(viewAc); gamesRow.Controls.Add(_gamesListNote);
         Add(games, gamesRow);
         PushGameDetector();
         _gamesAlwaysBox.TextChanged += (_, _) => SyncGameLists(false);
         _gamesNeverBox.TextChanged += (_, _) => SyncGameLists(false);
         _gamesAlwaysBox.Leave += (_, _) => SyncGameLists(true);
         _gamesNeverBox.Leave += (_, _) => SyncGameLists(true);
+        _acAlwaysBox.TextChanged += (_, _) => SyncAcLists(false);
+        _acNeverBox.TextChanged += (_, _) => SyncAcLists(false);
+        _acAlwaysBox.Leave += (_, _) => SyncAcLists(true);
+        _acNeverBox.Leave += (_, _) => SyncAcLists(true);
         Add(games, Note("Game profiles: FrameFX remembers preset, frame generation, SSGI, steadier lighting, ray-traced lighting, upscaler, output resolution and CPU options for each game, and applies them when that game is detected."));
         _wrap.Add(_profileEmpty);
         _profileRows.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
@@ -820,6 +835,7 @@ public sealed class MainForm : Form
             Backend.Temporal => _preset.SelectedIndex == 0
                 ? "CSR 1.3 (Chopsticks Super Resolution), our own upscaler. Performance preset: fastest."
                 : "CSR 1.3 (Chopsticks Super Resolution), our own upscaler. Quality preset: best image quality.",
+            Backend.Csr20 => "CSR 2.0, our own edge-directed upscaler with adaptive sharpening and motion-compensated temporal accumulation when motion data is available.",
             Backend.Spatial => "CSR 1.2 (Chopsticks Super Resolution), our own lightweight upscaler and sharpener.",
             Backend.Bilinear => "Plain bilinear scaling (reference).",
             _ when !VendorSupport.Probed => "Checking which vendor upscalers this GPU supports…",
@@ -1087,6 +1103,7 @@ public sealed class MainForm : Form
             }
         }
         UpdateGamesStatus(v);
+        if (_out != null) _out.AntiCheatNote = CpuBoost.AntiCheatNote(v.AntiCheatEngine);
 
         if (GameLogPath != null)
         {
@@ -1118,6 +1135,8 @@ public sealed class MainForm : Form
             _gameStatus.Text = $"Active: {exe}";
         }
         _gameStatus.ForeColor = _gamesArmed && o is { Paused: false } ? Theme.Green : Theme.TextMuted;
+        if (v is { AntiCheatEngine.Length: > 0 }) _gameStatus.Text += "  ·  Anti-cheat safe mode";
+        _acTip.SetToolTip(_gameStatus, v is { AntiCheatEngine.Length: > 0 } ? $"{v.AntiCheatEngine} detected — game-process CPU tweaks are paused." : "");
     }
 
     string GameLogState() =>
@@ -1329,6 +1348,24 @@ public sealed class MainForm : Form
         _ui.GamesNever ??= new List<string>();
         _detector.Always.Clear(); foreach (var e in _ui.GamesAlways) _detector.Always.Add(e);
         _detector.Never.Clear(); foreach (var e in _ui.GamesNever) _detector.Never.Add(e);
+        _ui.AcAlways ??= new List<string>();
+        _ui.AcNever ??= new List<string>();
+        _detector.Overrides.Clear();
+        foreach (var e in _ui.AcAlways) _detector.Overrides[e] = true;
+        foreach (var e in _ui.AcNever) _detector.Overrides[e] = false;
+    }
+
+    void SyncAcLists(bool rewrite)
+    {
+        _ui.AcAlways = NormalizeGameList(_acAlwaysBox.Text);
+        _ui.AcNever = NormalizeGameList(_acNeverBox.Text);
+        PushGameDetector();
+        if (rewrite)
+        {
+            _acAlwaysBox.Text = string.Join(Environment.NewLine, _ui.AcAlways);
+            _acNeverBox.Text = string.Join(Environment.NewLine, _ui.AcNever);
+        }
+        SaveUi();
     }
 
     void SyncGameLists(bool rewrite)
@@ -1688,6 +1725,20 @@ public sealed class MainForm : Form
         f.ShowDialog(this);
     }
 
+    void ShowAcList()
+    {
+        string body = string.Join("\r\n", AntiCheatCatalog.Builtin.OrderBy(e => e.Game).Select(e => $"{e.Game} — {e.Exe} — {e.Engine}"));
+        var f = new Form { Text = "Protected games", ClientSize = new Size(700, 560), BackColor = BackColor, ForeColor = ForeColor, Font = Font, StartPosition = FormStartPosition.CenterParent };
+        var box = new TextBox { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Dock = DockStyle.Fill, Text = body, Font = new Font("Cascadia Mono", 8.5f), BackColor = Theme.Card, ForeColor = Theme.Text, BorderStyle = BorderStyle.None };
+        Theme.DarkNative(box);
+        var bar = new FlowLayoutPanel { Dock = DockStyle.Bottom, AutoSize = true, Padding = new Padding(12, 10, 12, 12), BackColor = Theme.Bg };
+        var close = new PillButton { Text = "Close", AutoSize = true, Kind = PillKind.Primary }; close.Click += (_, _) => f.Close();
+        f.HandleCreated += (_, _) => Theme.DarkChrome(f);
+        bar.Controls.Add(close);
+        f.Controls.Add(box); f.Controls.Add(bar);
+        f.ShowDialog(this);
+    }
+
     Label CpuGroup(string t) => new() { Text = t, AutoSize = true, ForeColor = Theme.Text, Margin = new Padding(0, 10, 0, 2) };
 
     string CurrentCpuGameExe()
@@ -1806,34 +1857,38 @@ public sealed class MainForm : Form
         _cpuKey = "";
     }
 
-    void ResolveCpuGame(out int pid, out string exe)
+    void ResolveCpuGame(out int pid, out string exe) => ResolveCpuGame(out pid, out exe, out _);
+
+    void ResolveCpuGame(out int pid, out string exe, out string acEngine)
     {
         pid = 0;
         exe = "";
+        acEngine = "";
         try
         {
             if (_lastVerdict is { IsGame: true, Pid: > 0, Exe.Length: > 0 } v)
             {
                 pid = v.Pid;
                 exe = v.Exe;
+                acEngine = v.AntiCheatEngine;
                 return;
             }
             var o = _out;
             if (o != null && o.Source != IntPtr.Zero)
             {
                 var c = _detector.Classify(o.Source);
-                if (c.IsGame && c.Pid > 0 && c.Exe.Length > 0) { pid = c.Pid; exe = c.Exe; }
+                if (c.IsGame && c.Pid > 0 && c.Exe.Length > 0) { pid = c.Pid; exe = c.Exe; acEngine = c.AntiCheatEngine; }
             }
         }
-        catch { pid = 0; exe = ""; }
+        catch { pid = 0; exe = ""; acEngine = ""; }
     }
 
     void QueueCpuSync()
     {
         if (_cpuClosing || _suppressCpu || _suppressProfile) return;
-        ResolveCpuGame(out int fgPid, out string fgExe);
-        var settings = ReadCpuSettings();
-        string key = fgPid + "\n" + fgExe + "\n" + CpuBoost.ToJson(settings);
+        ResolveCpuGame(out int fgPid, out string fgExe, out string acEngine);
+        var settings = CpuBoost.GateForAntiCheat(ReadCpuSettings(), acEngine.Length > 0);
+        string key = fgPid + "\n" + fgExe + "\n" + acEngine + "\n" + CpuBoost.ToJson(settings);
         long now = Environment.TickCount64;
         if (key == _cpuKey && now - _cpuPollAt < 2000) return;
         if (Interlocked.CompareExchange(ref _cpuJob, 1, 0) != 0)
@@ -1853,7 +1908,9 @@ public sealed class MainForm : Form
                 if (!_cpuClosing && IsHandleCreated)
                     BeginInvoke(new Action(() =>
                     {
-                        _cpuStatus.Text = string.Join(Environment.NewLine, CpuBoost.StatusLines(st));
+                        string note = CpuBoost.AntiCheatNote(acEngine);
+                        _cpuStatus.Text = (note.Length > 0 ? note + Environment.NewLine : "") + string.Join(Environment.NewLine, CpuBoost.StatusLines(st));
+                        if (_out != null) _out.AntiCheatNote = note;
                         Interlocked.Exchange(ref _cpuJob, 0);
                         if (!CpuBoost.AnyEnabled(ReadCpuSettings())) _cpuKey = "";
                         if (_cpuAgain && !_cpuClosing) { _cpuAgain = false; _cpuKey = ""; QueueCpuSync(); }
@@ -1924,6 +1981,8 @@ public sealed class UiState
     public int SettingsVersion { get; set; }
     public List<string> GamesAlways { get; set; } = new();
     public List<string> GamesNever { get; set; } = new();
+    public List<string> AcAlways { get; set; } = new();
+    public List<string> AcNever { get; set; } = new();
     public string FailedUpdate { get; set; } = "";
     public int GpuChoice { get; set; }
     public int FgMultiplier { get; set; } = 4;

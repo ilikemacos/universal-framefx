@@ -284,8 +284,25 @@ public static class CpuBoost
         if (baseName.Length == 0) return true;
         if (ProtectedNames.Contains(baseName)) return true;
         if (baseName.Contains("framefx", StringComparison.Ordinal)) return true;
+        if (AntiCheat.IsServiceProcess(name)) return true;
         return false;
     }
+
+    public static CpuBoostSettings GateForAntiCheat(CpuBoostSettings? s, bool antiCheatGame)
+    {
+        s = Sanitize(s);
+        if (!antiCheatGame) return s;
+        return new CpuBoostSettings
+        {
+            PowerPlan = s.PowerPlan, MinProcessorState100 = s.MinProcessorState100, DisableCoreParking = s.DisableCoreParking, BoostMode = s.BoostMode,
+            HighPriority = false, PreferFastCores = false, AvoidSmtSiblings = false, AllPhysicalCores = false, DisablePowerThrottling = false,
+            TimerResolution1ms = s.TimerResolution1ms,
+            LowerFrameFxPriority = s.LowerFrameFxPriority,
+            BackgroundProcesses = s.BackgroundProcesses,
+        };
+    }
+
+    public static string AntiCheatNote(string engine) => engine.Length == 0 ? "" : $"Anti-cheat safe mode ({engine}): CPU tweaks for this game are off.";
 
     public static List<string> NormalizeBackgroundList(IEnumerable<string>? names, string? excludeExe = null)
     {

@@ -8,7 +8,7 @@ No account · no telemetry · FrameFX itself needs no admin rights.
 **Canonical site:** [https://chopstickshq.com/universal-framefx/](https://chopstickshq.com/universal-framefx/)
 **Hub:** [https://chopstickshq.com/](https://chopstickshq.com/)
 
-[![Download](https://img.shields.io/badge/download-v1.4.1%20Beta1-4d9eff)](https://chopstickshq.com/universal-framefx/)
+[![Download](https://img.shields.io/badge/download-v1.4.1%20Beta2-4d9eff)](https://chopstickshq.com/universal-framefx/)
 [![Windows 10/11](https://img.shields.io/badge/Windows-10%20%2F%2011%20x64-111111)](https://chopstickshq.com/universal-framefx/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-6b6b8a)](LICENSE)
 [![Build](https://github.com/ilikemacos/universal-framefx/actions/workflows/build.yml/badge.svg)](https://github.com/ilikemacos/universal-framefx/actions/workflows/build.yml)
@@ -67,6 +67,11 @@ Or:
 **Requires:** Windows 10 version 2004 (build 19041) or later, 64-bit, a DirectX 11 GPU.
 
 ---
+
+## What's new in v1.4.1 Beta2
+
+* **Anti-cheat safe mode.** FrameFX recognizes games protected by anti-cheat (EasyAntiCheat, BattlEye, Riot Vanguard, FACEIT, Ricochet and others) and keeps itself in a safe state for them: it only captures the game's window, never touches the game, and leaves out CPU options that would change the game's priority or cores. You'll see "Anti-cheat safe mode" next to the detected game and in the overlay. The list of protected games is in Settings → Games, where you can add your own or mark a game as not protected.
+* **CSR 2.0 upscaler.** A new CSR 2.0 option in the Upscaling menu, next to CSR 1.3, with edge-aware upscaling and the same presets and sharpness slider. CSR 1.3 stays the default.
 
 ## What's new in v1.4.1 Beta1
 
@@ -276,7 +281,7 @@ dotnet build -c Release
 | `MainForm.cs`, `Theme.cs` | Main window, settings UI, saved settings (`ui.json`) |
 | `OutputForm.cs` | Overlay / output window, hotkeys, HUD |
 | `WindowCapture.cs` | Window capture (Windows.Graphics.Capture) |
-| `GameDetector.cs` | "Apply to games only" detection |
+| `GameDetector.cs`, `AntiCheat.cs` | "Apply to games only" detection and anti-cheat safe mode |
 | `GameProfiles.cs` | Per-game profiles saved locally in `ui.json` |
 | `Updater.cs` | Update check, SHA-256 verified download, install and rollback |
 | `Diag.cs` | Startup and crash logs, GPU program cache |

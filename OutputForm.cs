@@ -31,6 +31,7 @@ public sealed class OutputForm : Form
     public string? Error { get; private set; }
     public string Warning { get; private set; } = "";
     public string Hint { get; private set; } = "";
+    public string AntiCheatNote { get; set; } = "";
     public bool CompareOff { get; private set; }
     public string CompareStatus => CompareOff ? "FrameFX OFF (compare)" : "FrameFX ON";
     public string FgStatus { get; private set; } = "";
@@ -253,6 +254,7 @@ public sealed class OutputForm : Form
             if (Warning.Length > 0) cmp.Insert(2, "⚠ " + Warning);
             if (Hint.Length > 0) cmp.Insert(Warning.Length > 0 ? 3 : 2, "Hint: " + Hint);
             if (Paused) cmp.Add("Paused (not a game)");
+            if (AntiCheatNote.Length > 0) cmp.Add(AntiCheatNote);
             if (_status.Length > 0) cmp.Add(_status);
             _hud.Text = string.Join(Environment.NewLine, cmp);
             FgStatus = "";
@@ -287,6 +289,7 @@ public sealed class OutputForm : Form
         if (Warning.Length > 0) lines.Insert(1, "⚠ " + Warning);
         if (Hint.Length > 0) lines.Insert(Warning.Length > 0 ? 2 : 1, "Hint: " + Hint);
         if (Paused) lines.Add("Paused (not a game)");
+        if (AntiCheatNote.Length > 0) lines.Add(AntiCheatNote);
         if (_status.Length > 0) lines.Add(_status);
         _hud.Text = string.Join(Environment.NewLine, lines);
         _hud.Visible = _settings.Hud;
