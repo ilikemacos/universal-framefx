@@ -2,7 +2,7 @@ using Vortice.DXGI;
 
 namespace UniversalFrameFX;
 
-public enum Backend { Temporal, Spatial, Bilinear, Fsr1, Fsr2, Fsr3, Fsr4, XeSS }
+public enum Backend { Temporal, Spatial, Bilinear, Fsr1, Fsr2, Fsr3, Fsr4, XeSS, Csr20 }
 public enum GpuChoice { Auto, Integrated, Dedicated }
 public enum MotionPreference { Auto, Nvof, D3D12, Software }
 public enum FgKind { FrameFX, Fsr3 }
@@ -15,6 +15,7 @@ public static class BackendNames
     public static string Long(Backend b) => b switch
     {
         Backend.Temporal => "CSR 1.3",
+        Backend.Csr20 => "CSR 2.0",
         Backend.Spatial => "CSR 1.2",
         Backend.Fsr1 => "AMD FSR 1",
         Backend.Fsr2 => "AMD FSR 2",
@@ -37,6 +38,7 @@ public static class BackendNames
             "fsr3" or "amdfsr3" => Backend.Fsr3,
             "fsr4" or "amdfsr4" => Backend.Fsr4,
             "xess" or "intelxess" => Backend.XeSS,
+            "csr2.0" or "csr20" => Backend.Csr20,
             _ => Backend.Temporal,
         };
     }
@@ -45,6 +47,7 @@ public static class BackendNames
 public static class Backends
 {
     public static bool IsVendor(Backend b) => b is Backend.Fsr2 or Backend.Fsr3 or Backend.Fsr4 or Backend.XeSS;
+    public static readonly Backend[] MenuOrder = { Backend.Temporal, Backend.Csr20, Backend.Spatial, Backend.Fsr1, Backend.Fsr2, Backend.Fsr3, Backend.Fsr4, Backend.XeSS, Backend.Bilinear };
 }
 
 public static class OutputModeNames
