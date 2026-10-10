@@ -93,6 +93,10 @@ internal static class Program
         form.AutoFgMul = Arg("--fgx");
         form.AutoPreset = Arg("--preset");
         form.CliCompareOff = args.Contains("--compare-off");
+        form.CliCsr2 = args.Contains("--csr2");
+        form.CliVsyncFg = args.Contains("--vsync-fg");
+        form.CliFixedPacing = args.Contains("--fixed-pacing");
+        if (Arg("--fps-cap") is { } fcap && int.TryParse(fcap, out var fpsn)) form.CliFpsCap = fpsn;
         form.UpdateMarker = Arg("--update-marker");
         form.UpdatedFrom = Arg("--updated-from");
         form.UpdateFailed = Arg("--update-failed");

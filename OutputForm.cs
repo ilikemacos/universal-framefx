@@ -210,7 +210,7 @@ public sealed class OutputForm : Form
             lock (Gpu.Lock) _engine.AttachOutput(Handle, ClientSize.Width, ClientSize.Height, Mode == OutputMode.Overlay);
             if (_source != IntPtr.Zero)
             {
-                _capture = new WindowCapture(_gpu.Device, _source, OnCaptured);
+                _capture = new WindowCapture(_gpu.Device, _source, OnCaptured, captureCursor: !(_settings.FgV2 && _settings.FgV2Cursor));
                 _capture.Closed += () => BeginInvoke(new Action(() => { _status = "Source window closed."; Close(); }));
             }
             _follow?.Start();

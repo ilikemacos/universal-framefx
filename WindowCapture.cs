@@ -44,7 +44,7 @@ public sealed class WindowCapture : IDisposable
         try { return GraphicsCaptureSession.IsSupported(); } catch (TypeLoadException) { return false; }
     }
 
-    public WindowCapture(ID3D11Device device, IntPtr hwnd, Action<Direct3D11CaptureFrame> onFrame)
+    public WindowCapture(ID3D11Device device, IntPtr hwnd, Action<Direct3D11CaptureFrame> onFrame, bool captureCursor = true)
     {
         _onFrame = onFrame;
         var factory = GraphicsCaptureItem.As<IGraphicsCaptureItemInterop>();
@@ -63,7 +63,7 @@ public sealed class WindowCapture : IDisposable
         _size = _item.Size;
         _pool = Direct3D11CaptureFramePool.CreateFreeThreaded(_rtDevice, DirectXPixelFormat.B8G8R8A8UIntNormalized, 2, _size);
         _session = _pool.CreateCaptureSession(_item);
-        try { _session.IsCursorCaptureEnabled = true; } catch { }
+        try { _session.IsCursorCaptureEnabled = captureCursor; } catch { }
         if (OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000))
         {
             try { _session.IsBorderRequired = false; } catch { }
