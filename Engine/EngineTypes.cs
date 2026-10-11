@@ -6,7 +6,17 @@ public enum Backend { Temporal, Spatial, Bilinear, Fsr1, Fsr2, Fsr3, Fsr4, XeSS,
 public enum GpuChoice { Auto, Integrated, Dedicated }
 public enum MotionPreference { Auto, Nvof, D3D12, Software }
 public enum FgKind { FrameFX, Fsr3 }
-public enum FgSelect { Off, Csr13, Csr20, Fsr3 }
+public enum FgSelect { Off, Csr13, Csr20, Fsr3, CsrAi }
+
+public static class FgSelectUi
+{
+    public static readonly FgSelect[] MenuOrder = { FgSelect.Off, FgSelect.Csr13, FgSelect.Csr20, FgSelect.CsrAi, FgSelect.Fsr3 };
+}
+
+public static class CsrAiFg
+{
+    public static string WeightsPath => Path.Combine(AppContext.BaseDirectory, "Models", "csr_ai_fg.weights.json");
+}
 public enum OutputMode { Overlay, Window, Fullscreen }
 public enum OutputRes { Auto, P1440, P2160, Source, P1080 }
 
@@ -233,6 +243,7 @@ public sealed class SessionSettings
     public volatile bool Hud = true;
     public volatile bool Performance = true;
     public volatile bool Competitive;
+    public volatile bool FgCsrAi;
     public volatile bool FgV2 = Environment.GetEnvironmentVariable("UFX_FG_V2") == "1";
     public volatile bool FgV2Async = Environment.GetEnvironmentVariable("UFX_FG_V2_ASYNC") == "1";
     public volatile bool FgV2Vsync = Environment.GetEnvironmentVariable("UFX_FG_V2_VSYNC") == "1";
@@ -285,6 +296,8 @@ public sealed class FramePipeline : IDisposable
     public string MotionSource => "not included";
     public bool FgV2Active => false;
     public string Csr20Label => "not included";
+    public string? FgV2HudSeed { get; set; }
+    public string? FgV2HudMask => null;
     public void ClearVendorFailures() { }
     public void Reset() { }
     public void Dispose() { }

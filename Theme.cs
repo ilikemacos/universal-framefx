@@ -3,27 +3,95 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using Microsoft.Win32;
 
 namespace UniversalFrameFX;
 
 public static class Theme
 {
-    public static readonly Color Bg = Color.FromArgb(9, 9, 11);
-    public static readonly Color Card = Color.FromArgb(17, 17, 20);
-    public static readonly Color CardBorder = Color.FromArgb(29, 29, 33);
-    public static readonly Color Border = Color.FromArgb(36, 36, 40);
-    public static readonly Color Input = Color.FromArgb(43, 43, 48);
-    public static readonly Color InputHover = Color.FromArgb(52, 52, 58);
-    public static readonly Color Muted = Color.FromArgb(29, 29, 33);
-    public static readonly Color Text = Color.FromArgb(242, 242, 242);
-    public static readonly Color TextMuted = Color.FromArgb(138, 138, 147);
-    public static readonly Color TextDim = Color.FromArgb(88, 88, 96);
-    public static readonly Color Primary = Color.FromArgb(237, 237, 237);
-    public static readonly Color PrimaryHover = Color.FromArgb(255, 255, 255);
-    public static readonly Color PrimaryText = Color.FromArgb(9, 9, 11);
-    public static readonly Color Green = Color.FromArgb(51, 204, 128);
-    public static readonly Color Amber = Color.FromArgb(244, 191, 38);
-    public static readonly Color Red = Color.FromArgb(207, 48, 48);
+    public static readonly bool IsLight;
+    public static readonly Color Bg;
+    public static readonly Color Card;
+    public static readonly Color CardBorder;
+    public static readonly Color Border;
+    public static readonly Color Rule;
+    public static readonly Color Input;
+    public static readonly Color InputHover;
+    public static readonly Color Muted;
+    public static readonly Color Text;
+    public static readonly Color TextMuted;
+    public static readonly Color TextDim;
+    public static readonly Color Accent;
+    public static readonly Color Primary;
+    public static readonly Color Focus;
+    public static readonly Color PrimaryHover;
+    public static readonly Color PrimaryText;
+    public static readonly Color Green;
+    public static readonly Color Amber;
+    public static readonly Color Red;
+
+    static Theme()
+    {
+        var env = Environment.GetEnvironmentVariable("UFX_THEME");
+        if (string.Equals(env, "light", StringComparison.OrdinalIgnoreCase)) IsLight = true;
+        else if (string.Equals(env, "dark", StringComparison.OrdinalIgnoreCase)) IsLight = false;
+        else IsLight = AppsUseLightTheme();
+
+        if (IsLight)
+        {
+            Bg = Color.FromArgb(0xfa, 0xfa, 0xfa);
+            Card = Bg;
+            CardBorder = Border = Rule = Color.FromArgb(0xdd, 0xdd, 0xdd);
+            Input = Color.White;
+            InputHover = Color.FromArgb(0xf0, 0xf0, 0xf0);
+            Muted = Color.FromArgb(0xef, 0xef, 0xef);
+            Text = Color.FromArgb(0x16, 0x16, 0x16);
+            TextMuted = Color.FromArgb(0x5f, 0x5f, 0x5f);
+            TextDim = Color.FromArgb(0xa8, 0xa8, 0xa8);
+            Accent = Primary = Focus = Color.FromArgb(0xff, 0x6a, 0x2b);
+            PrimaryHover = Color.FromArgb(0xf2, 0x5f, 0x20);
+            PrimaryText = Color.FromArgb(0x11, 0x11, 0x11);
+            Green = Color.FromArgb(0x2e, 0x6b, 0x3a);
+            Amber = Color.FromArgb(0x8a, 0x53, 0x00);
+            Red = Color.FromArgb(0xb4, 0x23, 0x18);
+        }
+        else
+        {
+            Bg = Color.FromArgb(0x11, 0x11, 0x11);
+            Card = Bg;
+            CardBorder = Border = Rule = Color.FromArgb(0x2a, 0x2a, 0x2a);
+            Input = Color.FromArgb(0x18, 0x18, 0x18);
+            InputHover = Color.FromArgb(0x20, 0x20, 0x20);
+            Muted = Color.FromArgb(0x1c, 0x1c, 0x1c);
+            Text = Color.FromArgb(0xec, 0xec, 0xec);
+            TextMuted = Color.FromArgb(0x9a, 0x9a, 0x9a);
+            TextDim = Color.FromArgb(0x5a, 0x5a, 0x5a);
+            Accent = Primary = Focus = Color.FromArgb(0xff, 0x6a, 0x2b);
+            PrimaryHover = Color.FromArgb(0xff, 0x7d, 0x45);
+            PrimaryText = Color.FromArgb(0x11, 0x11, 0x11);
+            Green = Color.FromArgb(0x8f, 0xbf, 0x98);
+            Amber = Color.FromArgb(0xe0, 0xa6, 0x4a);
+            Red = Color.FromArgb(0xe5, 0x67, 0x5a);
+        }
+    }
+
+    static bool AppsUseLightTheme()
+    {
+        try
+        {
+            using var k = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
+            var v = k?.GetValue("AppsUseLightTheme");
+            if (v is int i) return i != 0;
+            if (v is long l) return l != 0;
+        }
+        catch { }
+        return false;
+    }
+
+    public static class Space
+    {
+        public const int Xs = 4, S = 8, M = 12, L = 16, Xl = 24, Xxl = 32;
+    }
 
     static bool Has(string name)
     {
@@ -32,9 +100,12 @@ public static class Theme
     }
     static string? _family, _display;
     public static string Family => _family ??= Has("Inter") ? "Inter" : Has("Segoe UI Variable Text") ? "Segoe UI Variable Text" : "Segoe UI";
-    public static string DisplayFamily => _display ??= Has("Space Grotesk") ? "Space Grotesk" : Has("Segoe UI Variable Display") ? "Segoe UI Variable Display" : "Segoe UI Semibold";
-    public static Font Body(float pt = 9.75f, FontStyle st = FontStyle.Regular) => new(Family, pt, st);
+    public static string DisplayFamily => _display ??= Has("Segoe UI Variable Display") ? "Segoe UI Variable Display" : Family;
+    public static Font Body(float pt = 10f, FontStyle st = FontStyle.Regular) => new(Family, pt, st);
     public static Font Semibold(float pt) => new(Family == "Segoe UI" ? "Segoe UI Semibold" : Family, pt, Family == "Segoe UI" ? FontStyle.Regular : FontStyle.Bold);
+    public static Font Title() => Semibold(16f);
+    public static Font Small() => Body(9f);
+    public static Font Caps() => Semibold(8.5f);
 
     public static GraphicsPath Round(RectangleF r, float radius)
     {
@@ -51,22 +122,35 @@ public static class Theme
 
     public static float Scale(Control c) => c.DeviceDpi / 96f;
 
+    public static void DrawFocus(Graphics g, RectangleF r, float s)
+    {
+        var inset = RectangleF.Inflate(r, -1f * s, -1f * s);
+        if (inset.Width < 2 || inset.Height < 2) return;
+        using var path = Round(inset, 4 * s);
+        using var p = new Pen(Accent, 2f * s);
+        g.DrawPath(p, path);
+    }
+
     [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
     [DllImport("uxtheme.dll", CharSet = CharSet.Unicode)] static extern int SetWindowTheme(IntPtr hwnd, string? app, string? idList);
 
     public static void DarkChrome(Form f)
     {
-        int on = 1;
-        if (DwmSetWindowAttribute(f.Handle, 20, ref on, 4) != 0) DwmSetWindowAttribute(f.Handle, 19, ref on, 4);
-        int round = 2; DwmSetWindowAttribute(f.Handle, 33, ref round, 4);
-        int mica = 2; DwmSetWindowAttribute(f.Handle, 38, ref mica, 4);
+        int immersive = IsLight ? 0 : 1;
+        if (DwmSetWindowAttribute(f.Handle, 20, ref immersive, 4) != 0) DwmSetWindowAttribute(f.Handle, 19, ref immersive, 4);
+        int none = 1; DwmSetWindowAttribute(f.Handle, 38, ref none, 4);
         int caption = ColorTranslator.ToWin32(Bg); DwmSetWindowAttribute(f.Handle, 35, ref caption, 4);
         int text = ColorTranslator.ToWin32(Text); DwmSetWindowAttribute(f.Handle, 36, ref text, 4);
-        int border = ColorTranslator.ToWin32(Border); DwmSetWindowAttribute(f.Handle, 34, ref border, 4);
+        int border = ColorTranslator.ToWin32(Rule); DwmSetWindowAttribute(f.Handle, 34, ref border, 4);
     }
 
     public static void DarkNative(Control c, string theme = "DarkMode_Explorer")
     {
+        if (IsLight)
+        {
+            if (theme == "DarkMode_Explorer") theme = "Explorer";
+            else if (theme == "DarkMode_CFD") theme = "CFD";
+        }
         if (c.IsHandleCreated) SetWindowTheme(c.Handle, theme, null);
         else c.HandleCreated += (_, _) => SetWindowTheme(c.Handle, theme, null);
     }
@@ -85,7 +169,7 @@ public class PillButton : Button
     {
         SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw | ControlStyles.SupportsTransparentBackColor, true);
         FlatStyle = FlatStyle.Flat; FlatAppearance.BorderSize = 0;
-        Font = Theme.Semibold(9.75f);
+        Font = Theme.Semibold(10f);
         Cursor = Cursors.Hand;
         AutoSize = false;
         Margin = new Padding(0, 0, 8, 0);
@@ -94,16 +178,22 @@ public class PillButton : Button
     public override Size GetPreferredSize(Size proposed)
     {
         var t = TextRenderer.MeasureText(Text.Replace("&&", "&"), Font);
-        int h = (int)(Font.Height * 2.3f);
-        return new Size(t.Width + (int)(Font.Height * 2.2f), h);
+        int h = Math.Max((int)(Font.Height * 2.4f), t.Height + 8);
+        int w = t.Width + 32;
+        return new Size(Math.Max(w, MinimumSize.Width), Math.Max(h, MinimumSize.Height));
     }
 
-    protected override void OnTextChanged(EventArgs e) { base.OnTextChanged(e); if (AutoSize) Size = GetPreferredSize(Size.Empty); Invalidate(); }
+    void FitAuto() { if (AutoSize) Size = GetPreferredSize(Size.Empty); }
+    protected override void OnCreateControl() { base.OnCreateControl(); FitAuto(); }
+    protected override void OnFontChanged(EventArgs e) { base.OnFontChanged(e); FitAuto(); Invalidate(); }
+    protected override void OnTextChanged(EventArgs e) { base.OnTextChanged(e); FitAuto(); Invalidate(); }
     protected override void OnMouseEnter(EventArgs e) { _hover = true; Invalidate(); base.OnMouseEnter(e); }
     protected override void OnMouseLeave(EventArgs e) { _hover = false; _down = false; Invalidate(); base.OnMouseLeave(e); }
     protected override void OnMouseDown(MouseEventArgs e) { _down = true; Invalidate(); base.OnMouseDown(e); }
     protected override void OnMouseUp(MouseEventArgs e) { _down = false; Invalidate(); base.OnMouseUp(e); }
     protected override void OnEnabledChanged(EventArgs e) { Invalidate(); base.OnEnabledChanged(e); }
+    protected override void OnGotFocus(EventArgs e) { Invalidate(); base.OnGotFocus(e); }
+    protected override void OnLostFocus(EventArgs e) { Invalidate(); base.OnLostFocus(e); }
 
     protected override void OnPaint(PaintEventArgs e)
     {
@@ -111,31 +201,51 @@ public class PillButton : Button
         g.Clear(Parent?.BackColor ?? Theme.Bg);
         g.SmoothingMode = SmoothingMode.AntiAlias;
         float s = Theme.Scale(this);
-        var r = new RectangleF(1.5f * s, 1.5f * s, Width - 3f * s, Height - 3f * s);
-        Color fill, fg, border;
-        switch (_kind)
+        var r = new RectangleF(1f * s, 1f * s, Width - 2f * s, Height - 2f * s);
+        Color fill, fg;
+        bool drawBorder = false;
+        bool ring = _ring;
+        if (!Enabled)
+        {
+            fill = Color.Transparent;
+            fg = Theme.TextDim;
+            drawBorder = true;
+            ring = false;
+        }
+        else switch (_kind)
         {
             case PillKind.Primary:
-                fill = !Enabled ? Theme.Input : _down ? Color.FromArgb(210, 210, 210) : _hover ? Theme.PrimaryHover : Theme.Primary;
-                fg = Enabled ? Theme.PrimaryText : Theme.TextMuted; border = fill; break;
+                fill = _down || _hover ? Theme.PrimaryHover : Theme.Primary;
+                fg = Theme.PrimaryText;
+                break;
             case PillKind.Ghost:
-                fill = _down ? Theme.Input : _hover ? Theme.Muted : (Parent?.BackColor ?? Theme.Bg);
-                fg = Enabled ? Theme.Text : Theme.TextMuted; border = Theme.Border; break;
+                fill = _down || _hover ? Theme.Muted : Color.Transparent;
+                fg = Theme.Text;
+                break;
             default:
-                fill = !Enabled ? Theme.Card : _down ? Theme.InputHover : _hover ? Theme.Input : Theme.Muted;
-                fg = Enabled ? Theme.Text : Theme.TextMuted; border = Theme.Border; break;
+                fill = _down || _hover ? Theme.Muted : Color.Transparent;
+                fg = Theme.Text;
+                drawBorder = true;
+                break;
         }
-        using (var path = Theme.Round(r, r.Height / 2))
+        using (var path = Theme.Round(r, 4 * s))
         {
             using var b = new SolidBrush(fill); g.FillPath(b, path);
-            using var p = new Pen(_ring ? Theme.Amber : border, (_ring ? 2f : 1f) * s); g.DrawPath(p, path);
-            if (Focused && ShowFocusCues)
+            if (_kind != PillKind.Primary && ring)
             {
-                var fr = RectangleF.Inflate(r, -3 * s, -3 * s);
-                using var fp = Theme.Round(fr, fr.Height / 2);
-                using var pp = new Pen(Color.FromArgb(120, _kind == PillKind.Primary ? Theme.PrimaryText : Theme.Text), 1f * s) { DashStyle = DashStyle.Dot };
-                g.DrawPath(pp, fp);
+                using var p = new Pen(Theme.Accent, 1f * s); g.DrawPath(p, path);
             }
+            else if (drawBorder)
+            {
+                using var p = new Pen(Theme.Rule, 1f * s); g.DrawPath(p, path);
+            }
+            if (_kind == PillKind.Primary && ring)
+            {
+                using var p = new Pen(Theme.PrimaryText, 2f * s);
+                float y = r.Bottom - 5 * s;
+                g.DrawLine(p, r.X + 8 * s, y, r.Right - 8 * s, y);
+            }
+            if (Focused && ShowFocusCues) Theme.DrawFocus(g, r, s);
         }
         TextRenderer.DrawText(g, Text, Font, Rectangle.Round(r), fg, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine);
     }
@@ -153,14 +263,7 @@ public class CardPanel : TableLayoutPanel
     }
     protected override void OnPaintBackground(PaintEventArgs e)
     {
-        var g = e.Graphics;
-        g.Clear(Parent?.BackColor ?? Theme.Bg);
-        g.SmoothingMode = SmoothingMode.AntiAlias;
-        float s = Theme.Scale(this);
-        var r = new RectangleF(0.5f, 0.5f, Width - 1.5f, Height - 1.5f);
-        using var path = Theme.Round(r, 14 * s);
-        using var b = new SolidBrush(Theme.Card); g.FillPath(b, path);
-        using var p = new Pen(Theme.CardBorder, 1f * s); g.DrawPath(p, path);
+        e.Graphics.Clear(Parent?.BackColor ?? Theme.Bg);
     }
 }
 
@@ -171,7 +274,7 @@ public class SectionHeader : Control
     public SectionHeader(string text)
     {
         SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw | ControlStyles.Selectable, true);
-        Text = text; Font = Theme.Semibold(11f); Cursor = Cursors.Hand; TabStop = true;
+        Text = text; Font = Theme.Caps(); Cursor = Cursors.Hand; TabStop = true;
         AccessibleRole = AccessibleRole.PushButton; AccessibleName = text + " section";
         Height = (int)(Font.Height * 2.2f);
     }
@@ -186,21 +289,22 @@ public class SectionHeader : Control
     protected override void OnPaint(PaintEventArgs e)
     {
         var g = e.Graphics;
-        g.Clear(Theme.Card);
+        g.Clear(Parent?.BackColor ?? Theme.Bg);
         g.SmoothingMode = SmoothingMode.AntiAlias;
         float s = Theme.Scale(this);
         float cy = Height / 2f, cx = Width - 16 * s, a = 4.5f * s;
-        using (var p = new Pen(_hover ? Theme.Text : Theme.TextMuted, 1.8f * s) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round })
+        using (var p = new Pen(_hover ? Theme.Text : Theme.TextMuted, 1.4f * s) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round })
         {
             if (_open) g.DrawLines(p, new[] { new PointF(cx - a, cy - a / 2), new PointF(cx, cy + a / 2), new PointF(cx + a, cy - a / 2) });
             else g.DrawLines(p, new[] { new PointF(cx - a / 2, cy - a), new PointF(cx + a / 2, cy), new PointF(cx - a / 2, cy + a) });
         }
-        TextRenderer.DrawText(g, Text, Font, new Rectangle((int)(2 * s), 0, Width, Height), Theme.Text, TextFormatFlags.VerticalCenter | TextFormatFlags.Left);
-        if (Focused && ShowFocusCues)
+        TextRenderer.DrawText(g, Text.ToUpperInvariant(), Font, new Rectangle(0, 0, Width - (int)(28 * s), Height), Theme.TextMuted, TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.NoPrefix);
+        if (!_open)
         {
-            using var fp = new Pen(Theme.TextMuted, 1f * s) { DashStyle = DashStyle.Dot };
-            g.DrawRectangle(fp, 0, 2, Width - 1, Height - 5);
+            using var rp = new Pen(Theme.Rule, Math.Max(1f, 1f * s));
+            g.DrawLine(rp, 0, Height - 1, Width, Height - 1);
         }
+        if (Focused && ShowFocusCues) Theme.DrawFocus(g, new RectangleF(0.5f, 0.5f, Width - 1.5f, Height - 1.5f), s);
     }
 }
 
@@ -236,12 +340,12 @@ public class FlatSlider : Control
     protected override void OnMouseLeave(EventArgs e) { _hover = false; Invalidate(); base.OnMouseLeave(e); }
     protected override void OnGotFocus(EventArgs e) { Invalidate(); base.OnGotFocus(e); }
     protected override void OnLostFocus(EventArgs e) { Invalidate(); base.OnLostFocus(e); }
-    protected override bool IsInputKey(Keys k) => k is Keys.Left or Keys.Right or Keys.Up or Keys.Down or Keys.Home or Keys.End || base.IsInputKey(k);
+    protected override bool IsInputKey(Keys k) => k is Keys.Left or Keys.Right or Keys.Home or Keys.End || base.IsInputKey(k);
     protected override void OnKeyDown(KeyEventArgs e)
     {
         int v = _val;
-        if (e.KeyCode is Keys.Left or Keys.Down) v -= SmallChange;
-        else if (e.KeyCode is Keys.Right or Keys.Up) v += SmallChange;
+        if (e.KeyCode == Keys.Left) v -= SmallChange;
+        else if (e.KeyCode == Keys.Right) v += SmallChange;
         else if (e.KeyCode == Keys.Home) v = _min; else if (e.KeyCode == Keys.End) v = _max;
         v = Math.Clamp(v, _min, _max);
         if (v != _val) { _val = v; Invalidate(); Scroll?.Invoke(this, EventArgs.Empty); }
@@ -252,52 +356,89 @@ public class FlatSlider : Control
         var g = e.Graphics;
         g.Clear(Parent?.BackColor ?? Theme.Card);
         g.SmoothingMode = SmoothingMode.AntiAlias;
-        float s = Theme.Scale(this), cy = Height / 2f, th = 4 * s;
+        float s = Theme.Scale(this), cy = Height / 2f, th = 2 * s;
         float t = _max > _min ? (float)(_val - _min) / (_max - _min) : 0;
         float x0 = Pad, x1 = Width - Pad, xv = x0 + t * (x1 - x0);
-        using (var p = Theme.Round(new RectangleF(x0, cy - th / 2, x1 - x0, th), th / 2)) { using var b = new SolidBrush(Theme.Input); g.FillPath(b, p); }
-        if (xv > x0 + 1) using (var p = Theme.Round(new RectangleF(x0, cy - th / 2, xv - x0, th), th / 2)) { using var b = new SolidBrush(Theme.Primary); g.FillPath(b, p); }
-        float r = (_hover || _drag || Focused ? 8f : 7f) * s;
-        using (var b = new SolidBrush(Theme.Primary)) g.FillEllipse(b, xv - r, cy - r, 2 * r, 2 * r);
-        using (var p = new Pen(Theme.Bg, 2f * s)) g.DrawEllipse(p, xv - r, cy - r, 2 * r, 2 * r);
-        if (Focused && ShowFocusCues) using (var p = new Pen(Color.FromArgb(90, Theme.Primary), 2f * s)) g.DrawEllipse(p, xv - r - 3 * s, cy - r - 3 * s, 2 * r + 6 * s, 2 * r + 6 * s);
+        using (var p = Theme.Round(new RectangleF(x0, cy - th / 2, x1 - x0, th), th / 2)) { using var b = new SolidBrush(Theme.Rule); g.FillPath(b, p); }
+        if (xv > x0 + 1) using (var p = Theme.Round(new RectangleF(x0, cy - th / 2, xv - x0, th), th / 2)) { using var b = new SolidBrush(Theme.Text); g.FillPath(b, p); }
+        float side = 12 * s;
+        var thumb = new RectangleF(xv - side / 2, cy - side / 2, side, side);
+        using (var path = Theme.Round(thumb, 2 * s)) { using var b = new SolidBrush(Theme.Text); g.FillPath(b, path); }
+        if (Focused && ShowFocusCues) Theme.DrawFocus(g, new RectangleF(0.5f, 0.5f, Width - 1.5f, Height - 1.5f), s);
+        _ = _hover || _drag;
     }
 }
 
 public class ToggleSwitch : CheckBox
 {
     bool _hover;
+    const TextFormatFlags TextFlags = TextFormatFlags.WordBreak | TextFormatFlags.Left | TextFormatFlags.NoPrefix;
     public ToggleSwitch()
     {
         SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
         AutoSize = false; Cursor = Cursors.Hand; Font = Theme.Body();
     }
+    int TextX
+    {
+        get { float s = Theme.Scale(this); return (int)(32 * s + 8 * s); }
+    }
+    int HeightFor(int width)
+    {
+        float s = Theme.Scale(this);
+        int tw = Math.Max(1, width - TextX);
+        var sz = TextRenderer.MeasureText(Text, Font, new Size(tw, int.MaxValue), TextFlags);
+        return Math.Max((int)(34 * s), sz.Height + (int)(8 * s));
+    }
     public override Size GetPreferredSize(Size proposed)
     {
         var t = TextRenderer.MeasureText(Text, Font);
-        return new Size((int)(Font.Height * 2.9f) + t.Width + 8, (int)(Font.Height * 1.9f));
+        float s = Theme.Scale(this);
+        int w = (int)(32 * s) + t.Width + 12;
+        if (MaximumSize.Width > 0) w = Math.Min(w, MaximumSize.Width);
+        return new Size(w, HeightFor(w));
     }
     protected override void OnTextChanged(EventArgs e) { base.OnTextChanged(e); Size = GetPreferredSize(Size.Empty); }
     protected override void OnFontChanged(EventArgs e) { base.OnFontChanged(e); Size = GetPreferredSize(Size.Empty); }
     protected override void OnCreateControl() { base.OnCreateControl(); Size = GetPreferredSize(Size.Empty); }
+    protected override void OnSizeChanged(EventArgs e)
+    {
+        int h = HeightFor(Width);
+        if (Height != h) Height = h;
+        base.OnSizeChanged(e);
+    }
+    protected override bool IsInputKey(Keys k) => k == Keys.Enter || base.IsInputKey(k);
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        if (e.KeyCode == Keys.Enter) { Checked = !Checked; e.Handled = true; }
+        base.OnKeyDown(e);
+    }
     protected override void OnMouseEnter(EventArgs e) { _hover = true; Invalidate(); base.OnMouseEnter(e); }
     protected override void OnMouseLeave(EventArgs e) { _hover = false; Invalidate(); base.OnMouseLeave(e); }
+    protected override void OnGotFocus(EventArgs e) { Invalidate(); base.OnGotFocus(e); }
+    protected override void OnLostFocus(EventArgs e) { Invalidate(); base.OnLostFocus(e); }
     protected override void OnPaint(PaintEventArgs e)
     {
         var g = e.Graphics;
         g.Clear(Parent?.BackColor ?? Theme.Card);
         g.SmoothingMode = SmoothingMode.AntiAlias;
         float s = Theme.Scale(this);
-        float h = Font.Height * 1.15f, w = h * 1.8f, y = (Height - h) / 2f, x = 2 * s;
+        int tx = TextX;
+        int textW = Math.Max(1, Width - tx);
+        var textSz = TextRenderer.MeasureText(Text, Font, new Size(textW, int.MaxValue), TextFlags);
+        int textH = textSz.Height;
+        int top = Math.Max(0, (Height - textH) / 2);
+        float w = 32 * s, h = 18 * s, x = 2 * s;
+        float y = top + (Font.Height - h) / 2f;
         var track = new RectangleF(x, y, w, h);
-        using (var p = Theme.Round(track, h / 2))
+        using (var p = Theme.Round(track, 4 * s))
         {
-            using var b = new SolidBrush(Checked ? Theme.Green : (_hover ? Theme.InputHover : Theme.Input)); g.FillPath(b, p);
-            if (Focused && ShowFocusCues) { using var fp = new Pen(Color.FromArgb(140, Theme.Text), 1.5f * s); g.DrawPath(fp, p); }
+            using var b = new SolidBrush(Checked ? Theme.Text : (_hover ? Theme.InputHover : Theme.Input)); g.FillPath(b, p);
+            if (!Checked) { using var bp = new Pen(Theme.TextDim, 1f * s); g.DrawPath(bp, p); }
         }
-        float d = h - 5 * s, kx = Checked ? track.Right - d - 2.5f * s : track.X + 2.5f * s;
-        using (var b = new SolidBrush(Enabled ? Color.White : Theme.TextMuted)) g.FillEllipse(b, kx, y + 2.5f * s, d, d);
-        TextRenderer.DrawText(g, Text, Font, new Rectangle((int)(x + w + 8 * s), 0, Width, Height), Enabled ? Theme.Text : Theme.TextMuted, TextFormatFlags.VerticalCenter | TextFormatFlags.Left);
+        float d = 12 * s, kx = Checked ? track.Right - d - 3 * s : track.X + 3 * s, ky = y + (h - d) / 2;
+        using (var b = new SolidBrush(Checked ? Theme.Bg : (Enabled ? Theme.Text : Theme.TextDim))) g.FillEllipse(b, kx, ky, d, d);
+        TextRenderer.DrawText(g, Text, Font, new Rectangle(tx, top, textW, textH), Enabled ? Theme.Text : Theme.TextDim, TextFlags);
+        if (Focused && ShowFocusCues) Theme.DrawFocus(g, new RectangleF(0.5f, 0.5f, Width - 1.5f, Height - 1.5f), s);
     }
 }
 
@@ -310,12 +451,12 @@ public class DarkCombo : ComboBox
         DrawMode = DrawMode.OwnerDrawFixed;
         FlatStyle = FlatStyle.Flat;
         BackColor = Theme.Input; ForeColor = Theme.Text; Font = Theme.Body();
-        ItemHeight = (int)(Font.Height * 1.6f);
+        ItemHeight = (int)(Font.Height * 1.9f);
         SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
         Theme.DarkNative(this, "DarkMode_CFD");
         Cursor = Cursors.Hand;
     }
-    protected override void OnFontChanged(EventArgs e) { base.OnFontChanged(e); ItemHeight = (int)(Font.Height * 1.6f); }
+    protected override void OnFontChanged(EventArgs e) { base.OnFontChanged(e); ItemHeight = (int)(Font.Height * 1.9f); }
     protected override void OnMouseEnter(EventArgs e) { _hover = true; Invalidate(); base.OnMouseEnter(e); }
     protected override void OnMouseLeave(EventArgs e) { _hover = false; Invalidate(); base.OnMouseLeave(e); }
     public Func<int, string?>? DisabledReason { get; set; }
@@ -337,11 +478,28 @@ public class DarkCombo : ComboBox
     protected override void OnDropDownClosed(EventArgs e) { _tip.Hide(this); _tipIndex = -1; base.OnDropDownClosed(e); }
     protected override void OnGotFocus(EventArgs e) { Invalidate(); base.OnGotFocus(e); }
     protected override void OnLostFocus(EventArgs e) { Invalidate(); base.OnLostFocus(e); }
+    protected override bool IsInputKey(Keys keyData)
+    {
+        var k = keyData & Keys.KeyCode;
+        if (DroppedDown) return k is Keys.Up or Keys.Down or Keys.Enter or Keys.Escape || base.IsInputKey(keyData);
+        if (k is Keys.Up or Keys.Down) return false;
+        if (k is Keys.Enter or Keys.Space or Keys.F4) return true;
+        return base.IsInputKey(keyData);
+    }
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        if (!DroppedDown && e.KeyCode is Keys.Enter or Keys.Space or Keys.F4)
+        {
+            DroppedDown = true;
+            e.Handled = true;
+        }
+        base.OnKeyDown(e);
+    }
     protected override void OnDrawItem(DrawItemEventArgs e)
     {
         if (e.Index < 0) return;
         bool sel = (e.State & DrawItemState.Selected) != 0;
-        using var b = new SolidBrush(sel ? Theme.InputHover : Theme.Card);
+        using var b = new SolidBrush(sel ? Theme.Muted : Theme.Card);
         e.Graphics.FillRectangle(b, e.Bounds);
         var r = e.Bounds; r.X += (int)(10 * Theme.Scale(this)); r.Width -= (int)(10 * Theme.Scale(this));
         var why = ReasonFor(e.Index);
@@ -360,15 +518,17 @@ public class DarkCombo : ComboBox
         g.SmoothingMode = SmoothingMode.AntiAlias;
         float s = Theme.Scale(this);
         var r = new RectangleF(0.5f, 0.5f, Width - 1.5f, Height - 1.5f);
-        using (var p = Theme.Round(r, 10 * s))
+        using (var p = Theme.Round(r, 4 * s))
         {
-            using var b = new SolidBrush(_hover || DroppedDown ? Theme.InputHover : Theme.Input); g.FillPath(b, p);
-            using var pen = new Pen(Focused ? Theme.TextMuted : Theme.Border, 1f * s); g.DrawPath(pen, p);
+            using var b = new SolidBrush(_hover ? Theme.InputHover : Theme.Input); g.FillPath(b, p);
+            Color bc = Focused || DroppedDown ? Theme.Text : Theme.Rule;
+            using var pen = new Pen(bc, 1f * s); g.DrawPath(pen, p);
         }
         float cx = Width - 16 * s, cy = Height / 2f, a = 4f * s;
         using (var pen = new Pen(Theme.TextMuted, 1.6f * s) { StartCap = LineCap.Round, EndCap = LineCap.Round })
             g.DrawLines(pen, new[] { new PointF(cx - a, cy - a / 2), new PointF(cx, cy + a / 2), new PointF(cx + a, cy - a / 2) });
         var tr = new Rectangle((int)(12 * s), 0, Width - (int)(36 * s), Height);
-        TextRenderer.DrawText(g, SelectedItem != null ? GetItemText(SelectedItem) : "", Font, tr, Enabled ? Theme.Text : Theme.TextMuted, TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.EndEllipsis);
+        TextRenderer.DrawText(g, SelectedItem != null ? GetItemText(SelectedItem) : "", Font, tr, Enabled ? Theme.Text : Theme.TextDim, TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.EndEllipsis);
+        if (Focused && ShowFocusCues && !DroppedDown) Theme.DrawFocus(g, r, s);
     }
 }

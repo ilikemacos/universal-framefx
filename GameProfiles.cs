@@ -17,6 +17,9 @@ public sealed class GameProfile
     public int Backend { get; set; }
     public int Res { get; set; }
     public CpuBoostSettings Cpu { get; set; } = new();
+    public string? FgV2HudMask { get; set; }
+    public int FgV2HudMaskW { get; set; } = 64;
+    public int FgV2HudMaskH { get; set; } = 36;
 }
 
 public static class GameProfiles
@@ -51,7 +54,7 @@ public static class GameProfiles
     public static int Mul(int n, int fgSelect = -1)
     {
         if (n is 0 or 2 or 3 or 4 or 8) return n;
-        if (fgSelect == (int)UniversalFrameFX.FgSelect.Csr20 && n is 5 or 6 or 10 or 20) return n;
+        if (fgSelect is (int)UniversalFrameFX.FgSelect.Csr20 or (int)UniversalFrameFX.FgSelect.CsrAi && n is 5 or 6 or 10 or 20) return n;
         return 4;
     }
 
@@ -73,7 +76,7 @@ public static class GameProfiles
         p ??= new GameProfile();
         int backend = Enum.IsDefined(typeof(Backend), p.Backend) ? p.Backend : 0;
         int res = p.Res is >= 0 and <= 4 ? p.Res : 0;
-        int fgSel = p.FgSelect is >= 0 and <= 3 ? p.FgSelect : (p.FrameGen ? (int)UniversalFrameFX.FgSelect.Csr13 : (int)UniversalFrameFX.FgSelect.Off);
+        int fgSel = p.FgSelect is >= 0 and <= 4 ? p.FgSelect : (p.FrameGen ? (int)UniversalFrameFX.FgSelect.Csr13 : (int)UniversalFrameFX.FgSelect.Off);
         return new GameProfile
         {
             Preset = p.Preset is 1 or 2 ? p.Preset : 0,
@@ -89,6 +92,9 @@ public static class GameProfiles
             Backend = backend,
             Res = res,
             Cpu = CpuBoost.Sanitize(p.Cpu),
+            FgV2HudMask = p.FgV2HudMask,
+            FgV2HudMaskW = p.FgV2HudMaskW > 0 ? p.FgV2HudMaskW : 64,
+            FgV2HudMaskH = p.FgV2HudMaskH > 0 ? p.FgV2HudMaskH : 36,
         };
     }
 

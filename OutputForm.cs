@@ -37,6 +37,7 @@ public sealed class OutputForm : Form
     public string FgStatus { get; private set; } = "";
     public double SourceFps => _engine?.SourceFps ?? 0;
     public double OutputFps => _engine?.OutputFps ?? 0;
+    public double ResponseMs => _engine?.GpuMs ?? 0;
     public string SwapInfo => _engine?.SwapInfo ?? "";
     public string MotionSource => _pipe.MotionSource;
     public string HudText => _hud.Text;

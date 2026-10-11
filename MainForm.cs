@@ -7,8 +7,9 @@ using System.Windows.Forms;
 
 namespace UniversalFrameFX;
 
-public sealed class MainForm : Form
+public sealed partial class MainForm : Form
 {
+
     public static string Version => AppVersion.Version;
     public static string DisplayVersion => AppVersion.Display;
     const string SiteUrl = "https://chopstickshq.com/universal-framefx/";
@@ -23,7 +24,9 @@ public sealed class MainForm : Form
     readonly FlatSlider _sharp = new() { Minimum = 0, Maximum = 200, Value = 25, Width = 300 };
     readonly Label _sharpLbl = new() { AutoSize = true, ForeColor = Theme.TextMuted };
     readonly DarkCombo _fgSelect = new() { Width = 300 };
+
     readonly DarkCombo _fgMul = new() { Width = 300 };
+
     readonly ToggleSwitch _ssgi = new() { Text = "SSGI (experimental)" };
     readonly DarkCombo _ssgiPreset = new() { Width = 300 };
     readonly ToggleSwitch _ssgiSteady = new() { Text = "Steadier SSGI lighting" };
@@ -36,13 +39,16 @@ public sealed class MainForm : Form
     readonly ToggleSwitch _fixedPace = new() { Text = "Fixed frame pacing" };
     static readonly int[] FpsCapVals = { 0, 60, 90, 120, 144, 165, 240 };
     readonly DarkCombo _ssrtPreset = new() { Width = 300 };
+
     readonly ToggleSwitch _lowLat = new() { Text = $"Latency budget: keep FrameFX under {LatencyBudget.DefaultMs:0.0} ms per frame" };
     readonly DarkCombo _res = new() { Width = 300 };
     readonly DarkCombo _preset = new() { Width = 300 };
     readonly Label _upNote = new() { AutoSize = true, MaximumSize = new Size(470, 0), ForeColor = Theme.TextMuted, Margin = new Padding(0, 4, 0, 4) };
-    readonly PillButton _coffee = new() { Text = "☕ Buy me a coffee", AutoSize = true, Kind = PillKind.Ghost };
-    static readonly Backend[] BackendOrder = Backends.MenuOrder;
+    readonly PillButton _coffee = new() { Text = "Buy me a coffee", AutoSize = true, Kind = PillKind.Ghost };
+
+    public static readonly Backend[] BackendOrder = Backends.MenuOrder;
     public string? AutoBackend, AutoRes, AutoFgKind, AutoPreset, AutoFgMul;
+
     public bool CliCompareOff { get => _compareOff; set { if (value) _compareOff = true; } }
     public bool CliCsr2, CliVsyncFg, CliFixedPacing;
     public int? CliFpsCap;
@@ -51,6 +57,7 @@ public sealed class MainForm : Form
     readonly DarkCombo _motion = new() { Width = 300 };
     readonly DarkCombo _gpuChoice = new() { Width = 300 };
     readonly Label _gpuNote = new() { AutoSize = true, MaximumSize = new Size(470, 0), ForeColor = Theme.TextMuted };
+
     public static GpuChoice? CliGpu;
     readonly Label _motionLbl = new() { AutoSize = true, MaximumSize = new Size(470, 0), ForeColor = Theme.Green };
     readonly System.Windows.Forms.Timer _uiTimer = new() { Interval = 500 };
@@ -59,9 +66,12 @@ public sealed class MainForm : Form
     readonly PillButton _apply = new() { Text = "Apply", AutoSize = true, Kind = PillKind.Primary };
     readonly Label _pending = new() { AutoSize = true, MaximumSize = new Size(470, 0), ForeColor = Theme.Amber, Margin = new Padding(2, 8, 0, 0) };
 
+
     readonly GameDetector _detector = new();
+
     readonly System.Windows.Forms.Timer _gameTimer = new() { Interval = 500 };
     readonly PillButton _gamesOnly = new() { Text = "Apply to games only", AutoSize = true, Kind = PillKind.Ghost };
+
     readonly Label _gameStatus = new() { AutoSize = true, ForeColor = Theme.Green, Margin = new Padding(2, 2, 0, 0), Visible = false };
     readonly ToolTip _acTip = new() { InitialDelay = 200, AutoPopDelay = 8000 };
     readonly TextBox _gamesAlwaysBox = NewGameListBox();
@@ -70,9 +80,11 @@ public sealed class MainForm : Form
     readonly TextBox _acNeverBox = NewGameListBox();
     readonly Label _gamesListNote = new() { AutoSize = true, ForeColor = Theme.Green, Margin = new Padding(2, 6, 0, 0) };
     bool _gamesArmed;
+
     GameProfile _baseline = new();
     bool _profilesReady;
     string _profileBanner = "";
+
     bool _compareOff;
     readonly TableLayoutPanel _profileRows = new() { ColumnCount = 2, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Anchor = AnchorStyles.Left | AnchorStyles.Right, Margin = new Padding(0, 2, 0, 0), BackColor = Theme.Card };
     readonly Label _profileEmpty = new() { AutoSize = true, ForeColor = Theme.TextMuted, Margin = new Padding(0, 4, 0, 2), Text = "No saved profiles yet. They appear when you change settings while a game is running." };
@@ -84,6 +96,7 @@ public sealed class MainForm : Form
     string _gameLabel = "";
     IntPtr _pendingHwnd;
     string _pendingLabel = "";
+
     static readonly string? GameLogPath = Environment.GetEnvironmentVariable("UFX_GAMELOG") is { Length: > 0 } p ? p : null;
     static readonly string? FgScript = Environment.GetEnvironmentVariable("UFX_FG_SCRIPT") is { Length: > 0 } s ? s : null;
     static readonly List<(string title, int sec)> ScriptSteps = ParseScript(FgScript);
@@ -92,12 +105,14 @@ public sealed class MainForm : Form
     int _hbTicks;
     bool GamesOnlyOn => _ui.GamesOnly || FgScript != null;
 
+
     sealed record Applied(IntPtr Source, int Backend, int Quality, int Sharp, bool Fg, int Mode, int Motion, int FgKind, int Res, int Preset, int FgMul);
     Applied? _applied;
     bool _restartPending;
     bool _suppressDirty, _suppressMulSave, _suppressProfile;
     bool _fgMulCsr20;
     readonly Label _status = new() { AutoSize = true, MaximumSize = new Size(470, 0), ForeColor = Theme.TextMuted, Margin = new Padding(2, 6, 0, 0) };
+
     readonly FlowLayoutPanel _updBar = new() { AutoSize = true, WrapContents = true, Visible = false, Margin = new Padding(0, 4, 0, 2), BackColor = Theme.Bg };
     readonly Label _updText = new() { AutoSize = true, ForeColor = Theme.Green, Margin = new Padding(2, 7, 8, 0) };
     readonly PillButton _updInstall = new() { Text = "Install", AutoSize = true, Kind = PillKind.Primary, Margin = new Padding(0, 0, 6, 0) };
@@ -116,12 +131,14 @@ public sealed class MainForm : Form
     static readonly (string name, double ratio)[] Qualities =
         { ("Quality (1.5x)", 1.5), ("Balanced (1.7x)", 1.7), ("Performance (2.0x)", 2.0), ("Ultra Performance (3.0x)", 3.0) };
 
+
     readonly TableLayoutPanel _stack = new() { ColumnCount = 1, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Dock = DockStyle.Top, Padding = new Padding(18, 2, 18, 16), BackColor = Theme.Bg };
     readonly Panel _scroll = new() { Dock = DockStyle.Fill, AutoScroll = true, BackColor = Theme.Bg };
     readonly List<Label> _wrap = new();
     readonly Dictionary<string, (SectionHeader head, Control body)> _sections = new();
     readonly Label _notice = new() { AutoSize = true, MaximumSize = new Size(470, 0), ForeColor = Theme.Amber, Margin = new Padding(2, 4, 0, 0), Visible = false };
     readonly Label _active = new() { AutoSize = true, ForeColor = Theme.Green, Margin = new Padding(2, 2, 0, 0) };
+
     readonly ToggleSwitch _cpuPower = new() { Text = "Use the high performance power mode while gaming (may ask for admin)" };
     readonly ToggleSwitch _cpuMin = new() { Text = "Keep the processor at full speed while gaming (may ask for admin)" };
     readonly ToggleSwitch _cpuPark = new() { Text = "Keep all cores awake (may ask for admin)" };
@@ -148,16 +165,42 @@ public sealed class MainForm : Form
     string _cpuShownExe = "";
     double? _benchSingle0, _benchMulti0;
     UiState _ui = UiState.Load();
+    readonly NavList _nav = new();
+    readonly Dictionary<string, PageView> _pages = new();
+    readonly Label _barWarn = new() { AutoSize = true, ForeColor = Theme.Amber, Margin = new Padding(2, 6, 0, 0), Visible = false, Cursor = Cursors.Hand };
+    Label _homeGame = null!;
+    Label _homeUp = null!;
+    Label _homeFg = null!;
+    Label _homeFps = null!;
+    Label _homeLat = null!;
+    Label _homeAc = null!;
+    Label _homeMotion = null!;
+    readonly Label _fgWarn = new() { AutoSize = true, MaximumSize = new Size(470, 0), ForeColor = Theme.Amber, Margin = new Padding(0, 4, 0, 8), Visible = false };
+    readonly Label _csr2Only = new() { AutoSize = true, MaximumSize = new Size(470, 0), ForeColor = Theme.TextMuted, Margin = new Padding(0, 4, 0, 8) };
+    readonly List<(Control row, Func<bool> visible)> _rowVis = new();
+    readonly PillButton _refreshBtn = new() { Text = "Refresh", AutoSize = true, Kind = PillKind.Ghost, Margin = new Padding(8, 0, 0, 0) };
+    readonly PillButton _addGame = new() { Text = "Add current game", AutoSize = true, Kind = PillKind.Secondary, Margin = new Padding(0, 0, 8, 0) };
+    readonly PillButton _neverGame = new() { Text = "Never treat current app as game", AutoSize = true, Kind = PillKind.Secondary, Margin = new Padding(0, 0, 8, 0) };
+    readonly PillButton _viewAc = new() { Text = "View built-in list", AutoSize = true, Kind = PillKind.Secondary, Margin = new Padding(0, 0, 8, 0) };
+    readonly PillButton _gpuRestart = new() { Text = "Restart FrameFX now", AutoSize = true, Kind = PillKind.Ghost, Visible = false, Margin = new Padding(0, 4, 0, 0) };
+    readonly PillButton _logsBtn = new() { Text = "Open logs folder", AutoSize = true, Kind = PillKind.Ghost, Margin = new Padding(0, 0, 8, 0) };
+    readonly PillButton _aboutBtn = new() { Text = "Licenses and notices", AutoSize = true, Kind = PillKind.Ghost };
+    readonly TableLayoutPanel _bar = new();
+    PageView? _building;
+    TableLayoutPanel _homeWarn = null!;
+    TableLayoutPanel _fgBasics = null!;
+    bool _pageFromEnv;
 
     public MainForm()
     {
+
         AutoScaleDimensions = new SizeF(96f, 96f);
         AutoScaleMode = AutoScaleMode.Dpi;
         Text = $"Universal-FrameFX {DisplayVersion}";
         FormBorderStyle = FormBorderStyle.Sizable;
         MaximizeBox = true;
-        MinimumSize = new Size(460, 480);
-        ClientSize = new Size(560, 760);
+        MinimumSize = new Size(720, 520);
+        ClientSize = new Size(920, 700);
         BackColor = Theme.Bg;
         ForeColor = Theme.Text;
         Font = Theme.Body();
@@ -179,124 +222,57 @@ public sealed class MainForm : Form
             _start.Enabled = false;
         }
 
-        var header = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 1, Padding = new Padding(20, 16, 20, 8), BackColor = Theme.Bg };
-        var title = new Label { Text = "Universal-FrameFX", Font = new Font(Theme.DisplayFamily, 18f, Theme.DisplayFamily == "Segoe UI Semibold" ? FontStyle.Regular : FontStyle.Bold), AutoSize = true, ForeColor = Theme.Text, Margin = new Padding(0) };
-        var sub = new Label { Text = $"{DisplayVersion} · GPU: {_gpu?.AdapterName ?? "unavailable"}", AutoSize = true, ForeColor = Theme.TextMuted, Margin = new Padding(2, 2, 0, 4) };
-        _updBar.Controls.Add(_updText); _updBar.Controls.Add(_updInstall); _updBar.Controls.Add(_updLater);
-        header.Controls.Add(title); header.Controls.Add(sub); header.Controls.Add(_updBar);
-
-        _stack.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        _scroll.Controls.Add(_stack);
-        _scroll.Resize += (_, _) => Reflow();
-
-        var src = Section("Source", true);
-        var srcRow = new TableLayoutPanel { ColumnCount = 2, AutoSize = true, Anchor = AnchorStyles.Left | AnchorStyles.Right, Margin = new Padding(0) };
-        srcRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        srcRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        var refresh = new PillButton { Text = "Refresh", AutoSize = true, Kind = PillKind.Ghost, Margin = new Padding(8, 0, 0, 0) };
-        refresh.Click += (_, _) => RefreshSources();
-        _source.Anchor = AnchorStyles.Left | AnchorStyles.Right; _source.Width = 200;
-        srcRow.Controls.Add(_source, 0, 0); srcRow.Controls.Add(refresh, 1, 0);
-        Add(src, srcRow);
-        Add(src, Note("Windows are captured with Windows.Graphics.Capture at their native size, then upscaled to the output resolution you pick below (up to 4×; vendor upscalers up to 3×)."));
-
-        var up = Section("Upscaling", true);
         foreach (var b in BackendOrder) _backend.Items.Add(BackendNames.Long(b));
         _backend.DisabledReason = i => VendorSupport.Get(BackendOrder[i]) is { Ok: false } v ? (VendorSupport.Probed ? v.Why : "Checking this GPU…") : null;
         _backend.SelectedIndex = 0;
         _backend.SelectedIndexChanged += (_, _) => { UserProfileTouch(); UpdateUpNote(); UpdateDirty(); };
-        Add(up, Note("Upscaler:"));
-        Add(up, Stretch(_backend));
-        _upNote.MaximumSize = Size.Empty; _wrap.Add(_upNote);
-        Add(up, _upNote);
         _preset.Items.Add("Performance: about 1 ms GPU per frame (default)");
         _preset.Items.Add("Quality: best image quality");
         _preset.Items.Add("Competitive: 1080p output, 8× frame generation, lowest latency");
         _preset.SelectedIndex = 0;
         _preset.SelectedIndexChanged += (_, _) =>
         {
-            if (_preset.SelectedIndex == 2 && _fgSelect.SelectedIndex == (int)FgSelect.Csr20 && !_suppressProfile)
+            if (_preset.SelectedIndex == 2 && SelectedFg == FgSelect.Csr20 && !_suppressProfile)
                 _fgV2Extrap.Checked = true;
             UserProfileTouch(); UpdateUpNote(); UpdateDirty();
         };
-        Add(up, Note("Preset:"));
-        Add(up, Stretch(_preset));
         foreach (var q in Qualities) _quality.Items.Add(q.name);
         _quality.SelectedIndex = 2;
-        Add(up, Note("Quality mode (test scene render scale):"));
-        Add(up, Stretch(_quality));
-        Add(up, Note("Sharpness (0 = sharpest):"));
-        var sharpRow = new TableLayoutPanel { ColumnCount = 2, AutoSize = true, Anchor = AnchorStyles.Left | AnchorStyles.Right, Margin = new Padding(0) };
-        sharpRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        sharpRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        _sharp.Anchor = AnchorStyles.Left | AnchorStyles.Right; _sharp.Width = 200;
-        _sharpLbl.Anchor = AnchorStyles.Left;
-        sharpRow.Controls.Add(_sharp, 0, 0); sharpRow.Controls.Add(_sharpLbl, 1, 0);
-        Add(up, sharpRow);
         _sharp.Scroll += (_, _) => { UpdateSharp(); UpdateDirty(); };
         UpdateSharp();
 
-        var fgs = Section("Frame generation", true);
-        _fgSelect.Items.Add("Off");
-        _fgSelect.Items.Add("CSR 1.3 frame generation (classic)");
-        _fgSelect.Items.Add("CSR 2.0 frame generation");
-        _fgSelect.Items.Add("AMD FSR 3 frame generation");
-        _fgSelect.DisabledReason = i => i == (int)FgSelect.Fsr3 && !VendorSupport.FsrFrameGen.Ok ? (VendorSupport.Probed ? VendorSupport.FsrFrameGen.Why : "Checking this GPU…") : null;
-        _fgSelect.SelectedIndex = Math.Clamp(_ui.FgSelect, 0, 3);
-        Add(fgs, Stretch(_fgSelect));
+        foreach (var s in FgSelectUi.MenuOrder) _fgSelect.Items.Add(FgSelectName(s));
+        _fgSelect.DisabledReason = i =>
+        {
+            var s = FgSelectUi.MenuOrder[i];
+            if (s == FgSelect.Fsr3 && !VendorSupport.FsrFrameGen.Ok)
+                return VendorSupport.Probed ? VendorSupport.FsrFrameGen.Why : "Checking this GPU…";
+            if (s == FgSelect.CsrAi && !File.Exists(CsrAiFg.WeightsPath))
+                return "CSR Flux model files are not installed";
+            return null;
+        };
+        _fgSelect.SelectedIndex = IndexOfFg((FgSelect)Math.Clamp(_ui.FgSelect, 0, 4));
         RebuildFgMulItems(_ui.FgMultiplier);
-        Add(fgs, Stretch(_fgMul));
         _lowLat.Checked = _ui.LatencyBudget;
-        Add(fgs, _lowLat);
-        Add(fgs, Note($"Latency budget: keeps FrameFX's added response time under {LatencyBudget.DefaultMs:0.0} ms (shown as \"Response\" in the HUD) by automatically trading a little quality for speed, and restores quality when there is headroom. Frame generation itself still adds up to about one captured frame of latency."));
-        Add(fgs, Note("CSR 1.3 frame generation (classic): FrameFX's own classic frame generation. CSR 2.0 frame generation: FrameFX's newer engine, with the options below. AMD FSR 3 frame generation: AMD's own. All pause automatically while the source already runs at ≥75% of your refresh rate."));
-        Add(fgs, Note("Multiplier: 2×, 3×, 4× (and 8× advanced) multiply the frames you see. CSR 2.0 also lists 5×, 6×, 10× and 20×. Output is capped at your refresh rate and the multiplier is lowered automatically when needed (the HUD shows the effective multiplier). Frame generation never raises the game's real fps, adds about one captured frame of latency, and steps down automatically if the game's fps drops more than 5% while it runs."));
         _fgV2Vsync.Checked = _ui.FgV2Vsync || Environment.GetEnvironmentVariable("UFX_FG_V2_VSYNC") == "1";
-        Add(fgs, _fgV2Vsync); _settings.FgV2Vsync = _fgV2Vsync.Checked;
+        _settings.FgV2Vsync = _fgV2Vsync.Checked;
         _fgV2Extrap.Checked = _ui.FgV2Extrap;
-        Add(fgs, _fgV2Extrap); _settings.FgV2Extrap = _fgV2Extrap.Checked;
+        _settings.FgV2Extrap = _fgV2Extrap.Checked;
         _fgV2Cursor.Checked = _ui.FgV2Cursor;
-        Add(fgs, _fgV2Cursor); _settings.FgV2Cursor = _fgV2Cursor.Checked;
+        _settings.FgV2Cursor = _fgV2Cursor.Checked;
         _fgV2LowRes.Checked = _ui.FgV2LowResGen || Environment.GetEnvironmentVariable("UFX_FG_V2_LOWRES") == "1";
-        Add(fgs, _fgV2LowRes); _settings.FgV2LowResGen = _fgV2LowRes.Checked;
-        Add(fgs, Note("Smoother motion when the game runs below half your display's refresh rate; adds about one frame of latency."));
+        _settings.FgV2LowResGen = _fgV2LowRes.Checked;
         UpdateCsr2OptionsVisibility();
 
-        var outs = Section("Output", true);
         foreach (var m in Enum.GetValues<OutputMode>()) _mode.Items.Add(OutputModeNames.Long(m));
         _mode.SelectedIndex = 0;
-        Add(outs, Stretch(_mode));
         foreach (var r in Enum.GetValues<OutputRes>()) _res.Items.Add(OutputResNames.Long(r));
         _res.SelectedIndex = 0;
-        Add(outs, Note("Output resolution:"));
-        Add(outs, Stretch(_res));
-        Add(outs, Note("1440p / 4K with the overlay: the overlay covers the source's monitor and shows the upscaled image letterboxed; it stays click-through, so clicks reach whatever is underneath at its real position. 4K on a smaller monitor is rendered at 4K and scaled to fit."));
-        Add(outs, Note("Overlay: a click-through, always-on-top window over the source that follows it; the source keeps mouse and keyboard focus. Ctrl+Alt+F hides/shows it, Ctrl+Alt+Q stops, Ctrl+Alt+C compares the picture with FrameFX off. Separate/fullscreen output: Esc stops, Ctrl+Alt+C compares."));
-        Add(outs, _hud);
 
-        var games = Section("Games", false);
-        Add(games, Note("When \"Apply to games only\" is on, FrameFX captures the foreground game with the overlay and pauses on the desktop, browsers and normal apps: the overlay is hidden and no GPU work is done. A game is a fullscreen or borderless-fullscreen D3D/Vulkan/OpenGL window, or a game started from Steam, Epic, Xbox/Game Pass, GOG, Battle.net, Riot, EA or Ubisoft. The lists below override that."));
-        Add(games, Note("Always treat as game (one .exe per line):"));
         _gamesAlwaysBox.Text = string.Join(Environment.NewLine, _ui.GamesAlways ?? new List<string>());
-        Add(games, Stretch(_gamesAlwaysBox));
-        Add(games, Note("Never treat as game (one .exe per line):"));
         _gamesNeverBox.Text = string.Join(Environment.NewLine, _ui.GamesNever ?? new List<string>());
-        Add(games, Stretch(_gamesNeverBox));
-        Add(games, Note("Always treat as protected (one .exe per line):"));
         _acAlwaysBox.Text = string.Join(Environment.NewLine, _ui.AcAlways ?? new List<string>());
-        Add(games, Stretch(_acAlwaysBox));
-        Add(games, Note("Not protected (one .exe per line):"));
         _acNeverBox.Text = string.Join(Environment.NewLine, _ui.AcNever ?? new List<string>());
-        Add(games, Stretch(_acNeverBox));
-        var gamesRow = new FlowLayoutPanel { AutoSize = true, WrapContents = true, Margin = new Padding(0), BackColor = Theme.Card };
-        var addGame = new PillButton { Text = "Add current game", AutoSize = true, Kind = PillKind.Ghost, Margin = new Padding(0, 0, 8, 0) };
-        var neverGame = new PillButton { Text = "Never treat current app as game", AutoSize = true, Kind = PillKind.Ghost, Margin = new Padding(0, 0, 8, 0) };
-        var viewAc = new PillButton { Text = "View built-in list", AutoSize = true, Kind = PillKind.Ghost, Margin = new Padding(0, 0, 8, 0) };
-        addGame.Click += (_, _) => AddToGameList(always: true);
-        neverGame.Click += (_, _) => AddToGameList(always: false);
-        viewAc.Click += (_, _) => ShowAcList();
-        gamesRow.Controls.Add(addGame); gamesRow.Controls.Add(neverGame); gamesRow.Controls.Add(viewAc); gamesRow.Controls.Add(_gamesListNote);
-        Add(games, gamesRow);
         PushGameDetector();
         _gamesAlwaysBox.TextChanged += (_, _) => SyncGameLists(false);
         _gamesNeverBox.TextChanged += (_, _) => SyncGameLists(false);
@@ -306,102 +282,45 @@ public sealed class MainForm : Form
         _acNeverBox.TextChanged += (_, _) => SyncAcLists(false);
         _acAlwaysBox.Leave += (_, _) => SyncAcLists(true);
         _acNeverBox.Leave += (_, _) => SyncAcLists(true);
-        Add(games, Note("Game profiles: FrameFX remembers preset, frame generation, SSGI, steadier lighting, ray-traced lighting, upscaler, output resolution and CPU options for each game, and applies them when that game is detected."));
-        _wrap.Add(_profileEmpty);
         _profileRows.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         _profileRows.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        Add(games, _profileEmpty);
-        Add(games, _profileRows);
         _profileResetAll.Click += (_, _) => { GameProfiles.ResetAll(_ui.Profiles); SaveUi(); RebuildProfileList(); };
-        Add(games, _profileResetAll);
         RebuildProfileList();
 
-        var adv = Section("Advanced", false);
         _ssgi.Checked = _ui.Ssgi;
-        Add(adv, _ssgi);
-        foreach (var n in Ssgi.PresetNames) _ssgiPreset.Items.Add("SSGI preset: " + n);
+        foreach (var n in Ssgi.PresetNames) _ssgiPreset.Items.Add(n);
         _ssgiPreset.SelectedIndex = Math.Clamp(_ui.SsgiPreset, 0, Ssgi.PresetNames.Length - 1);
-        Add(adv, Stretch(_ssgiPreset));
         _ssgiSteady.Checked = _ui.SsgiTemporal;
-        Add(adv, _ssgiSteady);
-        Add(adv, Note("Steadier lighting while moving."));
-        Add(adv, Note("SSGI (experimental): adds coloured bounce light from bright areas and contact shadows to the captured frame, before upscaling and frame generation. It only sees the 2D image (no depth), so it is an approximation: it can light or darken things a real renderer would not. Estimated GPU cost ~0.9–1.2 ms (GTX 1050 Ti at 1080p / GTX 980 Ti at 1440p presets). Auto picks the 980 Ti settings for 1440p+ on faster GPUs, otherwise the 1050 Ti settings."));
         _ssrt.Checked = _ui.Ssrt;
-        Add(adv, _ssrt);
         foreach (var n in Ssrt.PresetNames) _ssrtPreset.Items.Add(n);
         _ssrtPreset.SelectedIndex = Math.Clamp(_ui.SsrtPreset, 0, Ssrt.PresetNames.Length - 1);
         _ssrtPreset.Visible = _ssrt.Checked;
-        Add(adv, Stretch(_ssrtPreset));
-        Add(adv, Note("Ray-traced lighting (experimental) is off unless you turn it on. It adds extra light, reflections and contact shadows, including on cards without hardware ray tracing such as the GTX 1050 Ti and GTX 980 Ti. While it is on, it is used instead of SSGI. Auto picks lighter settings at 1080p and on a GTX 1050 Ti or a slower card."));
-        _fpsCap.Items.Add("Output fps cap: Off");
-        _fpsCap.Items.Add("Output fps cap: 60");
-        _fpsCap.Items.Add("Output fps cap: 90");
-        _fpsCap.Items.Add("Output fps cap: 120");
-        _fpsCap.Items.Add("Output fps cap: 144");
-        _fpsCap.Items.Add("Output fps cap: 165");
-        _fpsCap.Items.Add("Output fps cap: 240");
+        _fpsCap.Items.Add("Off");
+        _fpsCap.Items.Add("60");
+        _fpsCap.Items.Add("90");
+        _fpsCap.Items.Add("120");
+        _fpsCap.Items.Add("144");
+        _fpsCap.Items.Add("165");
+        _fpsCap.Items.Add("240");
         int capI = Array.IndexOf(FpsCapVals, _ui.FpsCap);
         _fpsCap.SelectedIndex = capI < 0 ? 0 : capI;
         _settings.FpsCap = FpsCapVals[Math.Max(0, _fpsCap.SelectedIndex)];
-        Add(adv, Stretch(_fpsCap));
         _fixedPace.Checked = _ui.FixedPacing || Environment.GetEnvironmentVariable("UFX_FG_V2_PACING") == "fixed";
-        Add(adv, _fixedPace);
         _settings.FixedPacing = _fixedPace.Checked;
         foreach (var m in Enum.GetValues<MotionPreference>()) _motion.Items.Add(MotionEngines.PrefName(m));
         _motion.SelectedIndex = 0;
         _motion.SelectedIndexChanged += (_, _) => UpdateDirty();
-        Add(adv, Note("Motion source:"));
-        Add(adv, Stretch(_motion));
-        _motionLbl.MaximumSize = Size.Empty; _wrap.Add(_motionLbl);
-        Add(adv, _motionLbl);
-        Add(adv, Note("The motion source setting applies to the Quality preset. The built-in test scene shows the full-quality result."));
         string hiName = Gpu.AdapterNameFor(GpuChoice.Dedicated) ?? "?", loName = Gpu.AdapterNameFor(GpuChoice.Integrated) ?? "?";
         _gpuChoice.Items.Add($"Auto (dedicated GPU when there is one): {hiName}");
         _gpuChoice.Items.Add($"Integrated (power saving): {loName}");
         _gpuChoice.Items.Add($"Dedicated (high performance): {hiName}");
         _gpuChoice.SelectedIndex = Math.Clamp(_ui.GpuChoice, 0, 2);
-        var gpuRestart = new PillButton { Text = "Restart FrameFX now", AutoSize = true, Kind = PillKind.Ghost, Visible = false, Margin = new Padding(0, 4, 0, 0) };
-        void GpuNote()
-        {
-            bool pending = _gpu != null && _gpuChoice.SelectedIndex != (int)_gpu.ActiveChoice && CliGpu == null;
-            _gpuNote.Text = $"Running on: {_gpu?.AdapterName ?? "?"} ({_gpu?.KindName})" + (CliGpu != null ? " — set by --gpu for this run" : "") +
-                            (pending ? ". The new choice applies after a restart." : "") +
-                            " Processing on a GPU that does not drive the game's display adds a copy between GPUs for every frame (shown in the overlay HUD). The integrated GPU keeps FrameFX off the GPU the game uses, but it is much slower.";
-            gpuRestart.Visible = pending;
-        }
-        _gpuChoice.SelectedIndexChanged += (_, _) => { _ui.GpuChoice = _gpuChoice.SelectedIndex; SaveUi(); GpuNote(); };
-        gpuRestart.Click += (_, _) => { _out?.Close(); _ui.CaptureFrom(this); SaveUi(); Application.Restart(); };
-        _gpuNote.MaximumSize = Size.Empty; _wrap.Add(_gpuNote);
-        Add(adv, Note("Processing GPU:"));
-        Add(adv, Stretch(_gpuChoice));
-        Add(adv, _gpuNote);
-        Add(adv, gpuRestart);
-        GpuNote();
+        _gpuChoice.SelectedIndexChanged += (_, _) => { _ui.GpuChoice = _gpuChoice.SelectedIndex; SaveUi(); UpdateGpuNote(); };
 
-        var cpu = Section("CPU", false);
-        Add(cpu, Note("Get more performance out of your CPU for games. This can't make your CPU faster than its hardware allows; results depend on the game and your PC. Everything is undone when the game closes, when FrameFX closes, or with Restore defaults."));
-        Add(cpu, CpuGroup("Power"));
-        Add(cpu, _cpuPower);
-        Add(cpu, _cpuMin);
-        Add(cpu, _cpuPark);
-        Add(cpu, Note("Processor boost while gaming (may ask for admin):"));
         _cpuBoost.Items.Add("Leave as it is");
         _cpuBoost.Items.Add("Strong boost");
         _cpuBoost.Items.Add("Efficient boost");
         _cpuBoost.SelectedIndex = 0;
-        Add(cpu, Stretch(_cpuBoost));
-        Add(cpu, _cpuThrottle);
-        Add(cpu, CpuGroup("Single-core"));
-        Add(cpu, _cpuPrio);
-        Add(cpu, _cpuFast);
-        Add(cpu, _cpuSmt);
-        Add(cpu, _cpuTimer);
-        Add(cpu, CpuGroup("Multi-core"));
-        Add(cpu, _cpuAll);
-        Add(cpu, _cpuSelf);
-        Add(cpu, Note("Slow down these background apps while gaming (one .exe per line):"));
-        Add(cpu, Stretch(_cpuBg));
-        var cpuRow = new FlowLayoutPanel { AutoSize = true, WrapContents = true, Margin = new Padding(0, 6, 0, 0), BackColor = Theme.Card };
         _cpuBench.Click += (_, _) => _ = RunCpuBenchAsync();
         _cpuDefaults.Click += (_, _) =>
         {
@@ -409,13 +328,6 @@ public sealed class MainForm : Form
             _cpuKey = "";
             OnCpuEdited();
         };
-        cpuRow.Controls.Add(_cpuBench);
-        cpuRow.Controls.Add(_cpuDefaults);
-        Add(cpu, cpuRow);
-        _cpuBenchLbl.MaximumSize = Size.Empty; _wrap.Add(_cpuBenchLbl);
-        _cpuStatus.MaximumSize = Size.Empty; _wrap.Add(_cpuStatus);
-        Add(cpu, _cpuBenchLbl);
-        Add(cpu, _cpuStatus);
         WriteCpuUi(_ui.Cpu);
         _cpuStatus.Text = string.Join(Environment.NewLine, CpuBoost.StatusLines(new CpuBoostStatus()));
         foreach (var sw in new[] { _cpuPower, _cpuMin, _cpuPark, _cpuPrio, _cpuFast, _cpuSmt, _cpuTimer, _cpuAll, _cpuSelf, _cpuThrottle })
@@ -423,21 +335,11 @@ public sealed class MainForm : Form
         _cpuBoost.SelectedIndexChanged += (_, _) => OnCpuEdited();
         _cpuBg.Leave += (_, _) => CommitCpuList();
 
-        var upd = Section("Updates", false);
         _autoCheck.Checked = _ui.AutoCheckUpdates;
         _autoInstall.Checked = _ui.AutoInstallUpdates;
         _autoCheck.CheckedChanged += (_, _) => { _ui.AutoCheckUpdates = _autoCheck.Checked; SaveUi(); if (_autoCheck.Checked && DateTime.Now - _lastCheck > Updater.Interval) _ = CheckForUpdateAsync(false); };
         _autoInstall.CheckedChanged += (_, _) => { _ui.AutoInstallUpdates = _autoInstall.Checked; SaveUi(); };
-        Add(upd, _autoCheck);
-        Add(upd, _autoInstall);
-        var updRow = new FlowLayoutPanel { AutoSize = true, WrapContents = true, Margin = new Padding(0), BackColor = Theme.Card };
         _checkNow.Click += (_, _) => _ = CheckForUpdateAsync(true);
-        var logs = new PillButton { Text = "Open logs folder", AutoSize = true, Kind = PillKind.Ghost, Margin = new Padding(0, 0, 8, 0) };
-        logs.Click += (_, _) => { try { Directory.CreateDirectory(Diag.Dir); Process.Start(new ProcessStartInfo("explorer.exe", "\"" + Diag.Dir + "\"") { UseShellExecute = true }); } catch { } };
-        updRow.Controls.Add(_checkNow); updRow.Controls.Add(logs); updRow.Controls.Add(_updStatus);
-        Add(upd, updRow);
-        Add(upd, Note("Crash reports (crash.log) and the startup timing trace (startup.log) are written to the logs folder; nothing is sent anywhere."));
-        Add(upd, Note("Checks chopstickshq.com on launch and every 6 hours. Updates download over HTTPS, are verified against their published SHA-256 checksum before anything is installed, and the previous version is kept so it can be restored automatically if the new one fails to start."));
         _updStatus.Text = $"{DisplayVersion}" + (Updater.TestMode ? $" · test manifest: {Updater.ManifestUrl}" : "");
         _updInstall.Click += (_, _) => _ = InstallUpdateAsync(false);
         _updLater.Click += (_, _) => { _updBar.Visible = false; };
@@ -445,11 +347,11 @@ public sealed class MainForm : Form
         _fgSelect.SelectedIndexChanged += (_, _) =>
         {
             UpdateCsr2OptionsVisibility();
-            if (_preset.SelectedIndex == 2 && _fgSelect.SelectedIndex == (int)FgSelect.Csr20 && !_suppressProfile)
+            if (_preset.SelectedIndex == 2 && SelectedFg == FgSelect.Csr20 && !_suppressProfile)
                 _fgV2Extrap.Checked = true;
             SyncExtrapForMul();
             UserProfileTouch();
-            if (!_suppressProfile && ActiveGameExe() is null) { _ui.FgSelect = _fgSelect.SelectedIndex; SaveUi(); }
+            if (!_suppressProfile && ActiveGameExe() is null) { _ui.FgSelect = (int)SelectedFg; SaveUi(); }
             UpdateDirty();
         };
         _fgMul.SelectedIndexChanged += (_, _) =>
@@ -499,14 +401,6 @@ public sealed class MainForm : Form
             if (ActiveGameExe() is null) { _ui.Ssrt = _ssrt.Checked; SaveUi(); }
             UserProfileTouch();
         };
-        _ssrtPreset.SelectedIndexChanged += (_, _) =>
-        {
-            if (_suppressProfile) return;
-            _settings.SsrtPreset = Math.Max(0, _ssrtPreset.SelectedIndex);
-            if (ActiveGameExe() is null) { _ui.SsrtPreset = _settings.SsrtPreset; SaveUi(); }
-            UserProfileTouch();
-        };
-        _settings.Ssrt = _ui.Ssrt; _settings.SsrtPreset = Math.Clamp(_ui.SsrtPreset, 0, 2); _settings.SsrtTemporal = _ui.SsrtTemporal;
         _fgV2Vsync.CheckedChanged += (_, _) =>
         {
             if (_suppressProfile) return;
@@ -544,27 +438,21 @@ public sealed class MainForm : Form
             if (_suppressProfile) return;
             if (ActiveGameExe() is null) { _ui.FixedPacing = _fixedPace.Checked; SaveUi(); }
         };
+        _ssrtPreset.SelectedIndexChanged += (_, _) =>
+        {
+            if (_suppressProfile) return;
+            _settings.SsrtPreset = Math.Max(0, _ssrtPreset.SelectedIndex);
+            if (ActiveGameExe() is null) { _ui.SsrtPreset = _settings.SsrtPreset; SaveUi(); }
+            UserProfileTouch();
+        };
+        _settings.Ssrt = _ui.Ssrt; _settings.SsrtPreset = Math.Clamp(_ui.SsrtPreset, 0, 2); _settings.SsrtTemporal = _ui.SsrtTemporal;
 
-        var bar = new TableLayoutPanel { Dock = DockStyle.Bottom, AutoSize = true, ColumnCount = 1, Padding = new Padding(20, 12, 20, 14), BackColor = Theme.Bg };
-        bar.Paint += (_, e) => { using var p = new Pen(Theme.Border); e.Graphics.DrawLine(p, 0, 0, bar.Width, 0); };
-        bar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        var row = new FlowLayoutPanel { AutoSize = true, WrapContents = true, Margin = new Padding(0), Anchor = AnchorStyles.Left | AnchorStyles.Right };
         _start.Click += (_, _) => Toggle();
-        var about = new PillButton { Text = "About / licenses", AutoSize = true, Kind = PillKind.Ghost };
-        about.Click += (_, _) => ShowAbout();
         _apply.Click += (_, _) => Apply();
         _coffee.Click += (_, _) => Open(Coffee);
         _gamesOnly.Click += (_, _) => SetGamesOnly(!_ui.GamesOnly);
-        row.Controls.Add(_apply); row.Controls.Add(_gamesOnly); row.Controls.Add(_start); row.Controls.Add(_coffee); row.Controls.Add(about);
-        bar.Controls.Add(row);
-        _pending.MaximumSize = Size.Empty; _status.MaximumSize = Size.Empty;
-        _wrap.Add(_pending); _wrap.Add(_status); _wrap.Add(_notice);
-        bar.Controls.Add(_pending); bar.Controls.Add(_status); bar.Controls.Add(_notice); bar.Controls.Add(_active); bar.Controls.Add(_gameStatus);
-        bar.Resize += (_, _) => Reflow();
 
-        Controls.Add(_scroll);
-        Controls.Add(header);
-        Controls.Add(bar);
+        BuildLayout();
 
         Diag.Mark("form: controls built");
         RefreshSources();
@@ -589,12 +477,13 @@ public sealed class MainForm : Form
                 _active.ForeColor = _out.CompareOff ? Theme.Amber : Theme.Green;
                 _active.Text = $"{_out.CompareStatus}  ·  output {_out.OutputFps:0} fps / game {_out.SourceFps:0} fps";
                 string n = _out.CompareOff ? "FrameFX OFF (compare)" : "";
-                if (_out.Warning.Length > 0) n += (n.Length > 0 ? "\n" : "") + "⚠ " + _out.Warning;
+                if (_out.Warning.Length > 0) n += (n.Length > 0 ? "\n" : "") + "Warning: " + _out.Warning;
                 if (_out.Hint.Length > 0) n += (n.Length > 0 ? "\n" : "") + "Hint: " + _out.Hint;
                 if (_notice.Text != n) _notice.Text = n;
                 _notice.Visible = n.Length > 0;
             }
             else { _motionLbl.Text = _motionAvail; _active.ForeColor = Theme.Green; _active.Text = _motionShort; _notice.Visible = false; }
+            UpdateHome();
         };
         _uiTimer.Start();
         _cpuPoll.Tick += (_, _) => CpuTick();
@@ -607,6 +496,7 @@ public sealed class MainForm : Form
         _updTimer.Start();
         Diag.Mark("form: ctor done");
     }
+
 
     protected override void OnShown(EventArgs e)
     {
@@ -627,6 +517,8 @@ public sealed class MainForm : Form
             t2.Tick += (_, _) => { t2.Stop(); _ = CheckForUpdateAsync(false); };
             t2.Start();
         }
+
+
         if (FgScript != null && ScriptSteps.Count > 0)
         {
             GamesOnlyLook(true);
@@ -653,12 +545,15 @@ public sealed class MainForm : Form
     {
         if (_updBusy) return;
         if (_ui.AutoCheckUpdates && DateTime.Now - _lastCheck >= Updater.Interval) { _ = CheckForUpdateAsync(false); return; }
+
         if (_updAvail != null && _ui.AutoInstallUpdates && _out == null && _updAvail.Version != _ui.FailedUpdate && !Updater.NeedsManualInstall(_updAvail)) _ = InstallUpdateAsync(true);
     }
 
     string _motionShort = "";
 
+
     [System.Runtime.InteropServices.DllImport("user32.dll")] static extern bool PrintWindow(IntPtr hwnd, IntPtr hdc, uint flags);
+    [System.Runtime.InteropServices.DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
     static readonly bool QuietShot = Environment.GetEnvironmentVariable("UFX_SHOT") is { Length: > 0 };
     protected override bool ShowWithoutActivation => QuietShot || base.ShowWithoutActivation;
 
@@ -668,12 +563,15 @@ public sealed class MainForm : Form
         base.OnHandleCreated(e);
         Theme.DarkChrome(this);
         Theme.DarkNative(_scroll);
+        SendMessage(Handle, 0x0127, (IntPtr)0x00010002, IntPtr.Zero);
     }
 
     protected override void OnLoad(EventArgs e)
     {
         Diag.Mark("form: load start");
         base.OnLoad(e);
+
+
         if (Environment.GetEnvironmentVariable("UFX_SHOT") is { Length: > 0 } shot)
         {
             var t = new System.Windows.Forms.Timer { Interval = 3000 };
@@ -702,13 +600,8 @@ public sealed class MainForm : Form
     TableLayoutPanel Section(string name, bool defaultOpen)
     {
         bool open = _ui.Expanded.TryGetValue(name, out var o) ? o : defaultOpen;
-        var card = new CardPanel { Anchor = AnchorStyles.Left | AnchorStyles.Right, Margin = new Padding(0, 0, 0, 12), Padding = new Padding(16, 6, 16, 10) };
-        var head = new SectionHeader(name) { Anchor = AnchorStyles.Left | AnchorStyles.Right, Margin = new Padding(0), Open = open, BackColor = Theme.Card };
-        var body = new TableLayoutPanel { ColumnCount = 1, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Anchor = AnchorStyles.Left | AnchorStyles.Right, Padding = new Padding(0, 0, 0, 4), Margin = new Padding(0), Visible = open, BackColor = Theme.Card };
-        body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        var (head, body) = _building!.Disclosure(name, open);
         head.Click += (_, _) => ToggleSection(name);
-        card.Controls.Add(head); card.Controls.Add(body);
-        _stack.Controls.Add(card);
         _sections[name] = (head, body);
         return body;
     }
@@ -725,14 +618,14 @@ public sealed class MainForm : Form
     static void Add(TableLayoutPanel body, Control c) => body.Controls.Add(c);
     static Control Stretch(Control c) { c.Anchor = AnchorStyles.Left | AnchorStyles.Right; c.Width = 200; return c; }
 
+
     void Reflow()
     {
-        int w = Math.Max(200, _scroll.ClientSize.Width - (int)(80 * DeviceDpi / 96f));
-        int bw = Math.Max(200, ClientSize.Width - 40);
         SuspendLayout();
-        foreach (var l in _wrap) l.MaximumSize = new Size(l == _pending || l == _status ? bw : w, 0);
+        FitContent();
         ResumeLayout(true);
     }
+
 
     void ProbeMotionAsync()
     {
@@ -757,7 +650,19 @@ public sealed class MainForm : Form
 
     void UpdateSharp() => _sharpLbl.Text = $"{_sharp.Value / 100f:0.00} stops";
 
-    bool Csr20On => _fgSelect.SelectedIndex == (int)FgSelect.Csr20;
+    FgSelect SelectedFg => FgSelectUi.MenuOrder[Math.Max(0, _fgSelect.SelectedIndex)];
+    int IndexOfFg(FgSelect s) => Array.IndexOf(FgSelectUi.MenuOrder, s);
+    static string FgSelectName(FgSelect s) => s switch
+    {
+        FgSelect.Csr13 => "CSR 1.3 frame generation (classic)",
+        FgSelect.Csr20 => "CSR 2.0 frame generation",
+        FgSelect.CsrAi => "CSR Flux (AI, experimental)",
+        FgSelect.Fsr3 => "AMD FSR 3 frame generation",
+        _ => "Off",
+    };
+    bool Csr20On => SelectedFg == FgSelect.Csr20;
+    bool CsrAiFgOn => SelectedFg == FgSelect.CsrAi;
+    bool UsesCsr2Options => Csr20On || CsrAiFgOn;
 
     static string MulLabel(int n) => n switch
     {
@@ -775,15 +680,15 @@ public sealed class MainForm : Form
 
     int MenuMul()
     {
-        int cur = _fgMul.SelectedIndex >= 0 && _fgMul.Items.Count > 0 ? FgMul.FromMenuFor(_fgMul.SelectedIndex, Csr20On, _ui.FgMultiplier) : _ui.FgMultiplier;
-        return Csr20On ? cur : GameProfiles.Mul(cur, _fgSelect.SelectedIndex);
+        int cur = _fgMul.SelectedIndex >= 0 && _fgMul.Items.Count > 0 ? FgMul.FromMenuFor(_fgMul.SelectedIndex, UsesCsr2Options, _ui.FgMultiplier) : _ui.FgMultiplier;
+        return UsesCsr2Options ? cur : GameProfiles.Mul(cur, (int)SelectedFg);
     }
 
     void RebuildFgMulItems(int? keep = null)
     {
         int cur = keep ?? (_fgMul.Items.Count > 0 && _fgMul.SelectedIndex >= 0 ? FgMul.FromMenuFor(_fgMul.SelectedIndex, _fgMulCsr20, _ui.FgMultiplier) : _ui.FgMultiplier);
-        if (!Csr20On && cur is 5 or 6 or 10 or 20) cur = 4;
-        bool csr20 = Csr20On;
+        if (!UsesCsr2Options && cur is 5 or 6 or 10 or 20) cur = 4;
+        bool csr20 = UsesCsr2Options;
         var vals = FgMul.MenuValues(csr20, cur);
         _suppressMulSave = true;
         _fgMul.Items.Clear();
@@ -796,7 +701,7 @@ public sealed class MainForm : Form
 
     void SyncExtrapForMul()
     {
-        bool twenty = Csr20On && MenuMul() == 20;
+        bool twenty = UsesCsr2Options && MenuMul() == 20;
         if (twenty)
         {
             _fgV2Extrap.Checked = false;
@@ -808,7 +713,7 @@ public sealed class MainForm : Form
 
     void UpdateCsr2OptionsVisibility()
     {
-        bool v2 = Csr20On;
+        bool v2 = UsesCsr2Options;
         _fgV2Vsync.Visible = _fgV2Extrap.Visible = _fgV2Cursor.Visible = _fgV2LowRes.Visible = v2;
         RebuildFgMulItems();
     }
@@ -844,6 +749,7 @@ public sealed class MainForm : Form
         };
     }
 
+
     void UpdateDirty()
     {
         if (_suppressDirty) return;
@@ -868,7 +774,7 @@ public sealed class MainForm : Form
         bool dirty = changed.Count > 0;
         bool enabled = _gpu != null && (!running || dirty);
         _apply.Enabled = enabled;
-        _apply.Text = running ? (dirty ? "Apply ●" : "Applied") : "Apply && start";
+        _apply.Text = running ? (dirty ? "Apply changes" : "Applied") : "Apply && start";
         _apply.Kind = PillKind.Primary;
         _apply.Ring = dirty;
         _pending.Text = dirty
@@ -877,6 +783,7 @@ public sealed class MainForm : Form
             : "";
         _pending.Visible = dirty;
     }
+
 
     void Apply()
     {
@@ -906,12 +813,12 @@ public sealed class MainForm : Form
 
     void PushLive()
     {
-        int fgSel = _fgSelect.SelectedIndex;
-        var fgKindNow = fgSel == (int)FgSelect.Fsr3 ? FgKind.Fsr3 : FgKind.FrameFX;
+        var fgSel = SelectedFg;
+        var fgKindNow = fgSel == FgSelect.Fsr3 ? FgKind.Fsr3 : FgKind.FrameFX;
         if (_settings.Backend != SelectedBackend || _settings.FgKind != fgKindNow) lock (Gpu.Lock) _pipe?.ClearVendorFailures();
         _settings.Backend = SelectedBackend;
         _settings.Sharpness = _sharp.Value / 100f;
-        _settings.FrameGen = fgSel != (int)FgSelect.Off;
+        _settings.FrameGen = fgSel != FgSelect.Off;
         _settings.FgKind = fgKindNow;
         _settings.FgMultiplier = MenuMul();
         if (_settings.FgMultiplier == 20) { _fgV2Extrap.Checked = false; _settings.FgV2Extrap = false; }
@@ -924,7 +831,8 @@ public sealed class MainForm : Form
         _settings.Ssrt = _ssrt.Checked;
         _settings.SsrtPreset = Math.Max(0, _ssrtPreset.SelectedIndex);
         _settings.SsrtTemporal = _ui.SsrtTemporal;
-        _settings.FgV2 = CliCsr2 || fgSel == (int)FgSelect.Csr20;
+        _settings.FgV2 = CliCsr2 || fgSel is FgSelect.Csr20 or FgSelect.CsrAi;
+        _settings.FgCsrAi = fgSel == FgSelect.CsrAi;
         _settings.FgV2Vsync = CliVsyncFg || _fgV2Vsync.Checked || Environment.GetEnvironmentVariable("UFX_FG_V2_VSYNC") == "1" || (_settings.FgV2 && MenuMul() > 8);
         _settings.FgV2Extrap = _fgV2Extrap.Checked;
         _settings.FgV2LowResGen = _fgV2LowRes.Checked || Environment.GetEnvironmentVariable("UFX_FG_V2_LOWRES") == "1";
@@ -945,7 +853,7 @@ public sealed class MainForm : Form
     void RefreshSources()
     {
         _source.Items.Clear();
-        _source.Items.Add(new SourceItem(IntPtr.Zero, "Built-in test scene (demo)"));
+        _source.Items.Add(new SourceItem(IntPtr.Zero, "Built-in test scene (jittered — full temporal demo)"));
         if (WindowCapture.IsSupported())
             foreach (var w in Native.ListWindows()) _source.Items.Add(new SourceItem(w.Handle, w.ToString()));
         else
@@ -962,6 +870,7 @@ public sealed class MainForm : Form
         StartOutput(src.Hwnd, (OutputMode)_mode.SelectedIndex, src.Label);
     }
 
+
     void StartOutput(IntPtr hwnd, OutputMode mode, string label)
     {
         if (_gpu is null || _pipe is null) return;
@@ -973,6 +882,11 @@ public sealed class MainForm : Form
         int inW = Math.Max(64, (int)(outW / ratio) & ~1), inH = Math.Max(64, (int)(outH / ratio) & ~1);
         PushLive();
         _applied = Current();
+        if (hwnd != IntPtr.Zero && _pipe != null)
+        {
+            var (gp, fromP) = GameProfiles.Select(_ui.Profiles, ActiveGameExe() ?? label, _baseline);
+            if (fromP) _pipe.FgV2HudSeed = gp.FgV2HudMask;
+        }
         _out = new OutputForm(_gpu, _pipe, _settings, hwnd, screen, mode, inW, inH, outW, outH, res);
         if (_compareOff) _out.SetCompareOff(true);
         _out.FormClosed += OnOutputClosed;
@@ -990,10 +904,23 @@ public sealed class MainForm : Form
     void OnOutputClosed(object? sender, FormClosedEventArgs e)
     {
         if (sender is not OutputForm f) return;
+        if (_pipe?.FgV2HudMask is { Length: > 0 } mask && ActiveGameExe() is { } exeMask)
+        {
+            if (_ui.Profiles.TryGetValue(GameProfiles.NormalizeKey(exeMask), out var gp))
+            {
+                gp.FgV2HudMask = mask;
+                gp.FgV2HudMaskW = 64;
+                gp.FgV2HudMaskH = 36;
+                GameProfiles.Remember(_ui.Profiles, exeMask, gp);
+                SaveUi();
+            }
+        }
         _compareOff = f.CompareOff;
         _status.Text = f.Error is { } err ? "Stopped: " + err : "Stopped.";
         bool userStop = f.UserStop;
         _out = null; _applied = null;
+
+
         if (_gamesArmed && !_restartPending && (userStop || f.Error != null)) DisarmGames();
         _start.Text = _gamesArmed ? "Stop" : "Start";
         if (_restartPending)
@@ -1003,6 +930,8 @@ public sealed class MainForm : Form
             {
                 if (_gamesArmed)
                 {
+
+
                     _gameHwnd = _pendingHwnd; _gameLabel = _pendingLabel;
                     bool paused = _lastVerdict is { IsGame: false };
                     StartOutput(_pendingHwnd, OutputMode.Overlay, _pendingLabel);
@@ -1014,6 +943,7 @@ public sealed class MainForm : Form
         UpdateGamesStatus();
         UpdateDirty();
     }
+
 
     void SetGamesOnly(bool on)
     {
@@ -1047,7 +977,7 @@ public sealed class MainForm : Form
     {
         _gamesOnly.Kind = on ? PillKind.Secondary : PillKind.Ghost;
         _gamesOnly.Ring = on;
-        _gamesOnly.Text = on ? "✓ Apply to games only" : "Apply to games only";
+        _gamesOnly.Text = on ? "Games only: on" : "Games only: off";
     }
 
     void ArmGames()
@@ -1068,6 +998,7 @@ public sealed class MainForm : Form
         UpdateGamesStatus();
     }
 
+
     void GameTick()
     {
         var v = _detector.Classify(FgScript != null ? ScriptForeground() : Native.GetForegroundWindow());
@@ -1081,6 +1012,7 @@ public sealed class MainForm : Form
                 var o = _out;
                 if (o == null)
                 {
+
                     if (!_restartPending)
                     {
                         PrepareGameSettings(v.Exe);
@@ -1090,6 +1022,8 @@ public sealed class MainForm : Form
                 }
                 else if (o.Source != v.Hwnd)
                 {
+
+
                     PrepareGameSettings(v.Exe);
                     _pendingHwnd = v.Hwnd; _pendingLabel = v.Exe;
                     _restartPending = true;
@@ -1143,11 +1077,13 @@ public sealed class MainForm : Form
         $"armed={_gamesArmed} running={_out != null} source={_out?.Source.ToString() ?? "0"} paused={_out?.Paused ?? false} " +
         $"visible={_out != null && _out.IsHandleCreated && Native.IsWindowVisible(_out.Handle)} processed={_out?.Processed ?? 0}";
 
+
     static void GameLog(string line)
     {
         if (GameLogPath == null) return;
         try { File.AppendAllText(GameLogPath, $"{DateTime.Now:HH:mm:ss.fff}  {line}\n"); } catch { }
     }
+
 
     IntPtr ScriptForeground()
     {
@@ -1188,6 +1124,7 @@ public sealed class MainForm : Form
         return list;
     }
 
+
     string? ActiveGameExe()
     {
         try
@@ -1204,7 +1141,7 @@ public sealed class MainForm : Form
     GameProfile CaptureUiProfile() => GameProfiles.Sanitize(new GameProfile
     {
         Preset = Math.Max(0, _preset.SelectedIndex),
-        FgSelect = _fgSelect.SelectedIndex,
+        FgSelect = (int)SelectedFg,
         FgMultiplier = MenuMul(),
         Ssgi = _ssgi.Checked,
         SsgiPreset = Math.Max(0, _ssgiPreset.SelectedIndex),
@@ -1216,6 +1153,7 @@ public sealed class MainForm : Form
         Res = Math.Max(0, _res.SelectedIndex),
         Cpu = ReadCpuSettings(),
     });
+
 
     void UserProfileTouch()
     {
@@ -1250,7 +1188,7 @@ public sealed class MainForm : Form
             int bi = Array.IndexOf(BackendOrder, (Backend)p.Backend);
             if (bi >= 0) _backend.SelectedIndex = bi;
             _preset.SelectedIndex = p.Preset is 1 or 2 ? p.Preset : 0;
-            _fgSelect.SelectedIndex = Math.Clamp(p.FgSelect, 0, _fgSelect.Items.Count - 1); UpdateCsr2OptionsVisibility();
+            _fgSelect.SelectedIndex = IndexOfFg((FgSelect)Math.Clamp(p.FgSelect, 0, 4)); UpdateCsr2OptionsVisibility();
             int keep = GameProfiles.Mul(p.FgMultiplier, p.FgSelect);
             RebuildFgMulItems(keep);
             _fgMul.SelectedIndex = FgMul.MenuIndexFor(keep, Csr20On, keep);
@@ -1328,6 +1266,7 @@ public sealed class MainForm : Form
         return b;
     }
 
+
     static List<string> NormalizeGameList(string text)
     {
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -1368,6 +1307,7 @@ public sealed class MainForm : Form
         SaveUi();
     }
 
+
     void SyncGameLists(bool rewrite)
     {
         _ui.GamesAlways = NormalizeGameList(_gamesAlwaysBox.Text);
@@ -1380,6 +1320,7 @@ public sealed class MainForm : Form
         }
         SaveUi();
     }
+
 
     void AddToGameList(bool always)
     {
@@ -1401,6 +1342,7 @@ public sealed class MainForm : Form
         SaveUi();
     }
 
+
     public void Automate(bool demo, int exitAfterSec, string? outPath, string? sourceTitle = null,
                          string? mode = null, string? motion = null, bool fg = false)
     {
@@ -1412,9 +1354,9 @@ public sealed class MainForm : Form
             {
                 _mode.SelectedIndex = (int)(mode == "overlay" ? OutputMode.Overlay : mode == "fullscreen" ? OutputMode.Fullscreen : OutputMode.Window);
                 _motion.SelectedIndex = (int)(motion switch { "nvof" => MotionPreference.Nvof, "d3d12" => MotionPreference.D3D12, "sw" => MotionPreference.Software, _ => MotionPreference.Auto });
-                if (CliCsr2 || CliVsyncFg || AutoFgKind == "csr2") _fgSelect.SelectedIndex = (int)FgSelect.Csr20;
-                else if (AutoFgKind == "fsr3") { VendorSupport.Probe(_gpu!); _fgSelect.SelectedIndex = (int)FgSelect.Fsr3; }
-                else if (fg || AutoFgKind is "framefx" or "csr1.3" or "csr13") _fgSelect.SelectedIndex = (int)FgSelect.Csr13;
+                if (CliCsr2 || CliVsyncFg || AutoFgKind == "csr2") _fgSelect.SelectedIndex = IndexOfFg(FgSelect.Csr20);
+                else if (AutoFgKind == "fsr3") { VendorSupport.Probe(_gpu!); _fgSelect.SelectedIndex = IndexOfFg(FgSelect.Fsr3); }
+                else if (fg || AutoFgKind is "framefx" or "csr1.3" or "csr13") _fgSelect.SelectedIndex = IndexOfFg(FgSelect.Csr13);
                 UpdateCsr2OptionsVisibility();
                 if (AutoBackend is { } ab)
                 {
@@ -1437,6 +1379,7 @@ public sealed class MainForm : Form
                     for (int i = 1; i < _source.Items.Count; i++)
                         if (_source.Items[i]!.ToString()!.Contains(sourceTitle, StringComparison.OrdinalIgnoreCase)) { _source.SelectedIndex = i; break; }
                 srcHwnd = (_source.SelectedItem as SourceItem)?.Hwnd ?? IntPtr.Zero;
+
                 if (srcHwnd != IntPtr.Zero && mode == "overlay") Native.SetForegroundWindow(srcHwnd);
                 Toggle();
                 if (srcHwnd != IntPtr.Zero && mode == "overlay" && exitAfterSec >= 8)
@@ -1452,11 +1395,12 @@ public sealed class MainForm : Form
                 t.Stop();
                 var report = $"Universal-FrameFX {DisplayVersion} ({Version})\nGPU: {_gpu?.AdapterName}\nStatus: {_status.Text}\nGPU choice: {_gpu?.ActiveChoice} ({_gpu?.KindName})\nOutput running: {_out != null}\n" +
                              $"Output mode: {_out?.Mode}\nSwap chain: {_out?.SwapInfo}\nMotion source: {_out?.MotionSource}\nError: {_out?.Error ?? "none"}\n" +
-                             $"Requested: backend={SelectedBackend} res={(OutputRes)_res.SelectedIndex} fgkind={(FgSelect)_fgSelect.SelectedIndex} fgx={MenuMul()} preset={(_preset.SelectedIndex == 1 ? "quality" : _preset.SelectedIndex == 2 ? "competitive" : "performance")}\n" +
+                             $"Requested: backend={SelectedBackend} res={(OutputRes)_res.SelectedIndex} fgkind={SelectedFg} fgx={MenuMul()} preset={(_preset.SelectedIndex == 1 ? "quality" : _preset.SelectedIndex == 2 ? "competitive" : "performance")}\n" +
                              $"HUD:\n{_out?.HudText}\n" + (checks.Count > 0 ? "Overlay checks:\n" + string.Join("\n", checks) + "\n" : "");
                 if (outPath != null) File.WriteAllText(outPath, report);
                 if (_out != null && mode == "overlay" && srcHwnd != IntPtr.Zero)
                 {
+
                     SendKeys3(Keys.ControlKey, Keys.Menu, Keys.Q);
                     var t2 = new System.Windows.Forms.Timer { Interval = 800 };
                     t2.Tick += (_, _) =>
@@ -1483,7 +1427,7 @@ public sealed class MainForm : Form
         {
             if (CliCsr2)
             {
-                _fgSelect.SelectedIndex = (int)FgSelect.Csr20; UpdateCsr2OptionsVisibility();
+                _fgSelect.SelectedIndex = IndexOfFg(FgSelect.Csr20); UpdateCsr2OptionsVisibility();
                 _settings.FgV2 = true;
                 _settings.FrameGen = true;
             }
@@ -1531,6 +1475,7 @@ public sealed class MainForm : Form
                     checks.Add($"foreground is source after overlay shown: {Root(Native.GetForegroundWindow()) == src}");
                     var hit = Root(Native.WindowFromPoint(new Native.POINT { X = cx, Y = cy }));
                     checks.Add($"window under source centre is the source (click-through): {hit == src}{(hit == o.Handle ? " (overlay!)" : "")}");
+
                     Native.SetCursorPos(cx, cy);
                     var inp = new Native.INPUT[2];
                     inp[0].type = 0; inp[0].u.mi.dwFlags = 0x0002;
@@ -1557,6 +1502,7 @@ public sealed class MainForm : Form
     void RunUiChecks(List<string> checks, string dir)
     {
         int step = 0;
+        var keys = _pages.Keys.ToList();
         var t = new System.Windows.Forms.Timer { Interval = 900 };
         void Shot(string name)
         {
@@ -1568,14 +1514,27 @@ public sealed class MainForm : Form
         }
         t.Tick += (_, _) =>
         {
-            switch (step++)
+            int i = step++;
+            if (i == 0)
             {
-                case 0: checks.Add($"ui: border {FormBorderStyle}, maximize {MaximizeBox}, min {MinimumSize.Width}x{MinimumSize.Height}; sections " + string.Join(", ", _sections.Select(kv => $"{kv.Key}={(kv.Value.body.Visible ? "open" : "closed")}"))); Shot("default"); break;
+                checks.Add("ui pages: " + string.Join(", ", keys) + " ; theme " + (Theme.IsLight ? "light" : "dark"));
+                checks.Add("ui frame generation menu: " + string.Join(" | ", _fgSelect.Items.Cast<object>()) + " ; selected " + _fgSelect.SelectedItem);
+                checks.Add("ui multiplier menu: " + string.Join(" | ", _fgMul.Items.Cast<object>()) + " ; selected " + _fgMul.SelectedItem);
+                checks.Add($"ui: border {FormBorderStyle}, maximize {MaximizeBox}, min {MinimumSize.Width}x{MinimumSize.Height}; sections " + string.Join(", ", _sections.Select(kv => $"{kv.Key}={(kv.Value.body.Visible ? "open" : "closed")}")));
+                Shot("default");
+            }
+            else if (i <= keys.Count)
+            {
+                ShowPage(keys[i - 1]);
+                Shot("page-" + keys[i - 1]);
+            }
+            else switch (i - keys.Count)
+            {
                 case 1: Size = MinimumSize; break;
                 case 2: Shot("minimum"); WindowState = FormWindowState.Maximized; break;
-                case 3: Shot("maximized"); ToggleSection("Advanced"); ToggleSection("Frame generation"); break;
+                case 3: Shot("maximized"); ShowPage("frame-generation"); ToggleSection("Frame generation · Advanced"); break;
                 case 4: Shot("toggled"); WindowState = FormWindowState.Normal; break;
-                case 5: t.Stop(); break;
+                default: t.Stop(); break;
             }
         };
         t.Start();
@@ -1591,7 +1550,7 @@ public sealed class MainForm : Form
             {
                 case 0:
                     checks.Add($"apply: running={_out != null}, button='{_apply.Text}' enabled={_apply.Enabled}, pending='{_pending.Text}'");
-                    _backend.SelectedIndex = (int)Backend.Spatial; _sharp.Value = 80; UpdateSharp(); UpdateDirty();
+                    _backend.SelectedIndex = Array.IndexOf(BackendOrder, Backend.Spatial); _sharp.Value = 80; UpdateSharp(); UpdateDirty();
                     checks.Add($"apply: after edits button='{_apply.Text}' enabled={_apply.Enabled}, pending='{_pending.Text}', live backend still {_settings.Backend}");
                     _apply.PerformClick();
                     checks.Add($"apply: after Apply backend={_settings.Backend} sharp={_settings.Sharpness:0.00} button='{_apply.Text}' enabled={_apply.Enabled} pending='{_pending.Text}'");
@@ -1659,6 +1618,7 @@ public sealed class MainForm : Form
         finally { _updBusy = false; _checkNow.Enabled = true; }
         if (autoInstall) await InstallUpdateAsync(true);
     }
+
 
     async Task InstallUpdateAsync(bool auto)
     {
@@ -1739,7 +1699,7 @@ public sealed class MainForm : Form
         f.ShowDialog(this);
     }
 
-    Label CpuGroup(string t) => new() { Text = t, AutoSize = true, ForeColor = Theme.Text, Margin = new Padding(0, 10, 0, 2) };
+    Label CpuGroup(string t) => new GroupLabel(t);
 
     string CurrentCpuGameExe()
     {
@@ -1967,6 +1927,7 @@ public sealed class MainForm : Form
     }
 }
 
+
 public sealed class UiState
 {
     public int X { get; set; } = int.MinValue;
@@ -1977,23 +1938,39 @@ public sealed class UiState
     public Dictionary<string, bool> Expanded { get; set; } = new();
     public bool AutoCheckUpdates { get; set; } = true;
     public bool AutoInstallUpdates { get; set; }
+
     public bool GamesOnly { get; set; } = true;
+
+
     public int SettingsVersion { get; set; }
+
     public List<string> GamesAlways { get; set; } = new();
+
     public List<string> GamesNever { get; set; } = new();
     public List<string> AcAlways { get; set; } = new();
     public List<string> AcNever { get; set; } = new();
+
     public string FailedUpdate { get; set; } = "";
+
     public int GpuChoice { get; set; }
+
+
     public int FgMultiplier { get; set; } = 4;
+
     public int FgDefault4 { get; set; }
+
     public bool LatencyBudget { get; set; } = true;
+
     public bool Ssgi { get; set; }
     public int SsgiPreset { get; set; }
+
     public bool SsgiTemporal { get; set; } = global::UniversalFrameFX.Ssgi.TemporalDefault;
+
     public bool Ssrt { get; set; }
     public int SsrtPreset { get; set; }
+
     public bool SsrtTemporal { get; set; } = global::UniversalFrameFX.Ssrt.TemporalDefault;
+
     public int FgSelect { get; set; } = -1;
     public bool FgV2 { get; set; }
     public bool FgV2Vsync { get; set; }
@@ -2002,8 +1979,11 @@ public sealed class UiState
     public bool FgV2Cursor { get; set; }
     public int FpsCap { get; set; }
     public bool FixedPacing { get; set; }
+
     public Dictionary<string, GameProfile> Profiles { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
     public CpuBoostSettings Cpu { get; set; } = new();
+    public string Page { get; set; } = "home";
 
     static string PathOf => System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Universal-FrameFX", "ui.json");
 
@@ -2033,6 +2013,7 @@ public sealed class UiState
     {
         if (X == int.MinValue || W < f.MinimumSize.Width || H < f.MinimumSize.Height) return;
         var r = new Rectangle(X, Y, W, H);
+
         if (!Screen.AllScreens.Any(s => s.WorkingArea.IntersectsWith(new Rectangle(r.X, r.Y, r.Width, 40)))) return;
         f.StartPosition = FormStartPosition.Manual;
         f.Bounds = r;
