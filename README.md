@@ -8,7 +8,7 @@ No account · no telemetry · FrameFX itself needs no admin rights.
 **Canonical site:** [https://chopstickshq.com/universal-framefx/](https://chopstickshq.com/universal-framefx/)
 **Hub:** [https://chopstickshq.com/](https://chopstickshq.com/)
 
-[![Download](https://img.shields.io/badge/download-v1.4.1%20Beta3-4d9eff)](https://chopstickshq.com/universal-framefx/)
+[![Download](https://img.shields.io/badge/download-v1.4.1%20Beta4-4d9eff)](https://chopstickshq.com/universal-framefx/)
 [![Windows 10/11](https://img.shields.io/badge/Windows-10%20%2F%2011%20x64-111111)](https://chopstickshq.com/universal-framefx/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-6b6b8a)](LICENSE)
 [![Build](https://github.com/ilikemacos/universal-framefx/actions/workflows/build.yml/badge.svg)](https://github.com/ilikemacos/universal-framefx/actions/workflows/build.yml)
@@ -67,6 +67,12 @@ Or:
 **Requires:** Windows 10 version 2004 (build 19041) or later, 64-bit, a DirectX 11 GPU.
 
 ---
+
+## What's new in v1.4.1 Beta4
+
+* **CSR Flux BETA.** The AI frame generation option is now called CSR Flux BETA in the Frame generation menu.
+* **More reliable CSR Flux.** When you pick CSR Flux BETA, it now stays on instead of quietly switching to CSR 2.0.
+* CSR 1.3 (classic) stays the default.
 
 ## What's new in v1.4.1 Beta3
 
