@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <DefaultItemExcludes>$(DefaultItemExcludes);PresetAi/**;PresetAi.Tests/**;preset-ai-ref/**;tools/**</DefaultItemExcludes>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows10.0.22621.0</TargetFramework>
     <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
@@ -30,6 +31,15 @@
   <ItemGroup>
     <PackageReference Include="Vortice.Direct3D11" Version="3.6.2" />
     <PackageReference Include="Vortice.DXGI" Version="3.6.2" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="PresetAi\PresetAi.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="PresetAi\Models\preset_r3.onnx" CopyToOutputDirectory="PreserveNewest" Link="Models\preset_r3.onnx" />
+    <Content Include="PresetAi\Models\preset_r3.onnx.data" CopyToOutputDirectory="PreserveNewest" Link="Models\preset_r3.onnx.data" />
+    <Content Include="PresetAi\Models\preset_g14.onnx" CopyToOutputDirectory="PreserveNewest" Link="Models\preset_g14.onnx" />
+    <Content Include="PresetAi\Models\preset_g14.onnx.data" CopyToOutputDirectory="PreserveNewest" Link="Models\preset_g14.onnx.data" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="NOTICE.md" LogicalName="NOTICE.md" />

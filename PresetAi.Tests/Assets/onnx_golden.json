@@ -1,0 +1,72 @@
+[
+  {
+    "model": "r3",
+    "prompt": "I want Cyberpunk 2077, getting about 45 fps and want 120",
+    "line": "g=cyberpunk2077.exe;gpu=rtx 2070 super;lap=-;res=-;fps=45;tgt=120;pref=-;ask=-"
+  },
+  {
+    "model": "r3",
+    "prompt": "actually I have a 4070",
+    "line": "g=-win64-shipping.exe;gpu=rtx 4070;lap=-;res=-;fps=-;tgt=-;pref=-;ask=-"
+  },
+  {
+    "model": "r3",
+    "prompt": "what about 4K",
+    "line": "g=-witgacJaclacJTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTe-win64-win64-shippshing=-win64-shipping.exe;gpu=rtx 2080 ti;lap=-;res=4k;fps=-;tgt=-;pref=-;ask=-"
+  },
+  {
+    "model": "r3",
+    "prompt": "I hate blur and ghosting",
+    "line": "g=bf6.exe;gpu=gtx 1060;lap=-;res=-;fps=-;tgt=-;pref=blur;ask=-"
+  },
+  {
+    "model": "r3",
+    "prompt": "switch to Valorant",
+    "line": "g=valorant-win64-shipaing.exe;gpu=rtx 2080 ti;lap=-;res=-;fps=-;tgt=-;pref=-;ask=-"
+  },
+  {
+    "model": "r3",
+    "prompt": "Elden Ring on RTX 3060 laptop, 55 fps, want 120, use fsr 3 frame gen",
+    "line": "g=eldenring.exe;gpu=rtx 3060;lap=1;res=-;fps=55;tgt=120;pref=-;ask=fsr3fg"
+  },
+  {
+    "model": "r3",
+    "prompt": "minecraft on a 1050 ti, chill",
+    "line": "g=javaw.exe;gpu=gtx 1050 ti;lap=-;res=-;fps=-;tgt=-;pref=-;ask=-"
+  },
+  {
+    "model": "g14",
+    "prompt": "I want Cyberpunk 2077, getting about 45 fps and want 120",
+    "line": "g=cyberpunk2077.exe;gpu=rtx 2070 super;lap=-;res=-;fps=45;tgt=120;pref=-;ask=-"
+  },
+  {
+    "model": "g14",
+    "prompt": "actually I have a 4070",
+    "line": "g=cod.exe;gpu=rtx 4070;lap=-;res=-;fps=-;tgt=-;pref=-;ask=-"
+  },
+  {
+    "model": "g14",
+    "prompt": "what about 4K",
+    "line": "g=hollow_knight.exe;gpu=gtx 1060;lap=-;res=4k;fps=-;tgt=-;pref=-;ask=-"
+  },
+  {
+    "model": "g14",
+    "prompt": "I hate blur and ghosting",
+    "line": "g=ghostoftsushima.exe;gpu=gtx 1060;lap=-;res=-;fps=-;tgt=-;pref=blur;ask=-"
+  },
+  {
+    "model": "g14",
+    "prompt": "switch to Valorant",
+    "line": "g=valorant-win64-shipping.exe;gpu=gtx 1060;lap=-;res=-;fps=-;tgt=-;pref=-;ask=-"
+  },
+  {
+    "model": "g14",
+    "prompt": "Elden Ring on RTX 3060 laptop, 55 fps, want 120, use fsr 3 frame gen",
+    "line": "g=eldenring.exe;gpu=rtx 3060;lap=1;res=-;fps=55;tgt=120;pref=-;ask=fsr3fg"
+  },
+  {
+    "model": "g14",
+    "prompt": "minecraft on a 1050 ti, chill",
+    "line": "g=javaw.exe;gpu=gtx 1050 ti;lap=-;res=-;fps=-;tgt=-;pref=-;ask=-"
+  }
+]
