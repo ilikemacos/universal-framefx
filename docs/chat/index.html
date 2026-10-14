@@ -54,9 +54,10 @@ pre{font-family:var(--mono);background:#0c0c0c;border:1px solid var(--rule);bord
 @keyframes mbob{0%,100%{transform:translateY(0)}50%{transform:translateY(-1px)}}
 .think.done .walk{opacity:.4}.think.done .leg,.think.done .eye,.think.done .bob{animation:none}
 @media (prefers-reduced-motion:reduce){.mob{transition:none}.leg,.eye,.bob{animation:none}}
+#tier{background:transparent;color:var(--fg);border:1px solid #3a3a3a;border-radius:4px;height:32px;padding:0 8px;font:inherit;font-size:13px;font-weight:500;cursor:pointer}#tier:hover{border-color:#555}
 .dots::after{content:"…";animation:b 1s infinite}@keyframes b{50%{opacity:.2}}
 </style></head><body>
-<main><header><img class="logo" src="favicon.svg" alt="WyneAI"><h1>WyneAI</h1><span class="badge" id="badge" title="Trained on a 2021 ROG Zephyrus G14. Presets are built by the FrameFX preset engine in your browser.">FrameFX assistant</span><span id="status">Loading…</span><button id="reset">New chat</button></header>
+<main><header><img class="logo" src="favicon.svg" alt="WyneAI"><h1>WyneAI</h1><span class="badge" id="badge" title="Trained on a 2021 ROG Zephyrus G14. Presets are built by the FrameFX preset engine in your browser.">FrameFX assistant</span><span id="status">Loading…</span><select id="tier" title="Output length and memory"><option value="spark">Spark · 6k</option><option value="turbo">Turbo · 24k</option><option value="forge">Forge · 48k</option></select><button id="reset">New chat</button></header>
 <div id="notice" hidden></div><div id="log"></div>
 <div id="chips"></div>
 <form id="f"><input id="q" autocomplete="off" placeholder="Message WyneAI…" disabled><button id="send" disabled>Send</button></form>
@@ -68,6 +69,8 @@ import { Assistant } from "./assistant.js";
 import { Agent, planDeterministic, cloudLLM, setApiBase } from "./agent.js";
 ort.env.wasm.wasmPaths = new URL("./ort/", location.href).href; ort.env.wasm.numThreads = 1;
 const $ = s => document.querySelector(s), log = $("#log");
+const TIERS = { spark: { max: 6144, ctx: 32000 }, turbo: { max: 24576, ctx: 64000 }, forge: { max: 49152, ctx: 128000 } };
+let tier = TIERS[localStorage.getItem("wy.tier")] ? localStorage.getItem("wy.tier") : "turbo";
 const scrub = t => t.replace(/\b(Nemotron|Qwen)[\w.-]*/gi, "WyneAI").replace(/\*\*/g, "");
 function add(who, text) { const d = document.createElement("div"); d.className = "msg " + who; d.innerHTML = `<div class="av">${who === "u" ? "You" : '<img src="favicon.svg" alt="WyneAI" style="width:24px;height:24px;border-radius:5px">'}</div><div class="bub"></div>`;
   const b = d.querySelector(".bub"); if (text === null) b.className += " dots"; else setText(b, text); log.appendChild(d); log.scrollTop = 1e9; return b; }
@@ -99,7 +102,7 @@ function stepRow(call, res) { const d = document.createElement("details"); d.cla
   d.querySelector("pre").textContent = JSON.stringify({ arguments: call.arguments, result: call.name === "export_preset" ? { ...res, json: res.json ? "(" + res.json.length + " chars)" : undefined } : res }, null, 2);
   return d; }
 async function handle(t) {
-  const agent = window.agent; agent.llm = llmState === "ready" ? llmFn : null; const basic = !agent.llm;
+  const agent = window.agent; agent.llm = llmState === "ready" ? llmFn : null; const basic = !agent.llm; agent.ctxBudget = TIERS[tier].ctx;
   if (basic && window.bot.route(t)) { const r = await window.bot.send(t); add("a", r.text); return; }
   const bub = add("a", "");
   const think = document.createElement("details"); think.className = "think"; think.open = true;
@@ -119,6 +122,8 @@ async function handle(t) {
   const finishThink = () => { if (answering) return; answering = true; clearInterval(timer); const secs = Math.round((Date.now() - t0) / 1000);
     think.classList.add("done"); think.open = false; think.querySelector(".tlabel").textContent = "Thought for " + secs + "s"; think.querySelector(".ttime").textContent = ""; };
   const on = {
+    maxTokens: TIERS[tier].max,
+    continued: n => { const d = document.createElement("div"); d.className = "step"; d.textContent = "Continuing the long reply \u00b7 part " + (n + 1); steps.appendChild(d); log.scrollTop = 1e9; },
     reasoning: buf => { if (answering) return; reason.hidden = false; reason.textContent = scrub(buf); log.scrollTop = 1e9; },
     search: ev => { toWeb(); const d = document.createElement("div"); d.className = "step"; d.textContent = "Searched the web \u00b7 " + ev.count + " result" + (ev.count === 1 ? "" : "s"); steps.appendChild(d); log.scrollTop = 1e9; },
     step: (c, r) => { toWeb(); steps.appendChild(stepRow(c, r)); if (r.preset_changed) presetShown = true; log.scrollTop = 1e9; },
@@ -142,6 +147,7 @@ window.__fx = { get llmState() { return llmState; } };
 try { window.bot = new Assistant(await Model.load(ort, "./preset_beta7.onnx")); window.agent = new Agent(window.bot, null, ui);
   $("#status").textContent = "Ready"; $("#q").disabled = $("#send").disabled = false; $("#q").focus(); hello();
 } catch (e) { $("#status").textContent = "Failed to load"; add("a", "Error loading: " + e); }
+const tierSel = $("#tier"); if (tierSel) { tierSel.value = tier; tierSel.onchange = () => { tier = tierSel.value; localStorage.setItem("wy.tier", tier); }; }
 let busy = false;
 $("#f").onsubmit = async e => { e.preventDefault(); const t = $("#q").value.trim(); if (!t || !window.bot || busy) return; busy = true; $("#q").value = ""; $("#chips").innerHTML = ""; add("u", t); $("#send").disabled = true;
   try { await handle(t); } catch (err) { add("a", "Error: " + (err.message || err)); }

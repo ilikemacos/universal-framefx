@@ -131,9 +131,9 @@ export class Agent {
       else if (call.name === "compare_gpus") out.push(r.faster === "about equal" ? "They're about equal." : `${r.faster} is ~${r.percent_faster}% faster.`); }
     return out.join("\n\n"); }
   async deterministic(text, on) { const steps = planDeterministic(text, !!this.a.chat.last); const res = await this.execute(steps, on); const t = this.summarize(res); this.remember(text, t); return { text: t, results: res, mode: "fast" }; }
-  remember(u, a) { this.history.push({ role: "user", content: String(u).slice(0, 100000) }, { role: "assistant", content: String(a ?? "").slice(0, 100000) }); // ~128k-token window (≈4 chars/token), max 500 messages
-    const tok = m => Math.ceil(String(m.content || "").length / 4) + 4; let t = this.history.reduce((s, m) => s + tok(m), 0);
-    while (this.history.length > 2 && (t > 120000 || this.history.length > 498)) { t -= tok(this.history[0]) + tok(this.history[1]); this.history.splice(0, 2); } }
+  remember(u, a) { this.history.push({ role: "user", content: String(u).slice(0, 100000) }, { role: "assistant", content: String(a ?? "").slice(0, 100000) }); // token window scaled per tier (≈4 chars/token), max 500 messages
+    const tok = m => Math.ceil(String(m.content || "").length / 4) + 4; let t = this.history.reduce((s, m) => s + tok(m), 0); const budget = this.ctxBudget || 120000;
+    while (this.history.length > 2 && (t > budget || this.history.length > 498)) { t -= tok(this.history[0]) + tok(this.history[1]); this.history.splice(0, 2); } }
   async run(text, on = {}) {
     if (!this.llm || isPlainPreset(text, this.a) && planDeterministic(text, !!this.a.chat.last).length === 1 && (await this.probePreset(text))) {
       if (this._probed) { const r = this._probed; this._probed = null; on.step?.(r.call, r.result); const t = this.summarize([r]); this.remember(text, t); return { text: t, results: [r], mode: "fast" }; }
@@ -191,17 +191,34 @@ Agent.prototype.runNative = async function (text, on = {}) {
     const t = this.summarize(all) || "I ran out of steps."; this.remember(text, t); return { text: t, results: all, mode: "cloud-maxsteps" };
   } catch (e) { on.error?.(e); if (all.length) { const t = this.summarize(all); this.remember(text, t); return { text: t, results: all, mode: "cloud-error" }; } throw e; } };
 export function cloudLLM(url = "/api/chat", getSignal = () => undefined) {
-  return async (messages, tools, cb) => {
-    const on = typeof cb === "function" ? { token: cb } : (cb || {});
-    const res = await fetch(url, { method: "POST", signal: getSignal(), headers: { "content-type": "application/json" }, body: JSON.stringify({ messages, tools, max_tokens: 32768, no_search: on.noSearch }) });
+  // One streamed request. `base` is text already shown (for stitched continuations) so on.token stays cumulative.
+  async function once(messages, { noSearch, continuation, maxTokens, base, on }) {
+    const res = await fetch(url, { method: "POST", signal: getSignal(), headers: { "content-type": "application/json" }, body: JSON.stringify({ messages, tools: once._tools, max_tokens: maxTokens || 32768, no_search: noSearch, continuation }) });
     if (!res.ok) { let m = res.status; try { m = (await res.json()).error || m; } catch {} const e = new Error(String(m)); e.status = res.status; throw e; }
-    const rd = res.body.getReader(), dec = new TextDecoder(); let buf = "", content = "", reasoning = ""; const tc = [];
+    const rd = res.body.getReader(), dec = new TextDecoder(); let buf = "", content = "", reasoning = ""; const tc = []; let finish = null, sawDone = false;
     for (;;) { const { value, done } = await rd.read(); if (done) break; buf += dec.decode(value, { stream: true }); let i;
-      while ((i = buf.indexOf("\n\n")) >= 0) { const ev = buf.slice(0, i).trim(); buf = buf.slice(i + 2); if (!ev.startsWith("data:")) continue; const d = ev.slice(5).trim(); if (d === "[DONE]") continue;
+      while ((i = buf.indexOf("\n\n")) >= 0) { const ev = buf.slice(0, i).trim(); buf = buf.slice(i + 2); if (!ev.startsWith("data:")) continue; const d = ev.slice(5).trim(); if (d === "[DONE]") { sawDone = true; continue; }
         let j; try { j = JSON.parse(d); } catch { continue; }
         if (j.type === "search") { on.search?.(j); continue; }
+        if (j.finish_reason) finish = j.finish_reason;
         if (j.reasoning) { reasoning += j.reasoning; on.reasoning?.(reasoning); }
-        if (j.content) { content += j.content; if (!tc.length) on.token?.(content); }
+        if (j.content) { content += j.content; if (!tc.length) on.token?.(base + content); }
         for (const t of j.tool_calls || []) { const k = t.index ?? tc.length; tc[k] ||= { id: "", function: { name: "", arguments: "" } };
           if (t.id) tc[k].id = t.id; if (t.function?.name) tc[k].function.name += t.function.name; if (t.function?.arguments) tc[k].function.arguments += t.function.arguments; } } }
-    tc.forEach((c, i) => { if (!c.id) c.id = "call_" + i; }); return { content, reasoning, tool_calls: tc.filter(Boolean) }; }; }
+    tc.forEach((c, i) => { if (!c.id) c.id = "call_" + i; });
+    // truncated if the model hit its length cap, or the stream died (e.g. Vercel's 300s limit) before a clean [DONE]
+    const truncated = finish === "length" || (!sawDone && !tc.length && content.length > 0);
+    return { content, reasoning, tool_calls: tc.filter(Boolean), truncated }; }
+  return async (messages, tools, cb) => {
+    const on = typeof cb === "function" ? { token: cb } : (cb || {});
+    once._tools = tools; let full = "", reasoning = "";
+    for (let attempt = 0; attempt < 6; attempt++) {
+      let r; const msgs = attempt === 0 ? messages : [...messages, { role: "assistant", content: full }, { role: "user", content: "Continue exactly where you left off. Do not repeat anything already written; pick up mid-sentence if needed." }];
+      try { r = await once(msgs, { noSearch: attempt > 0 ? true : on.noSearch, continuation: attempt > 0, maxTokens: on.maxTokens, base: full, on }); }
+      catch (e) { if (attempt === 0) throw e; break; } // keep what we have if a continuation fails
+      full += r.content; if (r.reasoning) reasoning = r.reasoning;
+      if (r.tool_calls.length) return { content: full, reasoning, tool_calls: r.tool_calls };
+      if (!r.truncated || !r.content) break;
+      on.continued?.(attempt + 1);
+    }
+    return { content: full, reasoning, tool_calls: [] }; }; }
