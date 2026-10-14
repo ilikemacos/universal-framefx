@@ -16,6 +16,7 @@ export const TOOLS = [
   { name: "web_search", description: "Search the web for current or factual information. Returns titles, URLs and snippets. Cite the URLs you use.", parameters: { query: "string" } },
   { name: "fetch_page", description: "Fetch the readable text of a web page (e.g. a search result) to read details. Cite its URL.", parameters: { url: "string" } },
   { name: "create_file", description: "Create a file for the user to save. For ONE file pass filename + content (+ optional mime). For SEVERAL pass files:[{filename,content}] and they are delivered together as a zip. Put the COMPLETE file content in the call. Max ~2 MB total. Use this whenever the user asks to make/save a file, script, document or code.", parameters: { filename: "string (single file)", content: "string (single file full text)", files: "array of {filename, content} for multiple files" } },
+  { name: "edit_file", description: "Make a small, targeted change to an existing file already open in the editor. Pass filename, search (the EXACT text to find, copied verbatim including whitespace) and replace (the new text). Prefer this over create_file for edits: it is precise and shows a diff. Set all:true to replace every occurrence. Keep search short but unique.", parameters: { filename: "string", search: "string: exact text to find", replace: "string: replacement text", all: "boolean (optional): replace all occurrences" } },
 ];
 export let API_BASE = "";
 export function setApiBase(chatUrl) { API_BASE = chatUrl.replace(/\/api\/chat$/, ""); }
@@ -85,6 +86,7 @@ export function makeTools(assistant, ui = {}) {
     web_search: a => webApi({ query: String(a.query || "") }),
     fetch_page: a => webApi({ url: String(a.url || "") }),
     create_file: a => ui.createFile ? ui.createFile(a) : { ok: false, error: "file creation isn't available here" },
+    edit_file: a => ui.editFile ? ui.editFile(a) : { ok: false, error: "file editing is unavailable here" },
   }; }
 export async function runTool(tools, call) { const f = tools[call.name]; if (!f) return { ok: false, error: "unknown tool" };
   try { return await f(call.arguments || {}); } catch (e) { return { ok: false, error: String(e.message || e) }; } }
@@ -131,7 +133,8 @@ export class Agent {
       else if (call.name === "lookup_game") out.push(`${r.name}: ${r.load} to run${r.anticheat ? ", anti-cheat (frame gen stays off)" : r.competitive ? ", competitive (frame gen off)" : ""}.`);
       else if (call.name === "lookup_gpu") out.push(`${r.name}: ${r.tier} (score ${r.score})${r.fsr4 ? ", supports FSR 4" : ""}.`);
       else if (call.name === "compare_gpus") out.push(r.faster === "about equal" ? "They're about equal." : `${r.faster} is ~${r.percent_faster}% faster.`);
-      else if (call.name === "create_file") out.push(r.file ? `Created ${r.file.name} (${r.file.size} bytes).` : ""); }
+      else if (call.name === "create_file") out.push(r.file ? `Created ${r.file.name} (${r.file.size} bytes).` : "");
+      else if (call.name === "edit_file") out.push(r.ok ? `Edited ${r.file} (${r.replaced} change${r.replaced === 1 ? "" : "s"}).` : (r.error || "")); }
     return out.join("\n\n"); }
   async deterministic(text, on) { const steps = planDeterministic(text, !!this.a.chat.last); const res = await this.execute(steps, on); const t = this.summarize(res); this.remember(text, t); return { text: t, results: res, mode: "fast" }; }
   remember(u, a) { this.history.push({ role: "user", content: String(u).slice(0, 100000) }, { role: "assistant", content: String(a ?? "").slice(0, 100000) }); // token window scaled per tier (≈4 chars/token), max 500 messages
@@ -167,8 +170,10 @@ const PROPS = {
   lookup_game: { game: { type: "string" } }, lookup_gpu: { gpu: { type: "string" } },
   compare_gpus: { gpu_a: { type: "string" }, gpu_b: { type: "string" } }, explain_preset: {},
   export_preset: { mode: { type: "string", enum: ["copy", "download"] } }, reset_session: {}, web_search: { query: { type: "string" } }, fetch_page: { url: { type: "string" } },
-  create_file: { filename: { type: "string", description: "name for a single file, e.g. hello.py" }, content: { type: "string", description: "the single file complete text" }, mime: { type: "string" }, files: { type: "array", description: "for multiple files (zipped)", items: { type: "object", properties: { filename: { type: "string" }, content: { type: "string" } }, required: ["filename", "content"] } } } };
+  create_file: { filename: { type: "string", description: "name for a single file, e.g. hello.py" }, content: { type: "string", description: "the single file complete text" }, mime: { type: "string" }, files: { type: "array", description: "for multiple files (zipped)", items: { type: "object", properties: { filename: { type: "string" }, content: { type: "string" } }, required: ["filename", "content"] } } },
+  edit_file: { filename: { type: "string" }, search: { type: "string", description: "exact text to find, copied verbatim" }, replace: { type: "string", description: "replacement text" }, all: { type: "boolean", description: "replace every occurrence" } } };
 REQ.create_file = [];
+REQ.edit_file = ["filename", "search", "replace"];
 const buildSchemas = () => TOOLS.map(t => ({ type: "function", function: { name: t.name, description: t.description,
   parameters: { type: "object", properties: PROPS[t.name], required: REQ[t.name] || Object.keys(PROPS[t.name]).filter(k => k !== "mode") } } }));
 export const TOOL_SCHEMAS = buildSchemas();
@@ -178,8 +183,8 @@ export function nativeSystemPrompt(presetCtx) {
 Coding:
 - When asked to build or write something, plan briefly, then produce COMPLETE, runnable code: no placeholders, no ellipsis, no TODO stubs. Prefer one self-contained file when reasonable.
 - Deliver code with the create_file tool (filename + full content; use the files array for a multi-file project). Files open in the user's editor panel, where HTML/CSS/JS can be run in the browser, edited, downloaded or zipped. Short snippets may go inline as fenced code blocks instead.
-- If the user is editing a file (its current contents are given to you), honour their edits and return the full updated file with create_file.
-- When the user sends you a run error, read it and return a corrected full file with create_file.
+- To change a file already open in the editor, use edit_file with an EXACT search/replace (precise, shows a diff) rather than rewriting the whole file. Use create_file for brand-new files or a full rewrite. The current contents of the active file are given to you when the user is editing one.
+- When the user sends you a run error, read it and fix it with edit_file (or create_file for a large rewrite).
 - Use markdown for explanations (headings, lists, tables, fenced code). Keep prose short.
 - Use web_search / fetch_page for docs, APIs, versions or anything current; cite sources as [title](url). Don't invent URLs.
 
@@ -203,7 +208,7 @@ Agent.prototype.runNative = async function (text, on = {}) {
         if (this.stopped) break;
         const call = { name: c.function.name, arguments: args }; const res = NAMES.has(call.name) ? await runTool(this.tools, call) : { ok: false, error: "unknown tool" };
         all.push({ call, result: res }); on.step?.(call, res);
-        msgs.push({ role: "tool", tool_call_id: c.id, content: JSON.stringify(call.name === "export_preset" ? { ...res, json: "(omitted)" } : call.name === "create_file" ? { ok: res.ok, error: res.error, file: res.file } : res).slice(0, 6000) }); } }
+        msgs.push({ role: "tool", tool_call_id: c.id, content: JSON.stringify(call.name === "export_preset" ? { ...res, json: "(omitted)" } : call.name === "create_file" ? { ok: res.ok, error: res.error, file: res.file } : call.name === "edit_file" ? { ok: res.ok, error: res.error, file: res.file, replaced: res.replaced } : res).slice(0, 6000) }); } }
     const t = this.summarize(all) || "I ran out of steps."; this.remember(text, t); return { text: t, results: all, mode: "cloud-maxsteps" };
   } catch (e) { on.error?.(e); if (all.length) { const t = this.summarize(all); this.remember(text, t); return { text: t, results: all, mode: "cloud-error" }; } throw e; } };
 export function cloudLLM(url = "/api/chat", getSignal = () => undefined) {

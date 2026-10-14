@@ -2,7 +2,7 @@
 <script src="./md/highlight.min.js"></script><script src="./md/fflate.min.js"></script><title>WyneAI</title>
 <style>
 :root{--bg:#111111;--fg:#ececec;--muted:#9a9a9a;--rule:#2a2a2a;--card:#181818;--accent:#ff6a2b;--warn:#e0a03a;--sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;--mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace}
-*{box-sizing:border-box}body{margin:0;font:15px/1.6 var(--sans);background:var(--bg);color:var(--fg);height:100vh;display:flex;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}[hidden]{display:none!important}body{margin:0;font:15px/1.6 var(--sans);background:var(--bg);color:var(--fg);height:100vh;display:flex;-webkit-font-smoothing:antialiased}
 a{color:var(--fg);text-decoration:underline;text-decoration-color:#555;text-underline-offset:3px}a:hover{text-decoration-color:var(--accent)}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 main{flex:1;display:flex;flex-direction:column;min-width:0}
@@ -46,11 +46,12 @@ pre{font-family:var(--mono);background:#0c0c0c;border:1px solid var(--rule);bord
 .fpreview{margin-top:10px;max-height:220px;overflow:auto;background:#0c0c0c;border:1px solid var(--rule);border-radius:4px;padding:10px}
 .fpreview code{font-family:var(--mono);font-size:12px;display:block;line-height:1.5;white-space:pre}
 .frow{display:flex;gap:8px;margin-top:12px}.frow button.primary{background:var(--accent);border:0;color:#111}.frow button.primary:hover{background:#ff7d45}
-body.side-open main{flex:1 1 0;min-width:0}
-#side{display:flex;flex-direction:column;flex:0 0 46%;max-width:660px;min-width:340px;border-left:1px solid var(--rule);background:var(--bg);height:100vh}
+body.side-open main{flex:1 1 0;min-width:360px}
+#side{position:relative;display:flex;flex-direction:column;flex:0 0 46%;max-width:72vw;min-width:320px;border-left:1px solid var(--rule);background:var(--bg);height:100vh}
 .shead{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--rule);min-height:56px}
 .stitle{font-weight:600;font-size:14px}.sgrow{flex:1}
-.sx{height:28px;width:28px;padding:0;font-size:18px;line-height:1}
+.sx{height:28px;width:28px;padding:0;font-size:18px;line-height:1;border:1px solid var(--rule);background:var(--card);color:var(--fg);border-radius:4px;cursor:pointer}.sx:hover{background:#2a2a2a}
+.sresize{position:absolute;left:-3px;top:0;width:6px;height:100%;cursor:col-resize;z-index:30}.sresize:hover{background:var(--accent)}.sresize.drag{background:var(--accent)}
 .stabs{display:flex;gap:2px;overflow:auto;border-bottom:1px solid var(--rule);padding:6px 10px 0}
 .stab{height:30px;padding:0 12px;font-family:var(--mono);font-size:12px;border:1px solid var(--rule);border-bottom:0;border-radius:4px 4px 0 0;background:transparent;color:var(--muted);white-space:nowrap;cursor:pointer}
 .stab.on{background:var(--card);color:var(--fg)}
@@ -73,7 +74,7 @@ body.side-open main{flex:1 1 0;min-width:0}
 .artchip:hover{border-color:var(--accent)}
 .codedl{position:absolute;top:6px;right:62px;height:24px;padding:0 8px;font-size:11px;background:#141414;border:1px solid var(--rule);color:var(--muted);border-radius:4px;cursor:pointer;opacity:0;transition:opacity .12s}
 .md pre:hover .codedl{opacity:1}
-@media(max-width:860px){#side{position:fixed;inset:0;left:auto;width:100%;max-width:100%;z-index:50}}
+@media(max-width:860px){#side{position:fixed;inset:0;left:auto;width:100vw!important;max-width:100vw;flex-basis:100vw;z-index:50;box-shadow:-8px 0 30px rgba(0,0,0,.5)}.sresize{display:none}body.side-open main{min-width:0}}
 .walk{display:flex;align-items:flex-end;gap:10px;padding:10px 12px;border-top:1px solid var(--rule)}
 .wl{font-family:var(--mono);font-size:10px;color:#6a6a6a;text-transform:uppercase;letter-spacing:.09em;padding-bottom:1px;user-select:none}
 .mtrack{position:relative;flex:1;height:22px;border-bottom:1px solid var(--rule)}
@@ -129,7 +130,7 @@ import { Assistant } from "./assistant.js";
 import { Agent, planDeterministic, cloudLLM, setApiBase } from "./agent.js";
 import { marked } from "./md/marked.esm.js";
 import DOMPurify from "./md/purify.es.mjs";
-import { initIDE, harvest, contextForModel, setFiles as ideSetFiles, openPanel, hasFiles } from "./ide.js";
+import { initIDE, harvest, contextForModel, setFiles as ideSetFiles, openPanel, hasFiles, applyEdit as ideApplyEdit, openFile as ideOpenFile } from "./ide.js";
 ort.env.wasm.wasmPaths = new URL("./ort/", location.href).href; ort.env.wasm.numThreads = 1;
 const $ = s => document.querySelector(s), log = $("#log");
 const TIERS = { spark: { max: 6144, ctx: 32000, steps: 6 }, turbo: { max: 24576, ctx: 64000, steps: 10 }, forge: { max: 49152, ctx: 128000, steps: 16 }, zenith: { max: 73728, ctx: 128000, steps: 24 } };
@@ -175,6 +176,7 @@ function fileCard(host, call, res) {
   if (f.kind === "disk" && typeof window.__openItem === "function") { mk("Open", () => window.__openItem(f.path), true); mk("Show in folder", () => window.__revealItem(f.path)); }
   else { mk("Download", () => { const blob = f.isZip ? new Blob([res._zip], { type: "application/zip" }) : new Blob([content], { type: f.mime || "text/plain" }); const u = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = u; a.download = f.name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 5000); }, true);
     if (!f.isZip) mk("Copy", e => { navigator.clipboard.writeText(content).then(() => { e.target.textContent = "Copied"; setTimeout(() => e.target.textContent = "Copy", 1200); }).catch(() => {}); }); }
+  if (!f.isZip && content) mk("Open in panel", () => ideOpenFile(f.name));
   card.appendChild(row); host.appendChild(card); log.scrollTop = 1e9; }
 function add(who, text) { const d = document.createElement("div"); d.className = "msg " + who; d.innerHTML = `<div class="av">${who === "u" ? "You" : '<img src="favicon.svg" alt="WyneAI" style="width:24px;height:24px;border-radius:5px">'}</div><div class="bub"></div>`;
   const b = d.querySelector(".bub"); if (text === null) b.className += " dots"; else if (who === "a") renderMD(b, scrub(text), true); else setText(b, text); log.appendChild(d); log.scrollTop = 1e9; return b; }
@@ -191,11 +193,12 @@ function card(bub) { const a = window.bot; const st = a.chat.state(), set = Chat
   c.querySelector(".tog").onclick = e => { pre.hidden = !pre.hidden; e.target.textContent = pre.hidden ? "Show JSON" : "Hide JSON"; };
   c.querySelector(".copy").onclick = async e => { try { await navigator.clipboard.writeText(js); e.target.textContent = "Copied"; } catch { e.target.textContent = "Copy failed"; } setTimeout(() => e.target.textContent = "Copy JSON", 1200); };
   bub.appendChild(c); log.scrollTop = 1e9; }
-const hello = () => { add("a", "I'm WyneAI, a coding assistant. Tell me what to build and I'll write complete, runnable code — HTML/CSS/JS pages, scripts and small apps — show it in the panel, and run it right here in your browser. I can iterate on errors, make files, search the web, and (my second job) build FrameFX game presets. What should we make?"); };
+const hello = () => { add("a", "Hi, I'm WyneAI. I write and run code, and I can help with FrameFX too. What are we building?"); };
 let llmState = "ready"; const llmFn = cloudLLM("https://preset-ai-chat.vercel.app/api/chat"); setApiBase("https://preset-ai-chat.vercel.app/api/chat");
 function notice(t) { $("#notice").hidden = !t; $("#notice").textContent = t || ""; }
 const ui = {
   createFile: a => makeBlobFiles(a),
+  editFile: a => ideApplyEdit(a),
   copy: async j => { try { await navigator.clipboard.writeText(j); return true; } catch { return false; } },
   download: async (j, exe) => { const u = URL.createObjectURL(new Blob([j], { type: "application/json" })); const l = document.createElement("a"); l.href = u; l.download = (exe || "preset").replace(/\.exe$/i, "") + ".framefx.json"; document.body.appendChild(l); l.click(); l.remove(); setTimeout(() => URL.revokeObjectURL(u), 5000); return true; } };
 function stepRow(call, res) { const d = document.createElement("details"); d.className = "step" + (res.ok ? "" : " bad");
@@ -250,7 +253,7 @@ async function handle(t) {
   if (presetShown && window.bot.last) card(bub); }
 window.__fx = { get llmState() { return llmState; } };
 try { window.bot = new Assistant(await Model.load(ort, "./preset_beta7.onnx")); window.agent = new Agent(window.bot, null, ui);
-  initIDE({ onFix: (name, err) => submitHidden("Running `" + name + "` produced this error:\n\n```\n" + err + "\n```\n\nFix the code and return the corrected full file with create_file."), isDesktop: typeof isDesktop !== "undefined" && isDesktop });
+  initIDE({ onFix: (name, err) => submitHidden("Running `" + name + "` produced this error:\n\n```\n" + err + "\n```\n\nFix the code with edit_file (small search/replace) if possible, or create_file for a full rewrite."), isDesktop: typeof isDesktop !== "undefined" && isDesktop });
   $("#status").textContent = "Ready"; $("#q").disabled = $("#send").disabled = false; $("#q").focus(); hello();
 } catch (e) { $("#status").textContent = "Failed to load"; add("a", "Error loading: " + e); }
 const tierHint = $("#tierhint"); const showHint = () => { if (tierHint) tierHint.textContent = tier === "zenith" ? "uses the most usage" : ""; };
