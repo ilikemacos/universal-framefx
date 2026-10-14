@@ -1,26 +1,33 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="favicon.ico" sizes="48x48"><link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="apple-touch-icon.png"><meta name="theme-color" content="#7c5cff">
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="favicon.ico" sizes="48x48"><link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="apple-touch-icon.png"><meta name="theme-color" content="#111111"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <title>WyneAI</title>
 <style>
-:root{--bg:#0f1115;--panel:#171a21;--line:#262b36;--txt:#e6e8ee;--mut:#8b93a7;--acc:#7c5cff;--warn:#ffb020}
-*{box-sizing:border-box}body{margin:0;font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--txt);height:100vh;display:flex}
-main{flex:1;display:flex;flex-direction:column;min-width:0}.logo{width:28px;height:28px;border-radius:8px;background:var(--acc);display:grid;place-items:center;font-weight:800;font-size:12px}
-.card{margin-top:10px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;max-width:460px}.card summary{cursor:pointer;font-weight:600}.card.old{opacity:.6}.card .kv{margin-top:10px}
-.row{display:flex;gap:8px;margin-top:10px}#chips{max-width:760px;width:100%;margin:0 auto;padding:0 20px;display:flex;flex-wrap:wrap;gap:8px}#chips button{border-radius:999px;font-size:12px}
-#notice{max-width:760px;width:100%;margin:10px auto 0;padding:10px 20px}#notice{color:var(--warn);font-size:13px}.dlt{font-size:13px;color:var(--mut);margin-bottom:6px}.bar{height:6px;background:var(--line);border-radius:9px;overflow:hidden}#dlb{height:100%;width:0;background:var(--acc);transition:width .3s}.steps{margin:0 0 6px}.step{font-size:12px;color:var(--mut);border:1px solid var(--line);border-radius:8px;padding:4px 10px;margin:4px 0;max-width:520px}.step summary{cursor:pointer}.step b{color:var(--txt);font-weight:600}.step.bad{border-color:#6b3a3a}.step pre{margin:6px 0 2px;max-height:200px}.foot{text-align:center;color:var(--mut);font-size:11px;margin:-12px 0 10px}header{padding:14px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px}
-header h1{font-size:16px;margin:0;font-weight:600}.badge{font-size:12px;color:var(--mut);border:1px solid var(--line);border-radius:999px;padding:2px 10px}
-#status{margin-left:auto;font-size:12px;color:var(--mut)}button{background:var(--panel);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:7px 12px;cursor:pointer;font:inherit;font-size:13px}
-button:hover{border-color:var(--acc)}#log{flex:1;overflow:auto;padding:24px 0}.msg{max-width:760px;margin:0 auto;padding:10px 20px;display:flex;gap:12px}
-.av{width:28px;height:28px;border-radius:6px;flex:none;display:grid;place-items:center;font-size:12px;font-weight:700}.u .av{background:#2d3343}.a .av{background:var(--acc)}
-.bub{white-space:pre-wrap;padding-top:3px;min-width:0}.u .bub{color:#cfd3dd}.warn{color:var(--warn)}
-form{max-width:760px;width:100%;margin:0 auto;padding:12px 20px 22px;display:flex;gap:8px}
-#q{flex:1;background:var(--panel);border:1px solid var(--line);color:var(--txt);border-radius:12px;padding:13px 14px;font:inherit;outline:none}#q:focus{border-color:var(--acc)}
-#send{background:var(--acc);border-color:var(--acc);border-radius:12px;padding:0 18px}aside{width:330px;border-left:1px solid var(--line);background:var(--panel);padding:18px;overflow:auto}
-aside h2{font-size:14px;margin:0 0 12px}.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:13px}.kv div:nth-child(odd){color:var(--mut)}
-pre{background:#0b0d11;border:1px solid var(--line);border-radius:8px;padding:10px;font-size:11px;overflow:auto;max-height:300px}.empty{color:var(--mut);font-size:13px}
-.dots::after{content:"…";animation:b 1s infinite}@keyframes b{50%{opacity:.2}}
-@media(max-width:860px){body{flex-direction:column}aside{width:auto;border-left:0;border-top:1px solid var(--line);max-height:40vh}}
+:root{--bg:#111111;--fg:#ececec;--muted:#9a9a9a;--rule:#2a2a2a;--card:#181818;--accent:#ff6a2b;--warn:#e0a03a;--sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;--mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace}
+*{box-sizing:border-box}body{margin:0;font:15px/1.6 var(--sans);background:var(--bg);color:var(--fg);height:100vh;display:flex;-webkit-font-smoothing:antialiased}
+a{color:var(--fg);text-decoration:underline;text-decoration-color:#555;text-underline-offset:3px}a:hover{text-decoration-color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+main{flex:1;display:flex;flex-direction:column;min-width:0}
+header{position:sticky;top:0;z-index:10;background:var(--bg);border-bottom:1px solid var(--rule);min-height:56px;padding:10px 24px;display:flex;align-items:center;gap:10px}
+.logo{width:24px;height:24px;border-radius:5px;flex:none}header h1{font-size:15px;margin:0;font-weight:600;letter-spacing:-.02em}
+.badge{font-size:13px;color:var(--muted)}#status{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--muted)}
+button{background:transparent;color:var(--fg);border:1px solid #3a3a3a;border-radius:4px;height:32px;padding:0 12px;cursor:pointer;font:inherit;font-size:13px;font-weight:500}
+button:hover{background:var(--card);border-color:#555}button:disabled{opacity:.5;cursor:default}
+#log{flex:1;overflow:auto;padding:32px 0}.msg{max-width:760px;margin:0 auto;padding:12px 24px;display:flex;gap:14px}
+.av{width:24px;height:24px;flex:none;display:grid;place-items:center;font-family:var(--mono);font-size:10px;color:var(--muted);border:1px solid var(--rule);border-radius:4px;margin-top:2px}.a .av{border:0}
+.bub{white-space:pre-wrap;min-width:0;flex:1}.u .bub{color:var(--muted)}.warn{color:var(--warn)}
+.card{margin-top:14px;background:var(--card);border:1px solid var(--rule);border-radius:4px;padding:14px 16px;max-width:480px}.card summary{cursor:pointer;font-weight:600;font-size:14px}.card.old{opacity:.55}.card .kv{margin-top:12px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 16px;font-size:13px}.kv div:nth-child(odd){color:var(--muted)}.kv div:nth-child(even){font-family:var(--mono);font-size:12.5px}
+.row{display:flex;gap:8px;margin-top:14px}
+#chips{max-width:760px;width:100%;margin:0 auto;padding:0 24px 4px;display:flex;flex-wrap:wrap;gap:8px}#chips button{font-weight:400;color:var(--muted)}#chips button:hover{color:var(--fg)}
+#notice{max-width:760px;width:100%;margin:12px auto 0;padding:10px 14px;border:1px solid var(--rule);border-left:2px solid var(--warn);border-radius:4px;color:var(--fg);font-size:13px}
+.steps{margin:0 0 8px}.step{font-family:var(--mono);font-size:12px;color:var(--muted);border-left:1px solid var(--rule);padding:2px 0 2px 12px;margin:2px 0;max-width:560px}.step summary{cursor:pointer;list-style:none}.step summary::-webkit-details-marker{display:none}.step b{color:var(--fg);font-weight:500}.step.bad{border-left-color:#8a3a2a}.step pre{margin:6px 0 4px;max-height:200px}
+form{max-width:760px;width:100%;margin:0 auto;padding:14px 24px 18px;display:flex;gap:8px}
+#q{flex:1;background:var(--card);border:1px solid var(--rule);color:var(--fg);border-radius:4px;height:44px;padding:0 14px;font:inherit;outline:none}#q:focus{border-color:#555}#q::placeholder{color:#6a6a6a}
+#send{height:44px;background:var(--accent);border:0;color:#111;font-weight:600;padding:0 20px}#send:hover{background:#ff7d45}
+pre{font-family:var(--mono);background:#0c0c0c;border:1px solid var(--rule);border-radius:4px;padding:10px;font-size:11.5px;overflow:auto;max-height:300px}
+.foot{max-width:760px;margin:0 auto 14px;padding:0 24px;color:#6a6a6a;font-size:12px;line-height:1.5}
+.dots::after{content:"6";animation:b 1s infinite}@keyframes b{50%{opacity:.2}}
 </style></head><body>
-<main><header><img class="logo" src="favicon.svg" alt="WyneAI"><h1>WyneAI</h1><span class="badge" id="badge" title="Trained on a 2021 ROG Zephyrus G14. Presets are built by the FrameFX preset engine in your browser.">WyneAI · needs internet</span><span id="status">Loading…</span><button id="reset">New chat</button></header>
+<main><header><img class="logo" src="favicon.svg" alt="WyneAI"><h1>WyneAI</h1><span class="badge" id="badge" title="Trained on a 2021 ROG Zephyrus G14. Presets are built by the FrameFX preset engine in your browser.">FrameFX assistant</span><span id="status">Loading…</span><button id="reset">New chat</button></header>
 <div id="notice" hidden></div><div id="log"></div>
 <div id="chips"></div>
 <form id="f"><input id="q" autocomplete="off" placeholder="Message WyneAI…" disabled><button id="send" disabled>Send</button></form>
@@ -33,7 +40,7 @@ import { Agent, planDeterministic, cloudLLM, setApiBase } from "./agent.js";
 ort.env.wasm.wasmPaths = new URL("./ort/", location.href).href; ort.env.wasm.numThreads = 1;
 const $ = s => document.querySelector(s), log = $("#log");
 const scrub = t => t.replace(/\b(Nemotron|Qwen)[\w.-]*/gi, "WyneAI").replace(/\*\*/g, "");
-function add(who, text) { const d = document.createElement("div"); d.className = "msg " + who; d.innerHTML = `<div class="av">${who === "u" ? "You" : '<img src="favicon.svg" alt="WyneAI" style="width:28px;height:28px;border-radius:6px">'}</div><div class="bub"></div>`;
+function add(who, text) { const d = document.createElement("div"); d.className = "msg " + who; d.innerHTML = `<div class="av">${who === "u" ? "You" : '<img src="favicon.svg" alt="WyneAI" style="width:24px;height:24px;border-radius:5px">'}</div><div class="bub"></div>`;
   const b = d.querySelector(".bub"); if (text === null) b.className += " dots"; else setText(b, text); log.appendChild(d); log.scrollTop = 1e9; return b; }
 function setText(b, text) { b.textContent = ""; text.split("\n").forEach(l => { const s = document.createElement("div"); if (l.startsWith("WARNING")) s.className = "warn"; linkify(s, l || "\u00a0"); b.appendChild(s); }); }
 function linkify(el, l) { const re = /\[([^\]]{1,200})\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s)<>\]]+)/g; let i = 0, m;
@@ -42,24 +49,23 @@ function card(bub) { const a = window.bot; const st = a.chat.state(), set = Chat
   document.querySelectorAll(".card").forEach(c => c.classList.add("old"));
   const rows = { GPU: (st.gpu || "RTX 3060 (assumed)") + (st.laptop ? " (laptop)" : ""), "Fps now / target": (st.fps ?? "?") + " / " + (st.target ?? "auto"), ...set };
   const c = document.createElement("details"); c.className = "card"; c.open = true;
-  c.innerHTML = `<summary>🎮 ${st.game} preset</summary><div class="kv"></div><div class="row"><button class="copy">Copy JSON</button><button class="tog">Show JSON</button></div><pre hidden></pre>`;
+  c.innerHTML = `<summary>${st.game} preset</summary><div class="kv"></div><div class="row"><button class="copy">Copy JSON</button><button class="tog">Show JSON</button></div><pre hidden></pre>`;
   const kv = c.querySelector(".kv"); for (const [k, v] of Object.entries(rows)) { const x = document.createElement("div"), y = document.createElement("div"); x.textContent = k; y.textContent = v; kv.append(x, y); }
   const pre = c.querySelector("pre"); pre.textContent = js;
   c.querySelector(".tog").onclick = e => { pre.hidden = !pre.hidden; e.target.textContent = pre.hidden ? "Show JSON" : "Hide JSON"; };
-  c.querySelector(".copy").onclick = async e => { try { await navigator.clipboard.writeText(js); e.target.textContent = "Copied!"; } catch { e.target.textContent = "Copy failed"; } setTimeout(() => e.target.textContent = "Copy JSON", 1200); };
+  c.querySelector(".copy").onclick = async e => { try { await navigator.clipboard.writeText(js); e.target.textContent = "Copied"; } catch { e.target.textContent = "Copy failed"; } setTimeout(() => e.target.textContent = "Copy JSON", 1200); };
   bub.appendChild(c); log.scrollTop = 1e9; }
 const CHIPS = ["Set up Cyberpunk for my 3060, make it quieter, then export it", "What is Google?", "Is a 3080 or 4070 Super faster?", "Elden Ring on a 3060, 50 fps, want 100"];
 function chips() { $("#chips").innerHTML = ""; for (const c of CHIPS) { const b = document.createElement("button"); b.textContent = c; b.onclick = () => { $("#q").value = c; $("#f").requestSubmit(); }; $("#chips").appendChild(b); } }
-const hello = () => { add("a", "Hey! I'm WyneAI. Ask me anything, including things I can look up on the web, or give me a task: I can build, tweak, explain and export FrameFX presets, look up games and GPUs, and compare cards."); chips(); };
+const hello = () => { add("a", "I'm WyneAI. Ask me anything, including things I can look up on the web, or give me a task: I can build, tweak, explain and export FrameFX presets, look up games and GPUs, and compare cards."); chips(); };
 let llmState = "ready"; const llmFn = cloudLLM("https://preset-ai-chat.vercel.app/api/chat"); setApiBase("https://preset-ai-chat.vercel.app/api/chat");
 function notice(t) { $("#notice").hidden = !t; $("#notice").textContent = t || ""; }
 const ui = {
   copy: async j => { try { await navigator.clipboard.writeText(j); return true; } catch { return false; } },
   download: async (j, exe) => { const u = URL.createObjectURL(new Blob([j], { type: "application/json" })); const l = document.createElement("a"); l.href = u; l.download = (exe || "preset").replace(/\.exe$/i, "") + ".framefx.json"; document.body.appendChild(l); l.click(); l.remove(); setTimeout(() => URL.revokeObjectURL(u), 5000); return true; } };
-const ICON = { make_preset: "🎮", change_preset: "🛠️", lookup_game: "🔎", lookup_gpu: "🔎", compare_gpus: "⚖️", explain_preset: "💡", export_preset: "📤", reset_session: "↺", web_search: "🌐", fetch_page: "📄" };
 function stepRow(call, res) { const d = document.createElement("details"); d.className = "step" + (res.ok ? "" : " bad");
   const arg = Object.values(call.arguments || {}).map(String).join(", ");
-  d.innerHTML = `<summary>${ICON[call.name] || "⚙️"} used tool <b></b><span class="sa"></span>${res.ok ? "" : " · failed"}</summary><pre></pre>`;
+  d.innerHTML = `<summary><b></b><span class="sa"></span>${res.ok ? "" : " · failed"}</summary><pre></pre>`;
   d.querySelector("b").textContent = call.name; d.querySelector(".sa").textContent = arg ? ` (${arg.slice(0, 60)})` : "";
   d.querySelector("pre").textContent = JSON.stringify({ arguments: call.arguments, result: call.name === "export_preset" ? { ...res, json: res.json ? "(" + res.json.length + " chars)" : undefined } : res }, null, 2);
   return d; }
