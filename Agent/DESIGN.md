@@ -1,6 +1,6 @@
-# FrameFX Assistant (agent): design
+# WyneAI (agent): design
 
-**Goal:** a built-in agentic AI in the FrameFX app that chats about anything, searches the web, launches allowed apps, and controls FrameFX (presets, settings, start/stop). It runs **fully local** and is always called "FrameFX Assistant" in the UI.
+**Goal:** a built-in agentic AI in the FrameFX app that chats about anything, searches the web, launches allowed apps, and controls FrameFX (presets, settings, start/stop). It runs **fully local** and is always called "WyneAI" in the UI.
 
 ## Components
 | Piece | File | What it does |
