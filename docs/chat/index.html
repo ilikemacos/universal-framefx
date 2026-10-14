@@ -25,6 +25,19 @@ form{max-width:760px;width:100%;margin:0 auto;padding:14px 24px 18px;display:fle
 #send{height:44px;background:var(--accent);border:0;color:#111;font-weight:600;padding:0 20px}#send:hover{background:#ff7d45}
 pre{font-family:var(--mono);background:#0c0c0c;border:1px solid var(--rule);border-radius:4px;padding:10px;font-size:11.5px;overflow:auto;max-height:300px}
 .foot{max-width:760px;margin:0 auto 14px;padding:0 24px;color:#6a6a6a;font-size:12px;line-height:1.5}
+.think{border:1px solid var(--rule);border-radius:4px;margin:0 0 10px;max-width:620px;background:#141414}
+.think>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:13px;color:var(--muted)}
+.think>summary::-webkit-details-marker{display:none}
+.tdot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex:none;animation:tpulse 1.3s ease-in-out infinite}
+.think.done .tdot{animation:none;background:#4a4a4a}
+@keyframes tpulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(255,106,43,.45)}50%{opacity:.45;box-shadow:0 0 0 4px rgba(255,106,43,0)}}
+.think:not(.done) .tlabel{background:linear-gradient(90deg,var(--muted) 20%,#ededed 50%,var(--muted) 80%);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:tshine 1.8s linear infinite}
+@keyframes tshine{to{background-position:-200% 0}}
+.ttime{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.tchev{margin-left:auto;transition:transform .15s;color:var(--muted);font-size:11px}
+.think[open] .tchev{transform:rotate(180deg)}
+.treason{white-space:pre-wrap;font-size:12.5px;line-height:1.55;color:var(--muted);padding:10px 12px;border-top:1px solid var(--rule)}
+.think .steps{padding:8px 12px 10px;margin:0}
 .dots::after{content:"6";animation:b 1s infinite}@keyframes b{50%{opacity:.2}}
 </style></head><body>
 <main><header><img class="logo" src="favicon.svg" alt="WyneAI"><h1>WyneAI</h1><span class="badge" id="badge" title="Trained on a 2021 ROG Zephyrus G14. Presets are built by the FrameFX preset engine in your browser.">FrameFX assistant</span><span id="status">Loading…</span><button id="reset">New chat</button></header>
@@ -72,10 +85,22 @@ function stepRow(call, res) { const d = document.createElement("details"); d.cla
 async function handle(t) {
   const agent = window.agent; agent.llm = llmState === "ready" ? llmFn : null; const basic = !agent.llm;
   if (basic && window.bot.route(t)) { const r = await window.bot.send(t); add("a", r.text); return; }
-  const bub = add("a", ""); const steps = document.createElement("div"); steps.className = "steps"; const wrap = document.createElement("div"); wrap.className = "dots"; bub.append(steps, wrap);
-  let presetShown = false;
-  const on = { step: (c, r) => { steps.appendChild(stepRow(c, r)); if (r.preset_changed) presetShown = true; log.scrollTop = 1e9; },
-    token: buf => { if (/<tool_call|^\s*[{`]/.test(buf)) { wrap.classList.add("dots"); wrap.textContent = ""; return; } wrap.classList.remove("dots"); setText(wrap, scrub(buf)); log.scrollTop = 1e9; },
+  const bub = add("a", "");
+  const think = document.createElement("details"); think.className = "think"; think.open = true;
+  think.innerHTML = '<summary><span class="tdot"></span><span class="tlabel">Thinking</span><span class="ttime">0s</span><span class="tchev">\u25be</span></summary>';
+  const reason = document.createElement("div"); reason.className = "treason"; reason.hidden = true;
+  const steps = document.createElement("div"); steps.className = "steps";
+  think.append(reason, steps);
+  const wrap = document.createElement("div"); wrap.className = "dots"; bub.append(think, wrap);
+  let presetShown = false, answering = false; const t0 = Date.now();
+  const timer = setInterval(() => { if (!answering) think.querySelector(".ttime").textContent = Math.round((Date.now() - t0) / 1000) + "s"; }, 250);
+  const finishThink = () => { if (answering) return; answering = true; clearInterval(timer); const secs = Math.round((Date.now() - t0) / 1000);
+    think.classList.add("done"); think.open = false; think.querySelector(".tlabel").textContent = "Thought for " + secs + "s"; think.querySelector(".ttime").textContent = ""; };
+  const on = {
+    reasoning: buf => { if (answering) return; reason.hidden = false; reason.textContent = scrub(buf); log.scrollTop = 1e9; },
+    search: ev => { const d = document.createElement("div"); d.className = "step"; d.textContent = "Searched the web \u00b7 " + ev.count + " result" + (ev.count === 1 ? "" : "s"); steps.appendChild(d); log.scrollTop = 1e9; },
+    step: (c, r) => { steps.appendChild(stepRow(c, r)); if (r.preset_changed) presetShown = true; log.scrollTop = 1e9; },
+    token: buf => { if (/<tool_call|^\s*[{`]/.test(buf)) { wrap.classList.add("dots"); wrap.textContent = ""; return; } finishThink(); wrap.classList.remove("dots"); setText(wrap, scrub(buf)); log.scrollTop = 1e9; },
     clear: () => { wrap.textContent = ""; wrap.classList.add("dots"); }, error: e => console.warn("agent LLM error", e) };
   let r;
   if (basic) { const plan = planDeterministic(t, !!window.bot.chat.last);
@@ -87,7 +112,9 @@ async function handle(t) {
     catch (e) { const msg = e.status === 429 ? "I'm getting too many requests right now (rate limit). Here's what I can do in basic mode:" : "I couldn't reach WyneAI (" + (e.message || e) + "), so I'm in basic mode for this message.";
       notice(e.status === 429 ? "Rate limited: please wait a minute. Basic mode is used meanwhile." : "WyneAI is unavailable right now; using basic mode (presets and FrameFX help still work).");
       agent.llm = null; if (window.bot.route(t)) { const x = await window.bot.send(t); r = { text: msg + "\n" + x.text }; } else { r = await agent.deterministic(t, on); r.text = msg + "\n" + (r.text || "I couldn't do that in basic mode."); } } }
-  wrap.classList.remove("dots"); setText(wrap, scrub(r.text || "")); if (!steps.children.length) steps.remove();
+  finishThink(); wrap.classList.remove("dots"); setText(wrap, scrub(r.text || ""));
+  if (!steps.children.length) steps.remove(); if (reason.hidden) reason.remove();
+  if (!think.querySelector(".treason") && !think.querySelector(".steps")) think.remove();
   if (presetShown && window.bot.last) card(bub); }
 window.__fx = { get llmState() { return llmState; } };
 try { window.bot = new Assistant(await Model.load(ort, "./preset_beta7.onnx")); window.agent = new Agent(window.bot, null, ui);

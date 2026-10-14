@@ -21,6 +21,9 @@ export function setApiBase(chatUrl) { API_BASE = chatUrl.replace(/\/api\/chat$/,
 async function webApi(body) { const r = await fetch(API_BASE + "/api/search", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   if (r.status === 429) return { ok: false, error: "rate limited, try again in a minute" }; return r.json(); }
 const NAMES = new Set(TOOLS.map(t => t.name));
+// desktop: register extra tools (name, description, JSON-schema properties, required)
+export function registerTools(defs) { for (const d of defs) { TOOLS.push({ name: d.name, description: d.description, parameters: d.props }); PROPS[d.name] = d.props; REQ[d.name] = d.required || Object.keys(d.props); NAMES.add(d.name); }
+  TOOL_SCHEMAS.length = 0; TOOL_SCHEMAS.push(...buildSchemas()); }
 
 // ---------- parser ----------
 function scanJSON(s, i) { // balanced {...} starting at s[i]=='{'
@@ -154,14 +157,16 @@ export class Agent {
 }
 
 // ---------- native OpenAI-style tools (cloud model) ----------
+const REQ = {};
 const PROPS = {
   make_preset: { request: { type: "string", description: "Verbatim user words (no added details) for game, GPU, fps now/target, resolution, laptop, preferences" } },
   change_preset: { request: { type: "string", description: "The change in plain words, e.g. 'make it quieter', 'what about 4K', 'turn frame gen off'" } },
   lookup_game: { game: { type: "string" } }, lookup_gpu: { gpu: { type: "string" } },
   compare_gpus: { gpu_a: { type: "string" }, gpu_b: { type: "string" } }, explain_preset: {},
   export_preset: { mode: { type: "string", enum: ["copy", "download"] } }, reset_session: {}, web_search: { query: { type: "string" } }, fetch_page: { url: { type: "string" } } };
-export const TOOL_SCHEMAS = TOOLS.map(t => ({ type: "function", function: { name: t.name, description: t.description,
-  parameters: { type: "object", properties: PROPS[t.name], required: Object.keys(PROPS[t.name]).filter(k => k !== "mode") } } }));
+const buildSchemas = () => TOOLS.map(t => ({ type: "function", function: { name: t.name, description: t.description,
+  parameters: { type: "object", properties: PROPS[t.name], required: REQ[t.name] || Object.keys(PROPS[t.name]).filter(k => k !== "mode") } } }));
+export const TOOL_SCHEMAS = buildSchemas();
 export function nativeSystemPrompt(presetCtx) {
   return `You are WyneAI, the AI assistant built into FrameFX (Universal FrameFX), a Windows app that adds frame generation, upscaling (CSR 1.3/2.0/AI, FSR 1-4, XeSS), SSGI, RT lighting and CPU boost to games through per-game presets. You can chat helpfully about anything (general knowledge, tech, games), concisely and in a friendly tone. You can use web_search (and fetch_page for details) for current events, news, prices, recent releases or anything you're unsure of; usually one search is enough: answer from the result titles and snippets, and only use fetch_page when you truly need more detail. Cite sources as markdown links [title](url). Don't invent URLs.
 Use the tools for FrameFX work. NEVER invent preset values: presets are only created or changed by make_preset / change_preset (pass the user's exact words for that step, copied verbatim; never add details like resolution, fps or preferences the user didn't say). For multi-step requests call the tools in order (e.g. make_preset, then change_preset, then export_preset). Use lookup_game / lookup_gpu / compare_gpus for knowledge-base facts and explain_preset to explain the current preset. Frame generation always stays off for anti-cheat and competitive games. After tools finish, give a short plain-text summary using only values the tools returned; don't paste raw JSON.
@@ -169,29 +174,34 @@ ${presetCtx}`; }
 Agent.prototype.runNative = async function (text, on = {}) {
   if (isPlainPreset(text, this.a) && planDeterministic(text, !!this.a.chat.last).length === 1 && (await this.probePreset(text))) {
     const r = this._probed; this._probed = null; on.step?.(r.call, r.result); const t = this.summarize([r]); this.remember(text, t); return { text: t, results: [r], mode: "fast" }; }
-  const msgs = [{ role: "system", content: nativeSystemPrompt(this.a.presetContext()) }, ...this.history, { role: "user", content: text }];
+  const msgs = [{ role: "system", content: nativeSystemPrompt(this.a.presetContext()) + (this.extraPrompt ? "\n\n" + this.extraPrompt() : "") }, ...this.history, { role: "user", content: text }];
   const all = [];
   try {
     for (let step = 0; step < this.max; step++) {
-      const r = await this.llm(msgs, TOOL_SCHEMAS, on.token); // -> {content, tool_calls}
+      if (this.stopped) { const t = (this.summarize(all) ? this.summarize(all) + "\n\n" : "") + "Stopped."; this.remember(text, t); return { text: t, results: all, mode: "stopped" }; }
+      const r = await this.llm(msgs, TOOL_SCHEMAS, on); // -> {content, tool_calls}
       const calls = (r.tool_calls || []).filter(c => c?.function?.name);
       if (!calls.length) { const t = (r.content || "").trim() || this.summarize(all); this.remember(text, t); return { text: t, results: all, mode: "cloud" }; }
       on.clear?.(); msgs.push({ role: "assistant", content: r.content || null, tool_calls: calls.map(c => ({ id: c.id, type: "function", function: { name: c.function.name, arguments: c.function.arguments || "{}" } })) });
       for (const c of calls) { let args = {}; try { args = JSON.parse(c.function.arguments || "{}"); } catch { try { args = JSON.parse(repairJSON(c.function.arguments || "{}")); } catch { args = {}; } }
+        if (this.stopped) break;
         const call = { name: c.function.name, arguments: args }; const res = NAMES.has(call.name) ? await runTool(this.tools, call) : { ok: false, error: "unknown tool" };
         all.push({ call, result: res }); on.step?.(call, res);
         msgs.push({ role: "tool", tool_call_id: c.id, content: JSON.stringify(call.name === "export_preset" ? { ...res, json: "(omitted)" } : res).slice(0, 6000) }); } }
     const t = this.summarize(all) || "I ran out of steps."; this.remember(text, t); return { text: t, results: all, mode: "cloud-maxsteps" };
   } catch (e) { on.error?.(e); if (all.length) { const t = this.summarize(all); this.remember(text, t); return { text: t, results: all, mode: "cloud-error" }; } throw e; } };
-export function cloudLLM(url = "/api/chat") {
-  return async (messages, tools, onTok) => {
-    const res = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ messages, tools, max_tokens: 32768 }) });
+export function cloudLLM(url = "/api/chat", getSignal = () => undefined) {
+  return async (messages, tools, cb) => {
+    const on = typeof cb === "function" ? { token: cb } : (cb || {});
+    const res = await fetch(url, { method: "POST", signal: getSignal(), headers: { "content-type": "application/json" }, body: JSON.stringify({ messages, tools, max_tokens: 32768, no_search: on.noSearch }) });
     if (!res.ok) { let m = res.status; try { m = (await res.json()).error || m; } catch {} const e = new Error(String(m)); e.status = res.status; throw e; }
-    const rd = res.body.getReader(), dec = new TextDecoder(); let buf = "", content = ""; const tc = [];
+    const rd = res.body.getReader(), dec = new TextDecoder(); let buf = "", content = "", reasoning = ""; const tc = [];
     for (;;) { const { value, done } = await rd.read(); if (done) break; buf += dec.decode(value, { stream: true }); let i;
       while ((i = buf.indexOf("\n\n")) >= 0) { const ev = buf.slice(0, i).trim(); buf = buf.slice(i + 2); if (!ev.startsWith("data:")) continue; const d = ev.slice(5).trim(); if (d === "[DONE]") continue;
         let j; try { j = JSON.parse(d); } catch { continue; }
-        if (j.content) { content += j.content; if (!tc.length) onTok?.(content); }
+        if (j.type === "search") { on.search?.(j); continue; }
+        if (j.reasoning) { reasoning += j.reasoning; on.reasoning?.(reasoning); }
+        if (j.content) { content += j.content; if (!tc.length) on.token?.(content); }
         for (const t of j.tool_calls || []) { const k = t.index ?? tc.length; tc[k] ||= { id: "", function: { name: "", arguments: "" } };
           if (t.id) tc[k].id = t.id; if (t.function?.name) tc[k].function.name += t.function.name; if (t.function?.arguments) tc[k].function.arguments += t.function.arguments; } } }
-    tc.forEach((c, i) => { if (!c.id) c.id = "call_" + i; }); return { content, tool_calls: tc.filter(Boolean) }; }; }
+    tc.forEach((c, i) => { if (!c.id) c.id = "call_" + i; }); return { content, reasoning, tool_calls: tc.filter(Boolean) }; }; }
