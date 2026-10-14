@@ -14,6 +14,25 @@ export const gpusIn = t => findAll(GPUS, g => [g[0], ...g[1]], t);
 export const COST = ["", "very light", "light", "medium", "heavy", "very heavy"];
 export const TIER = s => s >= 65 ? "high-end" : s >= 45 ? "upper mid-range" : s >= 30 ? "mid-range" : s >= 20 ? "entry-level" : "older / low-end";
 
+// Presets must only trigger on an EXPLICIT request: a preset/FrameFX-settings ask,
+// not a bare game mention. wantsPreset gates new presets; wantsChange gates follow-up
+// tweaks once a preset already exists.
+const PRESET_WORDS = /\b(presets?|frame ?gen\w*|framegen|upscal\w*|fsr ?\d?|xess|csr ?\d?(\.\d)?|ssgi|ray.?trac\w*|dlss|cpu ?boost|power plan|anti.?cheat)\b/;
+export function wantsPreset(raw) { const t = norm(raw);
+  if (/\bpresets?\b/.test(t)) return true;                                   // the word "preset"
+  if (/\bpreset for\b/.test(t)) return true;                                 // "preset for X"
+  if (/\b(make|build|give|create|gen(erate)?|set ?up|do|whip up|cook up|configure|optimi[sz]e|tune|dial in) (me )?(a |an |the )?(new )?(framefx )?(preset|profile|config|configuration)\b/.test(t)) return true;
+  if (/\b\d{2,3}\s*(fps|hz)\b/.test(t) || /\b(want|target|aim(ing)? for|hit|reach|get to)\b[^.?!]*\bfps\b/.test(t)) return true; // an fps target = tuning
+  if (/\b(set ?up|optimi[sz]e|tune|tuning|configure|config|dial in)\b[^.?!]*\b(for|on|in)\b/.test(t)) return true; // "optimize/tune/set up ... for/on X"
+  if (/\b(best|good|recommended|optimal|ideal)\b[^.?!]*\bsettings?\b/.test(t)) return true; // a settings ask
+  if (/\b(set ?up|optimi[sz]e|tune|configure|dial in)\b/.test(t) && gamesIn(t).length) return true; // "set up/optimize/tune <game>"
+  if (PRESET_WORDS.test(t)) return true;                                        // naming a FrameFX feature/setting
+  return false; }
+export function wantsChange(raw) { const t = norm(raw);
+  return /^(what about|how about|actually|instead|also|and|now)\b/.test(t)
+    || /^(make it|turn|switch|add|set|change|bring|use|kill|push|lower|raise|increase|reduce|drop|enable|disable|remove|boost|cap)\b/.test(t)
+    || /\b(4k|1440p?|1080p?|native|quieter|louder|smoother|sharper|crisper|higher|lower)\b/.test(t); }
+
 const TERMS = [
   [/frame ?gen\w*|\bfg\b|generated frames|interpolat/, "Frame generation inserts AI/optical-flow frames between real ones, so 50 fps can look like 100. It smooths motion but doesn't reduce input lag (it adds a little), and it works best when your base fps is already 40+. FrameFX offers CSR 1.3, CSR 2.0, FSR 3 and CSR AI frame gen at 2x–4x."],
   [/multiplier|\b[234]x\b/, "The multiplier is how many frames you see per real frame: 2x doubles, 3x triples, 4x quadruples. Higher means smoother but more artifacts and ghosting, so I cap it at 2x if you say you hate blur."],
@@ -39,6 +58,7 @@ export class Assistant {
   get last() { return this.chat.last; }
   async send(text) { const r = this.route(text); this.lastKind = r ? r.kind : "preset";
     if (r) return { kind: r.kind, text: r.text, preset: false };
+    if (!(wantsPreset(text) || (this.chat.last && wantsChange(text)))) { this.lastKind = "chat"; return { kind: "chat", text: this.infoAnswer(text), preset: false }; }
     const before = this.chat.last; const reply = await this.chat.turn(text);
     if (reply === OFFTOPIC || reply.startsWith("I didn't catch a change")) { this.lastKind = "offtopic"; return { kind: "offtopic", text: this.offtopic(text), preset: false }; }
     return { kind: "preset", text: reply, preset: this.chat.last !== null && this.chat.last !== before }; }
@@ -47,6 +67,7 @@ export class Assistant {
   // LLM mode: returns a preset-pipeline result, or null if the message should go to the LLM (state untouched).
   async tryPreset(text) {
     const r = this.route(text); if (r) return null;
+    if (!(wantsPreset(text) || (this.chat.last && wantsChange(text)))) return null; // no explicit preset intent: let the normal answer path handle it
     const snap = this.snapshot(), before = this.chat.last; const reply = await this.chat.turn(text);
     if (reply === OFFTOPIC || reply.startsWith("I didn't catch a change") || reply.startsWith("Hi! I build")) { this.restore(snap); return null; }
     return { kind: "preset", text: reply, preset: this.chat.last !== null && this.chat.last !== before }; }
@@ -95,6 +116,13 @@ export class Assistant {
       for (const [re, ans] of TERMS) if (re.test(q)) return { kind: "explain", text: ans };
     }
     return null; }
+  infoAnswer(raw) { const t = norm(raw); const games = gamesIn(t), gpus = gpusIn(t);
+    if (games.length) { const g = games[0];
+      const ac = g[6] ? (g[5] ? " It's competitive with anti-cheat, so frame generation would stay off." : " It uses anti-cheat, so frame generation would stay off.") : g[5] ? " It's competitive, so frame gen would stay off." : "";
+      return `${g[0]} (${g[1]}) is ${COST[g[3]]} to run${g[4] ? ", and HUD-heavy" : ""}.${ac} I run offline and don't have general game trivia, but if you want I can build a FrameFX preset — just say "make a preset for ${g[0]}" and tell me your GPU and target fps.`; }
+    if (gpus.length) { const p = gpus[0];
+      return `The ${p[0]} is a ${TIER(p[2])} card in my rough rankings (score ${p[2]}).${p[4] === "rx9000" ? " It supports FSR 4." : ""} Want a FrameFX preset for a game on it? Say "make a preset for <game>".`; }
+    return this.offtopic(raw); }
   offtopic(raw) { const t = norm(raw);
     if (/joke/.test(t)) return pick(["Why did the GPU break up with the CPU? It needed more space to render its feelings. Anyway, want a preset?", "I'd tell you a joke about 30 fps, but you wouldn't see the punchline in time."]);
     if (/weather|news|president|stock|score|won|capital|recipe|code|math|homework/.test(t)) return "I can't look that up, sorry. I run offline in your browser and only know FrameFX and gaming stuff. " + (this.chat.f.game ? `Want to keep tweaking your ${this.chat.f.game[0]} preset?` : "Tell me a game and GPU and I'll build you a preset.");

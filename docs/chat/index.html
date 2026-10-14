@@ -242,6 +242,7 @@ async function handle(t) {
     if (plan.length === 1 && (plan[0].name === "make_preset" || plan[0].name === "change_preset")) { const x = await window.bot.send(t); let txt = x.text;
       if (x.preset) on.step({ name: window.bot.chat.last && plan[0].name, arguments: { request: t } }, { ok: true, preset_changed: true });
             r = { text: txt }; }
+    else if (!plan.length) { const x = await window.bot.send(t); r = { text: x.text }; }
     else r = await agent.deterministic(t, on); }
   else { try { r = await agent.runNative(modelText, on); }
     catch (e) { const msg = e.status === 429 ? "I'm getting too many requests right now (rate limit). Here's what I can do in basic mode:" : "I couldn't reach WrenbyAI (" + (e.message || e) + "), so I'm in basic mode for this message.";

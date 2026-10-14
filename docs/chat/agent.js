@@ -2,7 +2,7 @@
 // Only the Beta7 pipeline (Chat.turn via make_preset/change_preset) ever sets preset fields.
 import { GAMES, GPUS } from "./kb.js";
 import { Chat, WHY } from "./presetai.js";
-import { gamesIn, gpusIn, COST, TIER, norm } from "./assistant.js";
+import { gamesIn, gpusIn, COST, TIER, norm, wantsPreset, wantsChange } from "./assistant.js";
 
 export const TOOLS = [
   { name: "make_preset", description: "Start a NEW FrameFX preset from the user's description (game, GPU, fps now/target, resolution, laptop, preferences). Replaces any current preset.", parameters: { request: "string: the user's words describing game/GPU/fps, e.g. 'Cyberpunk on a 3060, 45 fps, want 120'" } },
@@ -95,22 +95,23 @@ export async function runTool(tools, call) { const f = tools[call.name]; if (!f)
 const SPLIT = /\s*(?:,?\s*(?:and )?then\b|;|\.\s+|,\s*(?:and\s+)?(?=(?:make|turn|switch|add|set|change|export|copy|download|explain|compare|reset|kill|bring|use|what about|actually)\b)|\s+and\s+(?=(?:export|copy|download|explain|reset)\b))\s*/i;
 export function planDeterministic(text, hasPreset) {
   const parts = text.split(SPLIT).map(s => s.trim()).filter(Boolean); const steps = []; let have = hasPreset;
+  const wp = wantsPreset(text); // presets only on explicit intent, never on a bare game mention
   for (const p of parts) { const t = norm(p);
     if (/^(export|copy|download|save)\b|\b(export|copy|download) (it|the preset|the json)\b/.test(t)) { steps.push({ name: "export_preset", arguments: { mode: /download|save|file/.test(t) ? "download" : "copy" } }); continue; }
     if (/^(explain|why)\b|explain (it|the preset|my preset)/.test(t)) { steps.push({ name: "explain_preset", arguments: {} }); continue; }
     if (/^(reset|start over|clear)\b/.test(t)) { steps.push({ name: "reset_session", arguments: {} }); have = false; continue; }
     const gp = gpusIn(t); if (gp.length >= 2 && /compare|vs|versus|better|faster/.test(t)) { steps.push({ name: "compare_gpus", arguments: { gpu_a: gp[0][0], gpu_b: gp[1][0] } }); continue; }
-    if (gamesIn(t).length && (!have || /set up|setup|make|preset for|new|switch to|^\w/.test(t)) && !/^(what about|actually|make it)\b/.test(t)) { steps.push({ name: have ? "change_preset" : "make_preset", arguments: { request: p } }); have = true; continue; }
-    if (have) { steps.push({ name: "change_preset", arguments: { request: p } }); continue; }
-    steps.push({ name: "make_preset", arguments: { request: p } }); have = true; }
+    if (gamesIn(t).length && (wp || (have && wantsChange(p))) && !/^(what about|actually|make it)\b/.test(t)) { steps.push({ name: have ? "change_preset" : "make_preset", arguments: { request: p } }); have = true; continue; }
+    if (have && (wp || wantsChange(p))) { steps.push({ name: "change_preset", arguments: { request: p } }); continue; }
+    if (wp) { steps.push({ name: "make_preset", arguments: { request: p } }); have = true; } }
   return steps; }
-export const isPlainPreset = (text, assistant) => !assistant.route(text) && !/\b(then|export|copy|download|explain|compare|why|what is|whats|who|how)\b/i.test(text);
+export const isPlainPreset = (text, assistant) => wantsPreset(text) && !assistant.route(text) && !/\b(then|export|copy|download|explain|compare|why|what is|whats|who|how)\b/i.test(text);
 
 // ---------- agent loop ----------
 export function systemPrompt(presetCtx) {
   return `You are WrenbyAI, the AI assistant built into FrameFX (Universal FrameFX), a Windows app adding frame generation, upscaling (CSR 1.3/2.0/AI, FSR 1-4, XeSS), SSGI, RT lighting and CPU boost to games via per-game presets. You were made for FrameFX; if asked who/what model you are or who made you, say you are WrenbyAI, made for FrameFX, and never name another model or company. You can chat about anything, but say so instead of guessing about recent events.
 
-You can use tools. NEVER invent preset values yourself: presets are only created/changed by make_preset/change_preset. For multi-step requests, call tools one after another. To call a tool, output ONLY:
+You can use tools. NEVER invent preset values yourself: presets are only created/changed by make_preset/change_preset. ONLY create or change a preset when the user explicitly asks for one — a preset, FrameFX settings/config, an fps target, or "optimize/tune/set up <game>". If the user merely mentions or chats about a game, answer normally and do NOT call make_preset/change_preset. For multi-step requests, call tools one after another. To call a tool, output ONLY:
 <tool_call>
 {"name": "<tool>", "arguments": {...}}
 </tool_call>
@@ -188,7 +189,7 @@ Coding:
 - Use markdown for explanations (headings, lists, tables, fenced code). Keep prose short.
 - Use web_search / fetch_page for docs, APIs, versions or anything current; cite sources as [title](url). Don't invent URLs.
 
-FrameFX (secondary): use make_preset / change_preset (NEVER invent preset values; pass the user's exact words verbatim), lookup_game / lookup_gpu / compare_gpus, explain_preset, export_preset. Frame generation always stays off for anti-cheat and competitive games.
+FrameFX (secondary): ONLY build or change a preset when the user explicitly asks for one — e.g. "make/give/build a preset", "preset for X", "optimize/tune/set up X", an fps target, or a FrameFX settings/config request. If the user simply mentions, talks about or asks about a game (for example "I've been playing X" or "what is X about"), just answer normally and do NOT call make_preset/change_preset. When they do ask: use make_preset / change_preset (NEVER invent preset values; pass the user's exact words verbatim), plus lookup_game / lookup_gpu / compare_gpus, explain_preset, export_preset. Frame generation always stays off for anti-cheat and competitive games.
 
 After tools finish, give a short summary using only values the tools returned; don't paste raw JSON.
 ${presetCtx}`; }
