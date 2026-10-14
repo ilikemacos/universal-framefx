@@ -3,10 +3,10 @@ using UniversalFrameFX.Agent.App;
 
 namespace UniversalFrameFX;
 
-// FrameFX Assistant hooks: small public wrappers the agent's FrameFxHostAdapter calls (always on the UI thread).
+// WyneAI hooks: small public wrappers the agent's FrameFxHostAdapter calls (always on the UI thread).
 public sealed partial class MainForm
 {
-    readonly PillButton _agentAssistant = new() { Text = "FrameFX Assistant (experimental)", AutoSize = true, Kind = PillKind.Ghost, Margin = new Padding(0, 6, 0, 0) };
+    readonly PillButton _agentAssistant = new() { Text = "WyneAI (experimental)", AutoSize = true, Kind = PillKind.Ghost, Margin = new Padding(0, 6, 0, 0) };
 
     public bool AgentIsRunning => _out != null;
     public string AgentGpuName => _gpu?.AdapterName ?? "unknown GPU";

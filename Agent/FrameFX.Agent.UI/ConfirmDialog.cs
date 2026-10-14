@@ -6,7 +6,7 @@ public sealed class ConfirmDialog : Form
 {
     ConfirmDialog(ConfirmRequest r)
     {
-        Text = "FrameFX Assistant: " + r.Title;
+        Text = "WyneAI: " + r.Title;
         FormBorderStyle = FormBorderStyle.FixedDialog; MaximizeBox = MinimizeBox = false;
         StartPosition = FormStartPosition.CenterParent; ShowInTaskbar = false;
         AutoSize = true; AutoSizeMode = AutoSizeMode.GrowAndShrink; Padding = new Padding(14);
@@ -42,7 +42,7 @@ public sealed class WinFormsPrompts(Control owner) : IConfirmer, IUserPicker
 
     public Task<string?> PickExecutableAsync(string reason, CancellationToken ct) => OnUi<string?>(() =>
     {
-        if (MessageBox.Show(owner.FindForm(), reason, "FrameFX Assistant", MessageBoxButtons.OKCancel, MessageBoxIcon.Question) != DialogResult.OK) return null;
+        if (MessageBox.Show(owner.FindForm(), reason, "WyneAI", MessageBoxButtons.OKCancel, MessageBoxIcon.Question) != DialogResult.OK) return null;
         using var dlg = new OpenFileDialog { Filter = "Programs (*.exe)|*.exe", Title = "Pick the program to allow" };
         return dlg.ShowDialog(owner.FindForm()) == DialogResult.OK ? dlg.FileName : null;
     });
