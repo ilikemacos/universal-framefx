@@ -59,6 +59,7 @@ public sealed class LlamaServerHost : IDisposable
             RedirectStandardError = true, RedirectStandardOutput = true,
             WorkingDirectory = Path.GetDirectoryName(_paths.ServerExe)!,
         };
+        ConfigureEnvironment(psi);
         foreach (var a in new[] { "-m", _paths.ModelFile, "--host", "127.0.0.1", "--port", port.ToString(),
                                   "--jinja", "--parallel", "1", "--no-webui", "--alias", "wyneai",
                                   // Only the WyneAI web page may call this server from a browser (other sites get no CORS header).
@@ -95,6 +96,9 @@ public sealed class LlamaServerHost : IDisposable
 
     /// <summary>Fixed port the WyneAI web page (ilikemacos.github.io/framefx/wyneai/) uses by default.</summary>
     public const int PreferredPort = 8737;
+
+    /// <summary>RivaTuner (RTSS) injects a Vulkan layer that crashes llama-server; this turns it off for the server only.</summary>
+    internal static void ConfigureEnvironment(ProcessStartInfo psi) => psi.Environment["DISABLE_RTSS_LAYER"] = "1";
 
     static int FreePort()
     {

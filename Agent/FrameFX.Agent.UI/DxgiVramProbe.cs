@@ -1,8 +1,9 @@
 using Vortice.DXGI;
+using UniversalFrameFX.Agent;
 
 namespace UniversalFrameFX.Agent.UI;
 
-/// <summary>Largest dedicated VRAM among hardware adapters (skips the Basic Render Driver / software adapters).</summary>
+/// <summary>Largest usable VRAM among hardware adapters (skips software adapters). iGPUs also count part of their shared memory.</summary>
 public static class DxgiVramProbe
 {
     public static (long Bytes, string Name) Best()
@@ -15,7 +16,7 @@ public static class DxgiVramProbe
             {
                 var d = adapter.Description1;
                 if ((d.Flags & AdapterFlags.Software) != 0) continue;
-                long mem = (long)d.DedicatedVideoMemory;
+                long mem = ContextSizer.EffectiveVram((long)d.DedicatedVideoMemory, (long)d.SharedSystemMemory);
                 if (mem > best) { best = mem; name = d.Description; }
             }
         }
