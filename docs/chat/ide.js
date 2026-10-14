@@ -17,6 +17,9 @@ const bytesOf = s => new TextEncoder().encode(s).length;
 const runnable = n => /\.(html?|m?js|ts|jsx|tsx|css|py)$/i.test(n || "");
 const hasHTML = () => [...files.keys()].find(n => /\.html?$/i.test(n));
 const isJsLike = n => /\.(m?js|jsx|tsx?|ts)$/i.test(n || "");
+// On narrow screens the panel is a full-screen overlay; don't auto-pop it over the composer.
+const isNarrow = () => (typeof window !== "undefined" ? window.innerWidth : 1200) <= 860;
+const autoOpenOK = () => !isNarrow() || (els.side && !els.side.hidden);
 
 export function initIDE(hooks) { H = hooks || {}; injectStyle(); buildPanel(); loadEditor(); restoreWidth();
   document.addEventListener("keydown", e => { if (e.key === "Escape" && els.side && !els.side.hidden) { closePanel(); e.stopPropagation(); } });
@@ -97,7 +100,7 @@ export function setFiles(list, { open = true, replace = false } = {}) {
     if (ex) { if (ex.content !== content) { ex.versions.push({ content: ex.content, at: Date.now() }); ex.content = content; } }
     else files.set(name, { content, versions: [] }); }
   active = String(list[0].name || active || [...files.keys()][0]);
-  renderTabs(); renderTree(); showActive(); if (open) openPanel();
+  renderTabs(); renderTree(); showActive(); if (open && autoOpenOK()) openPanel();
 }
 
 // deterministic targeted edit (edit_file tool). Fixes the flaky full-file round-trip.
@@ -115,7 +118,7 @@ export function applyEdit({ filename, search, replace, all } = {}) {
   active = name; renderTabs(); renderTree(); showActive();
   // auto-show the diff for this edit
   els.vsel.value = String(f.versions.length - 1); showDiff(f.versions.length - 1);
-  openPanel();
+  if (autoOpenOK()) openPanel();
   return { ok: true, file: name, replaced };
 }
 
