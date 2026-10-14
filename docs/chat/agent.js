@@ -128,12 +128,14 @@ export class Agent {
       else if (call.name === "compare_gpus") out.push(r.faster === "about equal" ? "They're about equal." : `${r.faster} is ~${r.percent_faster}% faster.`); }
     return out.join("\n\n"); }
   async deterministic(text, on) { const steps = planDeterministic(text, !!this.a.chat.last); const res = await this.execute(steps, on); const t = this.summarize(res); this.remember(text, t); return { text: t, results: res, mode: "fast" }; }
-  remember(u, a) { this.history.push({ role: "user", content: u }, { role: "assistant", content: a }); if (this.history.length > 16) this.history.splice(0, this.history.length - 16); }
+  remember(u, a) { this.history.push({ role: "user", content: String(u).slice(0, 100000) }, { role: "assistant", content: String(a ?? "").slice(0, 100000) }); // ~128k-token window (≈4 chars/token), max 500 messages
+    const tok = m => Math.ceil(String(m.content || "").length / 4) + 4; let t = this.history.reduce((s, m) => s + tok(m), 0);
+    while (this.history.length > 2 && (t > 120000 || this.history.length > 498)) { t -= tok(this.history[0]) + tok(this.history[1]); this.history.splice(0, 2); } }
   async run(text, on = {}) {
     if (!this.llm || isPlainPreset(text, this.a) && planDeterministic(text, !!this.a.chat.last).length === 1 && (await this.probePreset(text))) {
       if (this._probed) { const r = this._probed; this._probed = null; on.step?.(r.call, r.result); const t = this.summarize([r]); this.remember(text, t); return { text: t, results: [r], mode: "fast" }; }
       return this.deterministic(text, on); }
-    const msgs = [{ role: "system", content: systemPrompt(this.a.presetContext()) }, ...this.history.slice(-12), { role: "user", content: text }];
+    const msgs = [{ role: "system", content: systemPrompt(this.a.presetContext()) }, ...this.history, { role: "user", content: text }];
     const all = []; let repaired = false;
     try {
       for (let step = 0; step < this.max; step++) {
@@ -167,7 +169,7 @@ ${presetCtx}`; }
 Agent.prototype.runNative = async function (text, on = {}) {
   if (isPlainPreset(text, this.a) && planDeterministic(text, !!this.a.chat.last).length === 1 && (await this.probePreset(text))) {
     const r = this._probed; this._probed = null; on.step?.(r.call, r.result); const t = this.summarize([r]); this.remember(text, t); return { text: t, results: [r], mode: "fast" }; }
-  const msgs = [{ role: "system", content: nativeSystemPrompt(this.a.presetContext()) }, ...this.history.slice(-12), { role: "user", content: text }];
+  const msgs = [{ role: "system", content: nativeSystemPrompt(this.a.presetContext()) }, ...this.history, { role: "user", content: text }];
   const all = [];
   try {
     for (let step = 0; step < this.max; step++) {
@@ -183,7 +185,7 @@ Agent.prototype.runNative = async function (text, on = {}) {
   } catch (e) { on.error?.(e); if (all.length) { const t = this.summarize(all); this.remember(text, t); return { text: t, results: all, mode: "cloud-error" }; } throw e; } };
 export function cloudLLM(url = "/api/chat") {
   return async (messages, tools, onTok) => {
-    const res = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ messages, tools, max_tokens: 900 }) });
+    const res = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ messages, tools, max_tokens: 32768 }) });
     if (!res.ok) { let m = res.status; try { m = (await res.json()).error || m; } catch {} const e = new Error(String(m)); e.status = res.status; throw e; }
     const rd = res.body.getReader(), dec = new TextDecoder(); let buf = "", content = ""; const tc = [];
     for (;;) { const { value, done } = await rd.read(); if (done) break; buf += dec.decode(value, { stream: true }); let i;

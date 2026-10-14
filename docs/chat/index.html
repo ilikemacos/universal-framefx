@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="favicon.ico" sizes="48x48"><link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="apple-touch-icon.png"><meta name="theme-color" content="#7c5cff">
 <title>WyneAI</title>
 <style>
 :root{--bg:#0f1115;--panel:#171a21;--line:#262b36;--txt:#e6e8ee;--mut:#8b93a7;--acc:#7c5cff;--warn:#ffb020}
@@ -20,7 +20,7 @@ pre{background:#0b0d11;border:1px solid var(--line);border-radius:8px;padding:10
 .dots::after{content:"…";animation:b 1s infinite}@keyframes b{50%{opacity:.2}}
 @media(max-width:860px){body{flex-direction:column}aside{width:auto;border-left:0;border-top:1px solid var(--line);max-height:40vh}}
 </style></head><body>
-<main><header><div class="logo">FX</div><h1>WyneAI</h1><span class="badge" id="badge" title="Trained on a 2021 ROG Zephyrus G14. Presets are built by the FrameFX preset engine in your browser.">WyneAI · needs internet</span><span id="status">Loading…</span><button id="reset">New chat</button></header>
+<main><header><img class="logo" src="favicon.svg" alt="WyneAI"><h1>WyneAI</h1><span class="badge" id="badge" title="Trained on a 2021 ROG Zephyrus G14. Presets are built by the FrameFX preset engine in your browser.">WyneAI · needs internet</span><span id="status">Loading…</span><button id="reset">New chat</button></header>
 <div id="notice" hidden></div><div id="log"></div>
 <div id="chips"></div>
 <form id="f"><input id="q" autocomplete="off" placeholder="Message WyneAI…" disabled><button id="send" disabled>Send</button></form>
@@ -33,7 +33,7 @@ import { Agent, planDeterministic, cloudLLM, setApiBase } from "./agent.js";
 ort.env.wasm.wasmPaths = new URL("./ort/", location.href).href; ort.env.wasm.numThreads = 1;
 const $ = s => document.querySelector(s), log = $("#log");
 const scrub = t => t.replace(/\b(Nemotron|Qwen)[\w.-]*/gi, "WyneAI").replace(/\*\*/g, "");
-function add(who, text) { const d = document.createElement("div"); d.className = "msg " + who; d.innerHTML = `<div class="av">${who === "u" ? "You" : "FX"}</div><div class="bub"></div>`;
+function add(who, text) { const d = document.createElement("div"); d.className = "msg " + who; d.innerHTML = `<div class="av">${who === "u" ? "You" : '<img src="favicon.svg" alt="WyneAI" style="width:28px;height:28px;border-radius:6px">'}</div><div class="bub"></div>`;
   const b = d.querySelector(".bub"); if (text === null) b.className += " dots"; else setText(b, text); log.appendChild(d); log.scrollTop = 1e9; return b; }
 function setText(b, text) { b.textContent = ""; text.split("\n").forEach(l => { const s = document.createElement("div"); if (l.startsWith("WARNING")) s.className = "warn"; linkify(s, l || "\u00a0"); b.appendChild(s); }); }
 function linkify(el, l) { const re = /\[([^\]]{1,200})\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s)<>\]]+)/g; let i = 0, m;
