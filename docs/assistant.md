@@ -5,7 +5,7 @@ title: WyneAI
 
 # WyneAI
 
-The WyneAI is a chat assistant for FrameFX. It answers general questions, builds presets with the Beta7 pipeline and, in the app, can take actions for you, always with your confirmation.
+WyneAI is a coding-first assistant, with FrameFX help as its second job. It plans and writes complete, runnable code, shows it in a side panel, and runs HTML/CSS/JS right in your browser; it can make files (single or zipped), search the web, and iterate on errors. For FrameFX it answers questions and builds presets with the Beta7 pipeline, and in the desktop app it can take actions for you, always with your confirmation.
 
 ## Try it on the web
 Trained on a 2021 ROG Zephyrus G14.

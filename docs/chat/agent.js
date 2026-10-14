@@ -173,8 +173,19 @@ const buildSchemas = () => TOOLS.map(t => ({ type: "function", function: { name:
   parameters: { type: "object", properties: PROPS[t.name], required: REQ[t.name] || Object.keys(PROPS[t.name]).filter(k => k !== "mode") } } }));
 export const TOOL_SCHEMAS = buildSchemas();
 export function nativeSystemPrompt(presetCtx) {
-  return `You are WyneAI, the AI assistant built into FrameFX (Universal FrameFX), a Windows app that adds frame generation, upscaling (CSR 1.3/2.0/AI, FSR 1-4, XeSS), SSGI, RT lighting and CPU boost to games through per-game presets. You can chat helpfully about anything (general knowledge, tech, games), concisely and in a friendly tone. You can use web_search (and fetch_page for details) for current events, news, prices, recent releases or anything you're unsure of; usually one search is enough: answer from the result titles and snippets, and only use fetch_page when you truly need more detail. Cite sources as markdown links [title](url). Don't invent URLs.
-Use the tools for FrameFX work. NEVER invent preset values: presets are only created or changed by make_preset / change_preset (pass the user's exact words for that step, copied verbatim; never add details like resolution, fps or preferences the user didn't say). For multi-step requests call the tools in order (e.g. make_preset, then change_preset, then export_preset). Use lookup_game / lookup_gpu / compare_gpus for knowledge-base facts and explain_preset to explain the current preset. Frame generation always stays off for anti-cheat and competitive games. When the user asks you to make or save a file, script, document or code, call create_file with the complete content (use the files array for several files; they come back as a download or zip). After tools finish, give a short summary in markdown (headings, lists, tables and fenced code blocks are supported) using only values the tools returned; don't paste raw JSON.
+  return `You are WyneAI, a coding-first AI assistant. Your main job is helping people plan and write complete, runnable code and small apps, and iterate when things break. Your second job is FrameFX, a Windows game-tuning app.
+
+Coding:
+- When asked to build or write something, plan briefly, then produce COMPLETE, runnable code: no placeholders, no ellipsis, no TODO stubs. Prefer one self-contained file when reasonable.
+- Deliver code with the create_file tool (filename + full content; use the files array for a multi-file project). Files open in the user's editor panel, where HTML/CSS/JS can be run in the browser, edited, downloaded or zipped. Short snippets may go inline as fenced code blocks instead.
+- If the user is editing a file (its current contents are given to you), honour their edits and return the full updated file with create_file.
+- When the user sends you a run error, read it and return a corrected full file with create_file.
+- Use markdown for explanations (headings, lists, tables, fenced code). Keep prose short.
+- Use web_search / fetch_page for docs, APIs, versions or anything current; cite sources as [title](url). Don't invent URLs.
+
+FrameFX (secondary): use make_preset / change_preset (NEVER invent preset values; pass the user's exact words verbatim), lookup_game / lookup_gpu / compare_gpus, explain_preset, export_preset. Frame generation always stays off for anti-cheat and competitive games.
+
+After tools finish, give a short summary using only values the tools returned; don't paste raw JSON.
 ${presetCtx}`; }
 Agent.prototype.runNative = async function (text, on = {}) {
   if (isPlainPreset(text, this.a) && planDeterministic(text, !!this.a.chat.last).length === 1 && (await this.probePreset(text))) {
@@ -198,7 +209,7 @@ Agent.prototype.runNative = async function (text, on = {}) {
 export function cloudLLM(url = "/api/chat", getSignal = () => undefined) {
   // One streamed request. `base` is text already shown (for stitched continuations) so on.token stays cumulative.
   async function once(messages, { noSearch, continuation, maxTokens, base, on }) {
-    const res = await fetch(url, { method: "POST", signal: getSignal(), headers: { "content-type": "application/json" }, body: JSON.stringify({ messages, tools: once._tools, max_tokens: maxTokens || 32768, no_search: noSearch, continuation }) });
+    const res = await fetch(url, { method: "POST", signal: getSignal(), headers: { "content-type": "application/json" }, body: JSON.stringify({ messages, tools: once._tools, max_tokens: maxTokens || 32768, no_search: noSearch, continuation, tier: once._tier }) });
     if (!res.ok) { let m = res.status; try { m = (await res.json()).error || m; } catch {} const e = new Error(String(m)); e.status = res.status; throw e; }
     const rd = res.body.getReader(), dec = new TextDecoder(); let buf = "", content = "", reasoning = ""; const tc = []; let finish = null, sawDone = false;
     for (;;) { const { value, done } = await rd.read(); if (done) break; buf += dec.decode(value, { stream: true }); let i;
@@ -216,7 +227,7 @@ export function cloudLLM(url = "/api/chat", getSignal = () => undefined) {
     return { content, reasoning, tool_calls: tc.filter(Boolean), truncated }; }
   return async (messages, tools, cb) => {
     const on = typeof cb === "function" ? { token: cb } : (cb || {});
-    once._tools = tools; let full = "", reasoning = "";
+    once._tools = tools; once._tier = on.tier; let full = "", reasoning = "";
     for (let attempt = 0; attempt < 6; attempt++) {
       let r; const msgs = attempt === 0 ? messages : [...messages, { role: "assistant", content: full }, { role: "user", content: "Continue exactly where you left off. Do not repeat anything already written; pick up mid-sentence if needed." }];
       try { r = await once(msgs, { noSearch: attempt > 0 ? true : on.noSearch, continuation: attempt > 0, maxTokens: on.maxTokens, base: full, on }); }

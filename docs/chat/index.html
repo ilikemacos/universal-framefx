@@ -17,7 +17,7 @@ button:hover{background:var(--card);border-color:#555}button:disabled{opacity:.5
 .card{margin-top:14px;background:var(--card);border:1px solid var(--rule);border-radius:4px;padding:14px 16px;max-width:480px}.card summary{cursor:pointer;font-weight:600;font-size:14px}.card.old{opacity:.55}.card .kv{margin-top:12px}
 .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 16px;font-size:13px}.kv div:nth-child(odd){color:var(--muted)}.kv div:nth-child(even){font-family:var(--mono);font-size:12.5px}
 .row{display:flex;gap:8px;margin-top:14px}
-#chips{max-width:760px;width:100%;margin:0 auto;padding:0 24px 4px;display:flex;flex-wrap:wrap;gap:8px}#chips button{font-weight:400;color:var(--muted)}#chips button:hover{color:var(--fg)}
+
 #notice{max-width:760px;width:100%;margin:12px auto 0;padding:10px 14px;border:1px solid var(--rule);border-left:2px solid var(--warn);border-radius:4px;color:var(--fg);font-size:13px}
 .steps{margin:0 0 8px}.step{font-family:var(--mono);font-size:12px;color:var(--muted);border-left:1px solid var(--rule);padding:2px 0 2px 12px;margin:2px 0;max-width:560px}.step summary{cursor:pointer;list-style:none}.step summary::-webkit-details-marker{display:none}.step b{color:var(--fg);font-weight:500}.step.bad{border-left-color:#8a3a2a}.step pre{margin:6px 0 4px;max-height:200px}
 form{max-width:760px;width:100%;margin:0 auto;padding:14px 24px 18px;display:flex;gap:8px}
@@ -46,6 +46,34 @@ pre{font-family:var(--mono);background:#0c0c0c;border:1px solid var(--rule);bord
 .fpreview{margin-top:10px;max-height:220px;overflow:auto;background:#0c0c0c;border:1px solid var(--rule);border-radius:4px;padding:10px}
 .fpreview code{font-family:var(--mono);font-size:12px;display:block;line-height:1.5;white-space:pre}
 .frow{display:flex;gap:8px;margin-top:12px}.frow button.primary{background:var(--accent);border:0;color:#111}.frow button.primary:hover{background:#ff7d45}
+body.side-open main{flex:1 1 0;min-width:0}
+#side{display:flex;flex-direction:column;flex:0 0 46%;max-width:660px;min-width:340px;border-left:1px solid var(--rule);background:var(--bg);height:100vh}
+.shead{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--rule);min-height:56px}
+.stitle{font-weight:600;font-size:14px}.sgrow{flex:1}
+.sx{height:28px;width:28px;padding:0;font-size:18px;line-height:1}
+.stabs{display:flex;gap:2px;overflow:auto;border-bottom:1px solid var(--rule);padding:6px 10px 0}
+.stab{height:30px;padding:0 12px;font-family:var(--mono);font-size:12px;border:1px solid var(--rule);border-bottom:0;border-radius:4px 4px 0 0;background:transparent;color:var(--muted);white-space:nowrap;cursor:pointer}
+.stab.on{background:var(--card);color:var(--fg)}
+.stool{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--rule);flex-wrap:wrap}
+.stool .primary{background:var(--accent);border:0;color:#111}.stool .primary:hover{background:#ff7d45}
+.vlabel{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.vsel{background:transparent;color:var(--fg);border:1px solid var(--rule);border-radius:4px;height:28px;font:inherit;font-size:12px}
+.sbody{flex:1 1 42%;min-height:120px;display:flex;overflow:hidden}
+.seditor{flex:1;background:#0c0c0c;color:var(--fg);border:0;outline:none;font-family:var(--mono);font-size:12.5px;line-height:1.5;padding:12px;resize:none;white-space:pre;tab-size:2}
+.sdiff{flex:1;overflow:auto;background:#0c0c0c;font-family:var(--mono);font-size:12.5px;line-height:1.5;padding:12px}
+.sdiff .dl{white-space:pre}.sdiff .add{color:#b7c94d}.sdiff .del{color:#e06a5a}
+.spreviewwrap{flex:1 1 42%;min-height:120px;border-top:1px solid var(--rule);background:#fff}
+.spreview{width:100%;height:100%;border:0;background:#fff}
+.sconsolewrap{flex:0 0 auto;max-height:34%;display:flex;flex-direction:column;border-top:1px solid var(--rule)}
+.scbar{display:flex;align-items:center;gap:8px;padding:6px 12px;font-family:var(--mono);font-size:11px;color:var(--muted);border-bottom:1px solid var(--rule)}
+.scbar button{height:24px;padding:0 8px;font-size:11px}.scbar .bfix{margin-left:auto;background:var(--accent);border:0;color:#111}
+.sconsole{overflow:auto;padding:8px 12px;font-family:var(--mono);font-size:12px;line-height:1.5}
+.sconsole .cl{white-space:pre-wrap}.sconsole .error{color:#e06a5a}.sconsole .warn{color:var(--warn)}.sconsole .muted{color:var(--muted)}
+.artchip{display:inline-flex;align-items:center;gap:6px;margin:.4em 0;height:34px;padding:0 14px;background:var(--card);border:1px solid var(--rule);border-radius:4px;color:var(--fg);font-size:13px;cursor:pointer}
+.artchip:hover{border-color:var(--accent)}
+.codedl{position:absolute;top:6px;right:62px;height:24px;padding:0 8px;font-size:11px;background:#141414;border:1px solid var(--rule);color:var(--muted);border-radius:4px;cursor:pointer;opacity:0;transition:opacity .12s}
+.md pre:hover .codedl{opacity:1}
+@media(max-width:860px){#side{position:fixed;inset:0;left:auto;width:100%;max-width:100%;z-index:50}}
 .walk{display:flex;align-items:flex-end;gap:10px;padding:10px 12px;border-top:1px solid var(--rule)}
 .wl{font-family:var(--mono);font-size:10px;color:#6a6a6a;text-transform:uppercase;letter-spacing:.09em;padding-bottom:1px;user-select:none}
 .mtrack{position:relative;flex:1;height:22px;border-bottom:1px solid var(--rule)}
@@ -85,12 +113,13 @@ pre{font-family:var(--mono);background:#0c0c0c;border:1px solid var(--rule);bord
 .hljs-title,.hljs-function .hljs-title{color:#ededed}
 .hljs-attribute,.hljs-variable,.hljs-tag,.hljs-regexp{color:#8fc7ef}
 .hljs-meta,.hljs-symbol,.hljs-bullet{color:#9a9a9a}.hljs-deletion{color:#e06a5a}
+#tierhint{font-size:11px;color:var(--muted);margin-left:2px}
 #tier{background:transparent;color:var(--fg);border:1px solid #3a3a3a;border-radius:4px;height:32px;padding:0 8px;font:inherit;font-size:13px;font-weight:500;cursor:pointer}#tier:hover{border-color:#555}
 .dots::after{content:"…";animation:b 1s infinite}@keyframes b{50%{opacity:.2}}
 </style></head><body>
-<main><header><img class="logo" src="favicon.svg" alt="WyneAI"><h1>WyneAI</h1><span class="badge" id="badge" title="Trained on a 2021 ROG Zephyrus G14. Presets are built by the FrameFX preset engine in your browser.">FrameFX assistant</span><span id="status">Loading…</span><select id="tier" title="Output length and memory"><option value="spark">Spark · 6k</option><option value="turbo">Turbo · 24k</option><option value="forge">Forge · 48k</option></select><button id="reset">New chat</button></header>
+<main><header><img class="logo" src="favicon.svg" alt="WyneAI"><h1>WyneAI</h1><span class="badge" id="badge" title="Trained on a 2021 ROG Zephyrus G14. Presets are built by the FrameFX preset engine in your browser.">coding assistant · also FrameFX</span><span id="status">Loading…</span><select id="tier" title="Output length and memory"><option value="spark">Spark · 6k</option><option value="turbo">Turbo · 24k</option><option value="forge">Forge · 48k</option><option value="zenith" title="uses the most usage">Zenith · 72k</option></select><span id="tierhint"></span><button id="reset">New chat</button></header>
 <div id="notice" hidden></div><div id="log"></div>
-<div id="chips"></div>
+
 <form id="f"><input id="q" autocomplete="off" placeholder="Message WyneAI…" disabled><button id="send" disabled>Send</button></form>
 <p class="foot">Trained on a 2021 ROG Zephyrus G14. An internet connection is required. WyneAI can search the web and cites its sources; presets are computed locally by the FrameFX preset engine. It can make mistakes.</p></main>
 <script type="module">
@@ -100,10 +129,11 @@ import { Assistant } from "./assistant.js";
 import { Agent, planDeterministic, cloudLLM, setApiBase } from "./agent.js";
 import { marked } from "./md/marked.esm.js";
 import DOMPurify from "./md/purify.es.mjs";
+import { initIDE, harvest, contextForModel, setFiles as ideSetFiles, openPanel, hasFiles } from "./ide.js";
 ort.env.wasm.wasmPaths = new URL("./ort/", location.href).href; ort.env.wasm.numThreads = 1;
 const $ = s => document.querySelector(s), log = $("#log");
-const TIERS = { spark: { max: 6144, ctx: 32000 }, turbo: { max: 24576, ctx: 64000 }, forge: { max: 49152, ctx: 128000 } };
-let tier = TIERS[localStorage.getItem("wy.tier")] ? localStorage.getItem("wy.tier") : "turbo";
+const TIERS = { spark: { max: 6144, ctx: 32000, steps: 6 }, turbo: { max: 24576, ctx: 64000, steps: 10 }, forge: { max: 49152, ctx: 128000, steps: 16 }, zenith: { max: 73728, ctx: 128000, steps: 24 } };
+let tier = TIERS[localStorage.getItem("wy.tier")] ? localStorage.getItem("wy.tier") : "forge";
 const scrub = t => t.replace(/\b(Nemotron|Nvidia|NVIDIA|Qwen|Llama|Mistral|OpenAI|GPT)[\w.\/-]*/gi, "WyneAI");
 marked.setOptions({ gfm: true, breaks: true });
 function enhanceMD(el) {
@@ -112,7 +142,9 @@ function enhanceMD(el) {
     try { if (window.hljs) window.hljs.highlightElement(code); } catch {}
     const btn = document.createElement("button"); btn.className = "codecopy"; btn.type = "button"; btn.textContent = "Copy";
     btn.onclick = () => { navigator.clipboard.writeText(code.textContent).then(() => { btn.textContent = "Copied"; setTimeout(() => btn.textContent = "Copy", 1200); }).catch(() => {}); };
-    pre.appendChild(btn); }); }
+    const dlb = document.createElement("button"); dlb.className = "codedl"; dlb.type = "button"; dlb.textContent = "Download";
+    dlb.onclick = () => { const lang = (code.className.match(/language-(\w+)/) || [])[1] || "txt"; const ext = { python: "py", javascript: "js", typescript: "ts", bash: "sh", xml: "html", markdown: "md", json: "json", css: "css", html: "html" }[lang] || lang; const bb = new Blob([code.textContent], { type: "text/plain" }); const u = URL.createObjectURL(bb); const a = document.createElement("a"); a.href = u; a.download = "snippet." + ext; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 5000); };
+    pre.appendChild(dlb); pre.appendChild(btn); }); }
 function renderMD(el, md, final) { el.classList.add("md"); el.innerHTML = DOMPurify.sanitize(marked.parse(md || ""), { ADD_ATTR: ["target"] }); if (final) enhanceMD(el); log.scrollTop = 1e9; }
 const safeFile = n => (String(n || "file").split(/[\\/]/).pop().replace(/[^\w.\- ]/g, "").trim().slice(0, 80)) || "file";
 const fmtBytes = b => b < 1024 ? b + " B" : b < 1048576 ? (b / 1024).toFixed(b < 10240 ? 1 : 0) + " KB" : (b / 1048576).toFixed(2) + " MB";
@@ -125,10 +157,10 @@ async function makeBlobFiles(a) {
   if (!items.length) return { ok: false, error: "no files given" };
   const enc = new TextEncoder(); const total = items.reduce((s, f) => s + enc.encode(f.content).length, 0);
   if (total > 2 * 1024 * 1024) return { ok: false, error: "files exceed the 2 MB limit" };
-  if (items.length === 1) { const f = items[0]; return { ok: true, file: { name: f.name, size: enc.encode(f.content).length, mime: f.mime || guessMime(f.name), single: true }, _content: f.content }; }
+  if (items.length === 1) { const f = items[0]; return { ok: true, file: { name: f.name, size: enc.encode(f.content).length, mime: f.mime || guessMime(f.name), single: true }, _content: f.content, _items: [{ name: f.name, content: f.content }] }; }
   const dict = {}; for (const f of items) { let n = f.name, i = 1; while (dict[n]) n = f.name.replace(/(\.[^.]*)?$/, "_" + (i++) + "$1"); dict[n] = enc.encode(f.content); }
   const zip = self.fflate.zipSync(dict, { level: 6 });
-  return { ok: true, file: { name: "files.zip", size: zip.length, mime: "application/zip", isZip: true, entries: items.map(f => ({ name: f.name, size: enc.encode(f.content).length })) }, _zip: zip }; }
+  return { ok: true, file: { name: "files.zip", size: zip.length, mime: "application/zip", isZip: true, entries: items.map(f => ({ name: f.name, size: enc.encode(f.content).length })) }, _zip: zip, _items: items.map(f => ({ name: f.name, content: f.content })) }; }
 function fileCard(host, call, res) {
   const f = res.file || { name: String(res.path || "file").split(/[\\/]/).pop(), size: res.bytes || 0, kind: "disk", path: res.path };
   const content = res._content != null ? res._content : (call.name === "write_file" ? String(call.arguments?.content || "") : "");
@@ -159,9 +191,7 @@ function card(bub) { const a = window.bot; const st = a.chat.state(), set = Chat
   c.querySelector(".tog").onclick = e => { pre.hidden = !pre.hidden; e.target.textContent = pre.hidden ? "Show JSON" : "Hide JSON"; };
   c.querySelector(".copy").onclick = async e => { try { await navigator.clipboard.writeText(js); e.target.textContent = "Copied"; } catch { e.target.textContent = "Copy failed"; } setTimeout(() => e.target.textContent = "Copy JSON", 1200); };
   bub.appendChild(c); log.scrollTop = 1e9; }
-const CHIPS = ["Set up Cyberpunk for my 3060, make it quieter, then export it", "What is Google?", "Is a 3080 or 4070 Super faster?", "Elden Ring on a 3060, 50 fps, want 100"];
-function chips() { $("#chips").innerHTML = ""; for (const c of CHIPS) { const b = document.createElement("button"); b.textContent = c; b.onclick = () => { $("#q").value = c; $("#f").requestSubmit(); }; $("#chips").appendChild(b); } }
-const hello = () => { add("a", "I'm WyneAI. Ask me anything, including things I can look up on the web, or give me a task: I can build, tweak, explain and export FrameFX presets, look up games and GPUs, and compare cards."); chips(); };
+const hello = () => { add("a", "I'm WyneAI, a coding assistant. Tell me what to build and I'll write complete, runnable code — HTML/CSS/JS pages, scripts and small apps — show it in the panel, and run it right here in your browser. I can iterate on errors, make files, search the web, and (my second job) build FrameFX game presets. What should we make?"); };
 let llmState = "ready"; const llmFn = cloudLLM("https://preset-ai-chat.vercel.app/api/chat"); setApiBase("https://preset-ai-chat.vercel.app/api/chat");
 function notice(t) { $("#notice").hidden = !t; $("#notice").textContent = t || ""; }
 const ui = {
@@ -175,7 +205,7 @@ function stepRow(call, res) { const d = document.createElement("details"); d.cla
   d.querySelector("pre").textContent = JSON.stringify({ arguments: call.arguments, result: call.name === "export_preset" ? { ...res, json: res.json ? "(" + res.json.length + " chars)" : undefined } : res }, null, 2);
   return d; }
 async function handle(t) {
-  const agent = window.agent; agent.llm = llmState === "ready" ? llmFn : null; const basic = !agent.llm; agent.ctxBudget = TIERS[tier].ctx;
+  const agent = window.agent; agent.llm = llmState === "ready" ? llmFn : null; const basic = !agent.llm; agent.ctxBudget = TIERS[tier].ctx; agent.max = TIERS[tier].steps || agent.max; const modelText = hasFiles() ? contextForModel() + "\n\n---\n\n" + t : t;
   if (basic && window.bot.route(t)) { const r = await window.bot.send(t); add("a", r.text); return; }
   const bub = add("a", "");
   const think = document.createElement("details"); think.className = "think"; think.open = true;
@@ -197,11 +227,11 @@ async function handle(t) {
   const finishThink = () => { if (answering) return; answering = true; clearInterval(timer); const secs = Math.round((Date.now() - t0) / 1000);
     think.classList.add("done"); think.open = false; think.querySelector(".tlabel").textContent = "Thought for " + secs + "s"; think.querySelector(".ttime").textContent = ""; };
   const on = {
-    maxTokens: TIERS[tier].max,
+    maxTokens: TIERS[tier].max, tier,
     continued: n => { const d = document.createElement("div"); d.className = "step"; d.textContent = "Continuing the long reply \u00b7 part " + (n + 1); steps.appendChild(d); log.scrollTop = 1e9; },
     reasoning: buf => { if (answering) return; reason.hidden = false; paintThink(reason, scrub(buf)); },
     search: ev => { toWeb(); const d = document.createElement("div"); d.className = "step"; d.textContent = "Searched the web \u00b7 " + ev.count + " result" + (ev.count === 1 ? "" : "s"); steps.appendChild(d); log.scrollTop = 1e9; },
-    step: (c, r) => { toWeb(); steps.appendChild(stepRow(c, r)); if (r.preset_changed) presetShown = true; if (r.ok && (c.name === "create_file" || c.name === "write_file")) fileCard(bub, c, r); log.scrollTop = 1e9; },
+    step: (c, r) => { toWeb(); steps.appendChild(stepRow(c, r)); if (r.preset_changed) presetShown = true; if (r.ok && (c.name === "create_file" || c.name === "write_file")) { fileCard(bub, c, r); const fs = c.name === "create_file" ? (r._items || (r._content != null ? [{ name: r.file.name, content: r._content }] : null)) : (c.arguments && c.arguments.content != null ? [{ name: String((r.path || (r.file && r.file.path) || "file")).split(/[\\/]/).pop(), content: c.arguments.content }] : null); if (fs) ideSetFiles(fs); } log.scrollTop = 1e9; },
     token: buf => { if (/<tool_call|^\s*[{`]/.test(buf)) { wrap.classList.add("dots"); wrap.textContent = ""; return; } setDir("left"); finishThink(); wrap.classList.remove("dots"); paintAns(wrap, scrub(buf)); },
     clear: () => { wrap.textContent = ""; wrap.classList.add("dots"); }, error: e => console.warn("agent LLM error", e) };
   let r;
@@ -210,21 +240,26 @@ async function handle(t) {
       if (x.preset) on.step({ name: window.bot.chat.last && plan[0].name, arguments: { request: t } }, { ok: true, preset_changed: true });
             r = { text: txt }; }
     else r = await agent.deterministic(t, on); }
-  else { try { r = await agent.runNative(t, on); }
+  else { try { r = await agent.runNative(modelText, on); }
     catch (e) { const msg = e.status === 429 ? "I'm getting too many requests right now (rate limit). Here's what I can do in basic mode:" : "I couldn't reach WyneAI (" + (e.message || e) + "), so I'm in basic mode for this message.";
       notice(e.status === 429 ? "Rate limited: please wait a minute. Basic mode is used meanwhile." : "WyneAI is unavailable right now; using basic mode (presets and FrameFX help still work).");
       agent.llm = null; if (window.bot.route(t)) { const x = await window.bot.send(t); r = { text: msg + "\n" + x.text }; } else { r = await agent.deterministic(t, on); r.text = msg + "\n" + (r.text || "I couldn't do that in basic mode."); } } }
-  done = true; finishThink(); wrap.classList.remove("dots"); renderMD(wrap, scrub(r.text || ""), true);
+  done = true; finishThink(); wrap.classList.remove("dots"); renderMD(wrap, scrub(r.text || ""), true); harvest(wrap);
   if (!steps.children.length) steps.remove(); if (reason.hidden) reason.remove();
   if (!think.querySelector(".treason") && !think.querySelector(".steps")) think.remove();
   if (presetShown && window.bot.last) card(bub); }
 window.__fx = { get llmState() { return llmState; } };
 try { window.bot = new Assistant(await Model.load(ort, "./preset_beta7.onnx")); window.agent = new Agent(window.bot, null, ui);
+  initIDE({ onFix: (name, err) => submitHidden("Running `" + name + "` produced this error:\n\n```\n" + err + "\n```\n\nFix the code and return the corrected full file with create_file."), isDesktop: typeof isDesktop !== "undefined" && isDesktop });
   $("#status").textContent = "Ready"; $("#q").disabled = $("#send").disabled = false; $("#q").focus(); hello();
 } catch (e) { $("#status").textContent = "Failed to load"; add("a", "Error loading: " + e); }
-const tierSel = $("#tier"); if (tierSel) { tierSel.value = tier; tierSel.onchange = () => { tier = tierSel.value; localStorage.setItem("wy.tier", tier); }; }
+const tierHint = $("#tierhint"); const showHint = () => { if (tierHint) tierHint.textContent = tier === "zenith" ? "uses the most usage" : ""; };
+const tierSel = $("#tier"); if (tierSel) { tierSel.value = tier; tierSel.onchange = () => { tier = tierSel.value; localStorage.setItem("wy.tier", tier); showHint(); }; showHint(); }
 let busy = false;
-$("#f").onsubmit = async e => { e.preventDefault(); const t = $("#q").value.trim(); if (!t || !window.bot || busy) return; busy = true; $("#q").value = ""; $("#chips").innerHTML = ""; add("u", t); $("#send").disabled = true;
+async function submitHidden(modelText) { if (busy || !window.bot) return; busy = true; add("u", "Fix with WyneAI \u2192 sent the error"); $("#send").disabled = true; if (window.agent) window.agent.stopped = false;
+  try { await handle(modelText); } catch (err) { add("a", "Error: " + (err.message || err)); }
+  busy = false; $("#send").disabled = false; $("#q").focus(); }
+$("#f").onsubmit = async e => { e.preventDefault(); const t = $("#q").value.trim(); if (!t || !window.bot || busy) return; busy = true; $("#q").value = ""; add("u", t); $("#send").disabled = true;
   try { await handle(t); } catch (err) { add("a", "Error: " + (err.message || err)); }
   busy = false; $("#send").disabled = false; $("#q").focus(); };
 $("#reset").onclick = async () => { if (!window.bot || busy) return; window.bot.reset(); window.agent.history.length = 0; log.innerHTML = ""; hello(); };

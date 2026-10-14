@@ -5,7 +5,7 @@ title: Overview
 
 # Universal-FrameFX
 
-> **[💬 Chat with WyneAI →](chat/)** Ask about FrameFX, get game presets, or ask anything. Works anywhere GitHub works; if the AI server is blocked it falls back to basic mode (presets and FrameFX help run in your browser).
+> **[💬 Chat with WyneAI →](chat/)** WyneAI is a coding assistant (also FrameFX): it writes and runs code in your browser, makes files, and builds game presets. Works anywhere GitHub works; if the AI server is blocked it falls back to basic mode.
 
 Universal-FrameFX is a **free real-time upscaler and frame generator for Windows 10/11**. It captures a game or app window through Windows' own capture API and draws a sharper, smoother picture in a click-through overlay. Nothing is injected into the game.
 
