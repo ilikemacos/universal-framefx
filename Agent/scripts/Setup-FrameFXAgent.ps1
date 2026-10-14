@@ -6,12 +6,13 @@
   Pass -InstallDir to override, e.g. -InstallDir W:\FrameFX\agent to keep it off C:.
   A non-default dir is saved in the user env var FRAMEFX_AGENT_DIR so the app finds it.
 .PARAMETER LlamaTag
-  llama.cpp release tag (e.g. b6700). Default: latest. Pin it for releases so behaviour is reproducible.
+  llama.cpp release tag. Default: b11609 (tested). 'latest' picks the newest release that has a
+  Windows Vulkan x64 build (some newer releases ship no binaries).
 #>
 [CmdletBinding()]
 param(
   [string]$InstallDir = '',
-  [string]$LlamaTag = 'latest',
+  [string]$LlamaTag = 'b11609',
   [switch]$Force
 )
 $ErrorActionPreference = 'Stop'
@@ -52,11 +53,23 @@ function Get-File($url, $dest) {
 # 1) llama.cpp (Vulkan build works on AMD and NVIDIA)
 $serverExe = Join-Path $llamaDir 'llama-server.exe'
 if ($Force -or -not (Test-Path $serverExe)) {
-  $api = if ($LlamaTag -eq 'latest') { 'https://api.github.com/repos/ggml-org/llama.cpp/releases/latest' }
-         else { "https://api.github.com/repos/ggml-org/llama.cpp/releases/tags/$LlamaTag" }
-  $rel = Invoke-RestMethod -Uri $api -Headers @{ 'User-Agent' = 'FrameFX-Setup' }
-  $asset = $rel.assets | Where-Object { $_.name -match 'bin-win-vulkan-x64\.zip$' } | Select-Object -First 1
-  if (-not $asset) { throw "No Vulkan x64 Windows build in llama.cpp release $($rel.tag_name)." }
+  $hdr = @{ 'User-Agent' = 'FrameFX-Setup' }
+  $pattern = 'bin-win-vulkan-x64\.zip$'
+  $rel = $null; $asset = $null
+  if ($LlamaTag -eq 'latest') {
+    # The newest release can have no binaries: take the first recent release with a Vulkan x64 Windows zip.
+    $list = Invoke-RestMethod -Uri 'https://api.github.com/repos/ggml-org/llama.cpp/releases?per_page=30' -Headers $hdr
+    foreach ($r in $list) {
+      if ($r.draft -or $r.prerelease) { continue }
+      $a = $r.assets | Where-Object { $_.name -match $pattern } | Select-Object -First 1
+      if ($a) { $rel = $r; $asset = $a; break }
+    }
+    if (-not $asset) { throw 'None of the 30 newest llama.cpp releases has a Vulkan x64 Windows build. Pass -LlamaTag b11609.' }
+  } else {
+    $rel = Invoke-RestMethod -Uri "https://api.github.com/repos/ggml-org/llama.cpp/releases/tags/$LlamaTag" -Headers $hdr
+    $asset = $rel.assets | Where-Object { $_.name -match $pattern } | Select-Object -First 1
+    if (-not $asset) { throw "No Vulkan x64 Windows build in llama.cpp release $($rel.tag_name)." }
+  }
   Write-Host "Downloading llama.cpp $($rel.tag_name) ($([math]::Round($asset.size/1MB)) MB)..."
   $zip = Join-Path $InstallDir 'llama.zip'
   Get-File $asset.browser_download_url $zip
@@ -93,6 +106,8 @@ if ($InstallDir -ne (Join-Path $env:LOCALAPPDATA 'FrameFX\agent')) {
   Write-Host "Saved FRAMEFX_AGENT_DIR=$InstallDir (restart FrameFX to pick it up)."
 }
 
-# 4) Smoke test: the server lists a Vulkan device
+# 4) Smoke test: the server lists a Vulkan device.
+# RivaTuner (RTSS) injects a Vulkan layer that crashes llama-server; turn it off for this process.
+$env:DISABLE_RTSS_LAYER = '1'
 & $serverExe --list-devices 2>&1 | Select-Object -First 10 | ForEach-Object { Write-Host "  $_" }
 Write-Host 'Done. Open FrameFX -> WyneAI.'

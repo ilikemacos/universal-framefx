@@ -74,6 +74,17 @@ public sealed record ModelSpec(
 /// </summary>
 public static class ContextSizer
 {
+    /// <summary>
+    /// VRAM to plan with. Integrated GPUs report little dedicated memory (often 512 MB) and use shared system
+    /// memory instead, so below 2 GiB dedicated we also count half of the shared memory.
+    /// </summary>
+    public static long EffectiveVram(long dedicatedBytes, long sharedBytes)
+    {
+        const long IgpuThreshold = 2L << 30;
+        if (dedicatedBytes >= IgpuThreshold || sharedBytes <= 0) return dedicatedBytes;
+        return dedicatedBytes + sharedBytes / 2;
+    }
+
     public static readonly int[] ContextSteps =
         [131_072, 98_304, 65_536, 49_152, 32_768, 24_576, 16_384, 12_288, 8_192, 4_096];
 
