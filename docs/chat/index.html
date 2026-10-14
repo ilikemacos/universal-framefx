@@ -1,5 +1,5 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="favicon.ico" sizes="48x48"><link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="apple-touch-icon.png"><meta name="theme-color" content="#111111"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="./md/highlight.min.js"></script><title>WyneAI</title>
+<script src="./md/highlight.min.js"></script><script src="./md/fflate.min.js"></script><title>WyneAI</title>
 <style>
 :root{--bg:#111111;--fg:#ececec;--muted:#9a9a9a;--rule:#2a2a2a;--card:#181818;--accent:#ff6a2b;--warn:#e0a03a;--sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;--mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace}
 *{box-sizing:border-box}body{margin:0;font:15px/1.6 var(--sans);background:var(--bg);color:var(--fg);height:100vh;display:flex;-webkit-font-smoothing:antialiased}
@@ -38,6 +38,14 @@ pre{font-family:var(--mono);background:#0c0c0c;border:1px solid var(--rule);bord
 .think[open] .tchev{transform:rotate(180deg)}
 .treason{white-space:normal;font-size:12.5px;line-height:1.55;color:var(--muted);padding:10px 12px;border-top:1px solid var(--rule)}
 .think .steps{padding:8px 12px 10px;margin:0}
+.fcard{margin-top:12px;background:var(--card);border:1px solid var(--rule);border-radius:4px;padding:12px 14px;max-width:560px}
+.fhead{display:flex;align-items:center;gap:8px;min-width:0}.ficon{font-family:var(--mono);color:var(--accent);flex:none}
+.fname{font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fsize{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--muted);flex:none}
+.fentries{margin-top:10px;font-family:var(--mono);font-size:12px;color:var(--muted);display:grid;gap:3px}
+.fpreview{margin-top:10px;max-height:220px;overflow:auto;background:#0c0c0c;border:1px solid var(--rule);border-radius:4px;padding:10px}
+.fpreview code{font-family:var(--mono);font-size:12px;display:block;line-height:1.5;white-space:pre}
+.frow{display:flex;gap:8px;margin-top:12px}.frow button.primary{background:var(--accent);border:0;color:#111}.frow button.primary:hover{background:#ff7d45}
 .walk{display:flex;align-items:flex-end;gap:10px;padding:10px 12px;border-top:1px solid var(--rule)}
 .wl{font-family:var(--mono);font-size:10px;color:#6a6a6a;text-transform:uppercase;letter-spacing:.09em;padding-bottom:1px;user-select:none}
 .mtrack{position:relative;flex:1;height:22px;border-bottom:1px solid var(--rule)}
@@ -106,6 +114,36 @@ function enhanceMD(el) {
     btn.onclick = () => { navigator.clipboard.writeText(code.textContent).then(() => { btn.textContent = "Copied"; setTimeout(() => btn.textContent = "Copy", 1200); }).catch(() => {}); };
     pre.appendChild(btn); }); }
 function renderMD(el, md, final) { el.classList.add("md"); el.innerHTML = DOMPurify.sanitize(marked.parse(md || ""), { ADD_ATTR: ["target"] }); if (final) enhanceMD(el); log.scrollTop = 1e9; }
+const safeFile = n => (String(n || "file").split(/[\\/]/).pop().replace(/[^\w.\- ]/g, "").trim().slice(0, 80)) || "file";
+const fmtBytes = b => b < 1024 ? b + " B" : b < 1048576 ? (b / 1024).toFixed(b < 10240 ? 1 : 0) + " KB" : (b / 1048576).toFixed(2) + " MB";
+const MIME = { txt: "text/plain", md: "text/markdown", json: "application/json", js: "text/javascript", mjs: "text/javascript", ts: "text/typescript", py: "text/x-python", html: "text/html", css: "text/css", csv: "text/csv", xml: "application/xml", yml: "text/yaml", yaml: "text/yaml", sh: "text/x-sh", c: "text/x-c", cpp: "text/x-c", cs: "text/x-csharp", java: "text/x-java", rs: "text/x-rust", go: "text/x-go", sql: "text/x-sql" };
+const guessMime = n => MIME[(n.split(".").pop() || "").toLowerCase()] || "text/plain";
+const HLANG = { py: "python", js: "javascript", mjs: "javascript", ts: "typescript", sh: "bash", bash: "bash", json: "json", html: "xml", xml: "xml", css: "css", md: "markdown", yml: "yaml", yaml: "yaml", c: "c", cpp: "cpp", cs: "csharp", java: "java", rs: "rust", go: "go", sql: "sql", rb: "ruby", php: "php" };
+async function makeBlobFiles(a) {
+  let items = Array.isArray(a.files) && a.files.length ? a.files : [{ filename: a.filename, content: a.content, mime: a.mime }];
+  items = items.filter(f => f && (f.filename != null || f.content != null)).map(f => ({ name: safeFile(f.filename), content: String(f.content ?? ""), mime: f.mime }));
+  if (!items.length) return { ok: false, error: "no files given" };
+  const enc = new TextEncoder(); const total = items.reduce((s, f) => s + enc.encode(f.content).length, 0);
+  if (total > 2 * 1024 * 1024) return { ok: false, error: "files exceed the 2 MB limit" };
+  if (items.length === 1) { const f = items[0]; return { ok: true, file: { name: f.name, size: enc.encode(f.content).length, mime: f.mime || guessMime(f.name), single: true }, _content: f.content }; }
+  const dict = {}; for (const f of items) { let n = f.name, i = 1; while (dict[n]) n = f.name.replace(/(\.[^.]*)?$/, "_" + (i++) + "$1"); dict[n] = enc.encode(f.content); }
+  const zip = self.fflate.zipSync(dict, { level: 6 });
+  return { ok: true, file: { name: "files.zip", size: zip.length, mime: "application/zip", isZip: true, entries: items.map(f => ({ name: f.name, size: enc.encode(f.content).length })) }, _zip: zip }; }
+function fileCard(host, call, res) {
+  const f = res.file || { name: String(res.path || "file").split(/[\\/]/).pop(), size: res.bytes || 0, kind: "disk", path: res.path };
+  const content = res._content != null ? res._content : (call.name === "write_file" ? String(call.arguments?.content || "") : "");
+  const card = document.createElement("div"); card.className = "fcard";
+  const ext = (f.name.split(".").pop() || "").toLowerCase();
+  const head = document.createElement("div"); head.className = "fhead"; head.innerHTML = '<span class="ficon">\u25a3</span><span class="fname"></span><span class="fsize"></span>';
+  head.querySelector(".fname").textContent = f.name; head.querySelector(".fsize").textContent = fmtBytes(f.size); card.appendChild(head);
+  if (f.isZip) { const list = document.createElement("div"); list.className = "fentries"; (f.entries || []).forEach(e => { const r = document.createElement("div"); r.textContent = e.name + "  \u00b7  " + fmtBytes(e.size); list.appendChild(r); }); card.appendChild(list); }
+  else if (content) { const pre = document.createElement("pre"); pre.className = "fpreview"; const code = document.createElement("code"); code.textContent = content.slice(0, 4000) + (content.length > 4000 ? "\n\u2026" : ""); const lang = HLANG[ext]; if (lang) code.className = "language-" + lang; pre.appendChild(code); card.appendChild(pre); if (window.hljs && lang) { try { window.hljs.highlightElement(code); } catch {} } }
+  const row = document.createElement("div"); row.className = "frow";
+  const mk = (label, fn, primary) => { const b = document.createElement("button"); b.type = "button"; b.textContent = label; if (primary) b.className = "primary"; b.onclick = fn; row.appendChild(b); return b; };
+  if (f.kind === "disk" && typeof window.__openItem === "function") { mk("Open", () => window.__openItem(f.path), true); mk("Show in folder", () => window.__revealItem(f.path)); }
+  else { mk("Download", () => { const blob = f.isZip ? new Blob([res._zip], { type: "application/zip" }) : new Blob([content], { type: f.mime || "text/plain" }); const u = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = u; a.download = f.name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 5000); }, true);
+    if (!f.isZip) mk("Copy", e => { navigator.clipboard.writeText(content).then(() => { e.target.textContent = "Copied"; setTimeout(() => e.target.textContent = "Copy", 1200); }).catch(() => {}); }); }
+  card.appendChild(row); host.appendChild(card); log.scrollTop = 1e9; }
 function add(who, text) { const d = document.createElement("div"); d.className = "msg " + who; d.innerHTML = `<div class="av">${who === "u" ? "You" : '<img src="favicon.svg" alt="WyneAI" style="width:24px;height:24px;border-radius:5px">'}</div><div class="bub"></div>`;
   const b = d.querySelector(".bub"); if (text === null) b.className += " dots"; else if (who === "a") renderMD(b, scrub(text), true); else setText(b, text); log.appendChild(d); log.scrollTop = 1e9; return b; }
 function setText(b, text) { b.textContent = ""; text.split("\n").forEach(l => { const s = document.createElement("div"); if (l.startsWith("WARNING")) s.className = "warn"; linkify(s, l || "\u00a0"); b.appendChild(s); }); }
@@ -127,6 +165,7 @@ const hello = () => { add("a", "I'm WyneAI. Ask me anything, including things I 
 let llmState = "ready"; const llmFn = cloudLLM("https://preset-ai-chat.vercel.app/api/chat"); setApiBase("https://preset-ai-chat.vercel.app/api/chat");
 function notice(t) { $("#notice").hidden = !t; $("#notice").textContent = t || ""; }
 const ui = {
+  createFile: a => makeBlobFiles(a),
   copy: async j => { try { await navigator.clipboard.writeText(j); return true; } catch { return false; } },
   download: async (j, exe) => { const u = URL.createObjectURL(new Blob([j], { type: "application/json" })); const l = document.createElement("a"); l.href = u; l.download = (exe || "preset").replace(/\.exe$/i, "") + ".framefx.json"; document.body.appendChild(l); l.click(); l.remove(); setTimeout(() => URL.revokeObjectURL(u), 5000); return true; } };
 function stepRow(call, res) { const d = document.createElement("details"); d.className = "step" + (res.ok ? "" : " bad");
@@ -162,7 +201,7 @@ async function handle(t) {
     continued: n => { const d = document.createElement("div"); d.className = "step"; d.textContent = "Continuing the long reply \u00b7 part " + (n + 1); steps.appendChild(d); log.scrollTop = 1e9; },
     reasoning: buf => { if (answering) return; reason.hidden = false; paintThink(reason, scrub(buf)); },
     search: ev => { toWeb(); const d = document.createElement("div"); d.className = "step"; d.textContent = "Searched the web \u00b7 " + ev.count + " result" + (ev.count === 1 ? "" : "s"); steps.appendChild(d); log.scrollTop = 1e9; },
-    step: (c, r) => { toWeb(); steps.appendChild(stepRow(c, r)); if (r.preset_changed) presetShown = true; log.scrollTop = 1e9; },
+    step: (c, r) => { toWeb(); steps.appendChild(stepRow(c, r)); if (r.preset_changed) presetShown = true; if (r.ok && (c.name === "create_file" || c.name === "write_file")) fileCard(bub, c, r); log.scrollTop = 1e9; },
     token: buf => { if (/<tool_call|^\s*[{`]/.test(buf)) { wrap.classList.add("dots"); wrap.textContent = ""; return; } setDir("left"); finishThink(); wrap.classList.remove("dots"); paintAns(wrap, scrub(buf)); },
     clear: () => { wrap.textContent = ""; wrap.classList.add("dots"); }, error: e => console.warn("agent LLM error", e) };
   let r;

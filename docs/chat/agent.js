@@ -15,6 +15,7 @@ export const TOOLS = [
   { name: "reset_session", description: "Clear the current preset and start over.", parameters: {} },
   { name: "web_search", description: "Search the web for current or factual information. Returns titles, URLs and snippets. Cite the URLs you use.", parameters: { query: "string" } },
   { name: "fetch_page", description: "Fetch the readable text of a web page (e.g. a search result) to read details. Cite its URL.", parameters: { url: "string" } },
+  { name: "create_file", description: "Create a file for the user to save. For ONE file pass filename + content (+ optional mime). For SEVERAL pass files:[{filename,content}] and they are delivered together as a zip. Put the COMPLETE file content in the call. Max ~2 MB total. Use this whenever the user asks to make/save a file, script, document or code.", parameters: { filename: "string (single file)", content: "string (single file full text)", files: "array of {filename, content} for multiple files" } },
 ];
 export let API_BASE = "";
 export function setApiBase(chatUrl) { API_BASE = chatUrl.replace(/\/api\/chat$/, ""); }
@@ -83,6 +84,7 @@ export function makeTools(assistant, ui = {}) {
     reset_session: () => { chat.reset(); return { ok: true, reply: "Session cleared." }; },
     web_search: a => webApi({ query: String(a.query || "") }),
     fetch_page: a => webApi({ url: String(a.url || "") }),
+    create_file: a => ui.createFile ? ui.createFile(a) : { ok: false, error: "file creation isn't available here" },
   }; }
 export async function runTool(tools, call) { const f = tools[call.name]; if (!f) return { ok: false, error: "unknown tool" };
   try { return await f(call.arguments || {}); } catch (e) { return { ok: false, error: String(e.message || e) }; } }
@@ -128,7 +130,8 @@ export class Agent {
       else if (call.name === "export_preset") out.push(r.note);
       else if (call.name === "lookup_game") out.push(`${r.name}: ${r.load} to run${r.anticheat ? ", anti-cheat (frame gen stays off)" : r.competitive ? ", competitive (frame gen off)" : ""}.`);
       else if (call.name === "lookup_gpu") out.push(`${r.name}: ${r.tier} (score ${r.score})${r.fsr4 ? ", supports FSR 4" : ""}.`);
-      else if (call.name === "compare_gpus") out.push(r.faster === "about equal" ? "They're about equal." : `${r.faster} is ~${r.percent_faster}% faster.`); }
+      else if (call.name === "compare_gpus") out.push(r.faster === "about equal" ? "They're about equal." : `${r.faster} is ~${r.percent_faster}% faster.`);
+      else if (call.name === "create_file") out.push(r.file ? `Created ${r.file.name} (${r.file.size} bytes).` : ""); }
     return out.join("\n\n"); }
   async deterministic(text, on) { const steps = planDeterministic(text, !!this.a.chat.last); const res = await this.execute(steps, on); const t = this.summarize(res); this.remember(text, t); return { text: t, results: res, mode: "fast" }; }
   remember(u, a) { this.history.push({ role: "user", content: String(u).slice(0, 100000) }, { role: "assistant", content: String(a ?? "").slice(0, 100000) }); // token window scaled per tier (≈4 chars/token), max 500 messages
@@ -163,13 +166,15 @@ const PROPS = {
   change_preset: { request: { type: "string", description: "The change in plain words, e.g. 'make it quieter', 'what about 4K', 'turn frame gen off'" } },
   lookup_game: { game: { type: "string" } }, lookup_gpu: { gpu: { type: "string" } },
   compare_gpus: { gpu_a: { type: "string" }, gpu_b: { type: "string" } }, explain_preset: {},
-  export_preset: { mode: { type: "string", enum: ["copy", "download"] } }, reset_session: {}, web_search: { query: { type: "string" } }, fetch_page: { url: { type: "string" } } };
+  export_preset: { mode: { type: "string", enum: ["copy", "download"] } }, reset_session: {}, web_search: { query: { type: "string" } }, fetch_page: { url: { type: "string" } },
+  create_file: { filename: { type: "string", description: "name for a single file, e.g. hello.py" }, content: { type: "string", description: "the single file complete text" }, mime: { type: "string" }, files: { type: "array", description: "for multiple files (zipped)", items: { type: "object", properties: { filename: { type: "string" }, content: { type: "string" } }, required: ["filename", "content"] } } } };
+REQ.create_file = [];
 const buildSchemas = () => TOOLS.map(t => ({ type: "function", function: { name: t.name, description: t.description,
   parameters: { type: "object", properties: PROPS[t.name], required: REQ[t.name] || Object.keys(PROPS[t.name]).filter(k => k !== "mode") } } }));
 export const TOOL_SCHEMAS = buildSchemas();
 export function nativeSystemPrompt(presetCtx) {
   return `You are WyneAI, the AI assistant built into FrameFX (Universal FrameFX), a Windows app that adds frame generation, upscaling (CSR 1.3/2.0/AI, FSR 1-4, XeSS), SSGI, RT lighting and CPU boost to games through per-game presets. You can chat helpfully about anything (general knowledge, tech, games), concisely and in a friendly tone. You can use web_search (and fetch_page for details) for current events, news, prices, recent releases or anything you're unsure of; usually one search is enough: answer from the result titles and snippets, and only use fetch_page when you truly need more detail. Cite sources as markdown links [title](url). Don't invent URLs.
-Use the tools for FrameFX work. NEVER invent preset values: presets are only created or changed by make_preset / change_preset (pass the user's exact words for that step, copied verbatim; never add details like resolution, fps or preferences the user didn't say). For multi-step requests call the tools in order (e.g. make_preset, then change_preset, then export_preset). Use lookup_game / lookup_gpu / compare_gpus for knowledge-base facts and explain_preset to explain the current preset. Frame generation always stays off for anti-cheat and competitive games. After tools finish, give a short plain-text summary using only values the tools returned; don't paste raw JSON.
+Use the tools for FrameFX work. NEVER invent preset values: presets are only created or changed by make_preset / change_preset (pass the user's exact words for that step, copied verbatim; never add details like resolution, fps or preferences the user didn't say). For multi-step requests call the tools in order (e.g. make_preset, then change_preset, then export_preset). Use lookup_game / lookup_gpu / compare_gpus for knowledge-base facts and explain_preset to explain the current preset. Frame generation always stays off for anti-cheat and competitive games. When the user asks you to make or save a file, script, document or code, call create_file with the complete content (use the files array for several files; they come back as a download or zip). After tools finish, give a short summary in markdown (headings, lists, tables and fenced code blocks are supported) using only values the tools returned; don't paste raw JSON.
 ${presetCtx}`; }
 Agent.prototype.runNative = async function (text, on = {}) {
   if (isPlainPreset(text, this.a) && planDeterministic(text, !!this.a.chat.last).length === 1 && (await this.probePreset(text))) {
@@ -187,7 +192,7 @@ Agent.prototype.runNative = async function (text, on = {}) {
         if (this.stopped) break;
         const call = { name: c.function.name, arguments: args }; const res = NAMES.has(call.name) ? await runTool(this.tools, call) : { ok: false, error: "unknown tool" };
         all.push({ call, result: res }); on.step?.(call, res);
-        msgs.push({ role: "tool", tool_call_id: c.id, content: JSON.stringify(call.name === "export_preset" ? { ...res, json: "(omitted)" } : res).slice(0, 6000) }); } }
+        msgs.push({ role: "tool", tool_call_id: c.id, content: JSON.stringify(call.name === "export_preset" ? { ...res, json: "(omitted)" } : call.name === "create_file" ? { ok: res.ok, error: res.error, file: res.file } : res).slice(0, 6000) }); } }
     const t = this.summarize(all) || "I ran out of steps."; this.remember(text, t); return { text: t, results: all, mode: "cloud-maxsteps" };
   } catch (e) { on.error?.(e); if (all.length) { const t = this.summarize(all); this.remember(text, t); return { text: t, results: all, mode: "cloud-error" }; } throw e; } };
 export function cloudLLM(url = "/api/chat", getSignal = () => undefined) {
