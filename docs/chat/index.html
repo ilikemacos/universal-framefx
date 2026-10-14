@@ -38,7 +38,23 @@ pre{font-family:var(--mono);background:#0c0c0c;border:1px solid var(--rule);bord
 .think[open] .tchev{transform:rotate(180deg)}
 .treason{white-space:pre-wrap;font-size:12.5px;line-height:1.55;color:var(--muted);padding:10px 12px;border-top:1px solid var(--rule)}
 .think .steps{padding:8px 12px 10px;margin:0}
-.dots::after{content:"6";animation:b 1s infinite}@keyframes b{50%{opacity:.2}}
+.walk{display:flex;align-items:flex-end;gap:10px;padding:10px 12px;border-top:1px solid var(--rule)}
+.wl{font-family:var(--mono);font-size:10px;color:#6a6a6a;text-transform:uppercase;letter-spacing:.09em;padding-bottom:1px;user-select:none}
+.mtrack{position:relative;flex:1;height:22px;border-bottom:1px solid var(--rule)}
+.mob{position:absolute;bottom:1px;left:0;width:16px;height:16px;transition:left 1s ease-in-out}
+.mtrack[data-dir="right"] .mob{left:calc(100% - 16px)}.mtrack[data-dir="left"] .mob{left:0}
+.skin{fill:#ededed}.eye{fill:#0d0d0d}.leg{fill:#ededed}
+.mbody,.eye,.leg{transform-box:fill-box}
+.mtrack[data-dir="left"] .mbody{transform:scaleX(-1);transform-origin:center}
+.leg{transform-origin:center;animation:legw .34s steps(2,jump-none) infinite}.l2{animation-delay:.17s}
+@keyframes legw{0%,100%{transform:translateY(0)}50%{transform:translateY(-1.5px)}}
+.eye{transform-origin:center;animation:mblink 3.4s infinite}
+@keyframes mblink{0%,93%,100%{transform:scaleY(1)}96%{transform:scaleY(.12)}}
+.mob .bob{transform-box:fill-box;transform-origin:center;animation:mbob .34s steps(2,jump-none) infinite}
+@keyframes mbob{0%,100%{transform:translateY(0)}50%{transform:translateY(-1px)}}
+.think.done .walk{opacity:.4}.think.done .leg,.think.done .eye,.think.done .bob{animation:none}
+@media (prefers-reduced-motion:reduce){.mob{transition:none}.leg,.eye,.bob{animation:none}}
+.dots::after{content:"…";animation:b 1s infinite}@keyframes b{50%{opacity:.2}}
 </style></head><body>
 <main><header><img class="logo" src="favicon.svg" alt="WyneAI"><h1>WyneAI</h1><span class="badge" id="badge" title="Trained on a 2021 ROG Zephyrus G14. Presets are built by the FrameFX preset engine in your browser.">FrameFX assistant</span><span id="status">Loading…</span><button id="reset">New chat</button></header>
 <div id="notice" hidden></div><div id="log"></div>
@@ -91,6 +107,12 @@ async function handle(t) {
   const reason = document.createElement("div"); reason.className = "treason"; reason.hidden = true;
   const steps = document.createElement("div"); steps.className = "steps";
   think.append(reason, steps);
+  const walk = document.createElement("div"); walk.className = "walk";
+  walk.innerHTML = '<span class="wl">you</span><div class="mtrack" data-dir="left"><svg class="mob" viewBox="0 0 16 16" width="16" height="16" shape-rendering="crispEdges" aria-hidden="true"><g class="bob"><g class="mbody"><rect class="skin" x="3" y="2" width="10" height="9"></rect><rect class="eye" x="8" y="4" width="2" height="2"></rect><rect class="eye" x="11" y="4" width="1" height="2"></rect></g><rect class="leg l1" x="4" y="11" width="3" height="3"></rect><rect class="leg l2" x="9" y="11" width="3" height="3"></rect></g></svg></div><span class="wl">web</span>';
+  think.append(walk);
+  const mtrack = walk.querySelector(".mtrack"); let dirTimer = null;
+  const setDir = d => { if (dirTimer) { clearTimeout(dirTimer); dirTimer = null; } mtrack.dataset.dir = d; };
+  const toWeb = () => { setDir("right"); dirTimer = setTimeout(() => { if (!answering) mtrack.dataset.dir = "left"; }, 1800); };
   const wrap = document.createElement("div"); wrap.className = "dots"; bub.append(think, wrap);
   let presetShown = false, answering = false; const t0 = Date.now();
   const timer = setInterval(() => { if (!answering) think.querySelector(".ttime").textContent = Math.round((Date.now() - t0) / 1000) + "s"; }, 250);
@@ -98,9 +120,9 @@ async function handle(t) {
     think.classList.add("done"); think.open = false; think.querySelector(".tlabel").textContent = "Thought for " + secs + "s"; think.querySelector(".ttime").textContent = ""; };
   const on = {
     reasoning: buf => { if (answering) return; reason.hidden = false; reason.textContent = scrub(buf); log.scrollTop = 1e9; },
-    search: ev => { const d = document.createElement("div"); d.className = "step"; d.textContent = "Searched the web \u00b7 " + ev.count + " result" + (ev.count === 1 ? "" : "s"); steps.appendChild(d); log.scrollTop = 1e9; },
-    step: (c, r) => { steps.appendChild(stepRow(c, r)); if (r.preset_changed) presetShown = true; log.scrollTop = 1e9; },
-    token: buf => { if (/<tool_call|^\s*[{`]/.test(buf)) { wrap.classList.add("dots"); wrap.textContent = ""; return; } finishThink(); wrap.classList.remove("dots"); setText(wrap, scrub(buf)); log.scrollTop = 1e9; },
+    search: ev => { toWeb(); const d = document.createElement("div"); d.className = "step"; d.textContent = "Searched the web \u00b7 " + ev.count + " result" + (ev.count === 1 ? "" : "s"); steps.appendChild(d); log.scrollTop = 1e9; },
+    step: (c, r) => { toWeb(); steps.appendChild(stepRow(c, r)); if (r.preset_changed) presetShown = true; log.scrollTop = 1e9; },
+    token: buf => { if (/<tool_call|^\s*[{`]/.test(buf)) { wrap.classList.add("dots"); wrap.textContent = ""; return; } setDir("left"); finishThink(); wrap.classList.remove("dots"); setText(wrap, scrub(buf)); log.scrollTop = 1e9; },
     clear: () => { wrap.textContent = ""; wrap.classList.add("dots"); }, error: e => console.warn("agent LLM error", e) };
   let r;
   if (basic) { const plan = planDeterministic(t, !!window.bot.chat.last);
