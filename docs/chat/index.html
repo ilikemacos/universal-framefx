@@ -131,6 +131,7 @@ import { Agent, planDeterministic, cloudLLM, setApiBase } from "./agent.js";
 import { marked } from "./md/marked.esm.js";
 import DOMPurify from "./md/purify.es.mjs";
 import { initIDE, harvest, contextForModel, setFiles as ideSetFiles, openPanel, hasFiles, applyEdit as ideApplyEdit, openFile as ideOpenFile } from "./ide.js";
+import { initAuth } from "./auth.js";
 ort.env.wasm.wasmPaths = new URL("./ort/", location.href).href; ort.env.wasm.numThreads = 1;
 const $ = s => document.querySelector(s), log = $("#log");
 const TIERS = { spark: { max: 6144, ctx: 32000, steps: 6 }, turbo: { max: 24576, ctx: 64000, steps: 10 }, forge: { max: 49152, ctx: 128000, steps: 16 }, zenith: { max: 73728, ctx: 128000, steps: 24 } };
@@ -193,6 +194,9 @@ function card(bub) { const a = window.bot; const st = a.chat.state(), set = Chat
   c.querySelector(".tog").onclick = e => { pre.hidden = !pre.hidden; e.target.textContent = pre.hidden ? "Show JSON" : "Hide JSON"; };
   c.querySelector(".copy").onclick = async e => { try { await navigator.clipboard.writeText(js); e.target.textContent = "Copied"; } catch { e.target.textContent = "Copy failed"; } setTimeout(() => e.target.textContent = "Copy JSON", 1200); };
   bub.appendChild(c); log.scrollTop = 1e9; }
+const AUTH_BASE = "https://preset-ai-chat.vercel.app";
+function freshChat(){ if(!window.bot) return; window.bot.reset(); window.agent.history.length=0; log.innerHTML=""; }
+function loadConversation(msgs){ freshChat(); for(const m of (msgs||[])){ if(m.role==="user") add("u", String(m.content||"")); else if(m.role==="assistant") add("a", String(m.content||"")); if(window.agent) window.agent.history.push({role:m.role==="assistant"?"assistant":"user", content:String(m.content||"")}); } log.scrollTop=1e9; }
 const hello = () => { add("a", "Hi, I'm WrenbyAI. I write and run code, and I can help with FrameFX too. What are we building?"); };
 let llmState = "ready"; const llmFn = cloudLLM("https://preset-ai-chat.vercel.app/api/chat"); setApiBase("https://preset-ai-chat.vercel.app/api/chat");
 function notice(t) { $("#notice").hidden = !t; $("#notice").textContent = t || ""; }
@@ -251,20 +255,21 @@ async function handle(t) {
   done = true; finishThink(); wrap.classList.remove("dots"); renderMD(wrap, scrub(r.text || ""), true); harvest(wrap);
   if (!steps.children.length) steps.remove(); if (reason.hidden) reason.remove();
   if (!think.querySelector(".treason") && !think.querySelector(".steps")) think.remove();
-  if (presetShown && window.bot.last) card(bub); }
+  if (presetShown && window.bot.last) card(bub); return { text: scrub(r.text || ""), files: null }; }
 window.__fx = { get llmState() { return llmState; } };
 try { window.bot = new Assistant(await Model.load(ort, "./preset_beta7.onnx")); window.agent = new Agent(window.bot, null, ui);
   initIDE({ onFix: (name, err) => submitHidden("Running `" + name + "` produced this error:\n\n```\n" + err + "\n```\n\nFix the code with edit_file (small search/replace) if possible, or create_file for a full rewrite."), isDesktop: typeof isDesktop !== "undefined" && isDesktop });
+  try { window.session = await initAuth({ base: AUTH_BASE, getMode: () => tier, onNewChat: () => { freshChat(); hello(); }, onLoadChat: (msgs) => loadConversation(msgs) }); } catch (e) { console.warn("auth init failed", e); }
   $("#status").textContent = "Ready"; $("#q").disabled = $("#send").disabled = false; $("#q").focus(); hello();
 } catch (e) { $("#status").textContent = "Failed to load"; add("a", "Error loading: " + e); }
 const tierHint = $("#tierhint"); const showHint = () => { if (tierHint) tierHint.textContent = tier === "zenith" ? "uses the most usage" : ""; };
 const tierSel = $("#tier"); if (tierSel) { tierSel.value = tier; tierSel.onchange = () => { tier = tierSel.value; localStorage.setItem("wy.tier", tier); showHint(); }; showHint(); }
 let busy = false;
 async function submitHidden(modelText) { if (busy || !window.bot) return; busy = true; add("u", "Fix with WrenbyAI \u2192 sent the error"); $("#send").disabled = true; if (window.agent) window.agent.stopped = false;
-  try { await handle(modelText); } catch (err) { add("a", "Error: " + (err.message || err)); }
+  try { const res = await handle(modelText); if (window.session) await window.session.saveTurn({ user: modelText, assistant: res && res.text || "", files: res && res.files || null, mode: tier }); } catch (err) { add("a", "Error: " + (err.message || err)); }
   busy = false; $("#send").disabled = false; $("#q").focus(); }
 $("#f").onsubmit = async e => { e.preventDefault(); const t = $("#q").value.trim(); if (!t || !window.bot || busy) return; busy = true; $("#q").value = ""; add("u", t); $("#send").disabled = true;
-  try { await handle(t); } catch (err) { add("a", "Error: " + (err.message || err)); }
+  try { const res = await handle(t); if (window.session) await window.session.saveTurn({ user: t, assistant: res && res.text || "", files: res && res.files || null, mode: tier }); } catch (err) { add("a", "Error: " + (err.message || err)); }
   busy = false; $("#send").disabled = false; $("#q").focus(); };
-$("#reset").onclick = async () => { if (!window.bot || busy) return; window.bot.reset(); window.agent.history.length = 0; log.innerHTML = ""; hello(); };
+$("#reset").onclick = async () => { if (!window.bot || busy) return; freshChat(); hello(); if (window.session) window.session.startNewChat(); };
 </script></body></html>
