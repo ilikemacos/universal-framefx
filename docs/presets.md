@@ -1,7 +1,7 @@
 ---
 title: Presets and Beta7
 ---
-[Home](./) · [Install](install.html) · [Using FrameFX](using-framefx.html) · [Presets & Beta7](presets.html) · [FrameFX Assistant](assistant.html) · [Privacy & safety](privacy.html) · [FAQ](faq.html) · [Changelog](changelog.html)
+[Home](./) · [Install](install.html) · [Using FrameFX](using-framefx.html) · [Presets & Beta7](presets.html) · [WyneAI](assistant.html) · [Privacy & safety](privacy.html) · [FAQ](faq.html) · [Changelog](changelog.html)
 
 # AI presets (Beta7)
 

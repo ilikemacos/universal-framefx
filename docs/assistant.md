@@ -1,14 +1,16 @@
 ---
-title: FrameFX Assistant
+title: WyneAI
 ---
-[Home](./) · [Install](install.html) · [Using FrameFX](using-framefx.html) · [Presets & Beta7](presets.html) · [FrameFX Assistant](assistant.html) · [Privacy & safety](privacy.html) · [FAQ](faq.html) · [Changelog](changelog.html)
+[Home](./) · [Install](install.html) · [Using FrameFX](using-framefx.html) · [Presets & Beta7](presets.html) · [WyneAI](assistant.html) · [Privacy & safety](privacy.html) · [FAQ](faq.html) · [Changelog](changelog.html)
 
-# FrameFX Assistant
+# WyneAI
 
-The FrameFX Assistant is a chat assistant for FrameFX. It answers general questions, builds presets with the Beta7 pipeline and, in the app, can take actions for you, always with your confirmation.
+The WyneAI is a chat assistant for FrameFX. It answers general questions, builds presets with the Beta7 pipeline and, in the app, can take actions for you, always with your confirmation.
 
 ## Try it on the web
-[preset-ai-chat.vercel.app](https://preset-ai-chat.vercel.app) runs the Assistant on a cloud AI. Plain preset requests are handled instantly in your browser; chat and multi-step requests go to the cloud. It can build presets and copy them to your clipboard for FrameFX. Replies are limited in length.
+Trained on a 2021 ROG Zephyrus G14.
+
+Try it at [ilikemacos.github.io/framefx-assistant](https://ilikemacos.github.io/framefx-assistant/) or [preset-ai-chat.vercel.app](https://preset-ai-chat.vercel.app) (needs internet). Plain preset requests are handled instantly in your browser. WyneAI can search the web for current information and cites its sources as links. It can build presets and copy them to your clipboard for FrameFX. Replies are limited in length, and requests are rate-limited per visitor (about 20 a minute, web searches included).
 
 ## In the app (in development)
 > The in-app Assistant is in development and not in a released build yet.

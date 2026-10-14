@@ -1,7 +1,7 @@
 ---
 title: Privacy and safety
 ---
-[Home](./) · [Install](install.html) · [Using FrameFX](using-framefx.html) · [Presets & Beta7](presets.html) · [FrameFX Assistant](assistant.html) · [Privacy & safety](privacy.html) · [FAQ](faq.html) · [Changelog](changelog.html)
+[Home](./) · [Install](install.html) · [Using FrameFX](using-framefx.html) · [Presets & Beta7](presets.html) · [WyneAI](assistant.html) · [Privacy & safety](privacy.html) · [FAQ](faq.html) · [Changelog](changelog.html)
 
 # Privacy and safety
 
@@ -10,6 +10,6 @@ title: Privacy and safety
 - Non-HTTPS update URLs are refused. Downloads are checked against the published SHA-256.
 - FrameFX needs no admin rights; some CPU power options may ask for approval.
 - The closed engine contains no networking code.
-- The website Assistant sends your chat to a cloud AI service; the in-app Assistant runs locally and only goes online for web search/fetch.
+- The website version of WyneAI sends your chat over the internet to generate replies, and its web searches go through the site's server; the in-app version runs locally and only goes online for web search/fetch.
 
 Security reports: see [SECURITY.md](https://github.com/ilikemacos/universal-framefx/blob/main/SECURITY.md).
