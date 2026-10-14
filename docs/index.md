@@ -1,9 +1,11 @@
 ---
 title: Overview
 ---
-[Home](./) · [Install](install.html) · [Using FrameFX](using-framefx.html) · [Presets & Beta7](presets.html) · [WyneAI](assistant.html) · [Privacy & safety](privacy.html) · [FAQ](faq.html) · [Changelog](changelog.html)
+[Home](./) · [Install](install.html) · [Using FrameFX](using-framefx.html) · [Presets & Beta7](presets.html) · [WyneAI](assistant.html) · [**💬 Chat with WyneAI**](chat/) · [Privacy & safety](privacy.html) · [FAQ](faq.html) · [Changelog](changelog.html)
 
 # Universal-FrameFX
+
+> **[💬 Chat with WyneAI →](chat/)** Ask about FrameFX, get game presets, or ask anything. Works anywhere GitHub works; if the AI server is blocked it falls back to basic mode (presets and FrameFX help run in your browser).
 
 Universal-FrameFX is a **free real-time upscaler and frame generator for Windows 10/11**. It captures a game or app window through Windows' own capture API and draws a sharper, smoother picture in a click-through overlay. Nothing is injected into the game.
 
