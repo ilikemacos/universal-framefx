@@ -1,4 +1,4 @@
-// WyneAI IDE: code artifacts + file tree + CodeMirror 6 editor + in-browser runner
+// WrenbyAI IDE: code artifacts + file tree + CodeMirror 6 editor + in-browser runner
 // (HTML/CSS/JS, TS/JSX via sucrase, Python via Pyodide) + IndexedDB projects + edit_file diffs.
 // Monochrome; everything bundled/self-hosted, no CDN at runtime.
 let H = {};                       // hooks: { onFix, runShell, isDesktop }
@@ -45,7 +45,7 @@ function buildPanel() {
     + '<div class="stool"><button class="brun primary">\u25b6 Run</button><button class="bcopy">Copy</button><button class="bdl">Download</button><button class="bzip" hidden>Download all (zip)</button><span class="sgrow"></span><label class="vlabel">Version <select class="vsel"></select></label><button class="bdiff" hidden>Diff</button></div>'
     + '<div class="sbody"><div class="ideflex"><div class="stree"></div><div class="seditcol"><div class="cmhost"></div><textarea class="seditor" spellcheck="false" wrap="off"></textarea><div class="sdiff" hidden></div></div></div></div>'
     + '<div class="spreviewwrap" hidden><iframe class="spreview" sandbox="allow-scripts allow-modals" title="Preview"></iframe></div>'
-    + '<div class="sconsolewrap" hidden><div class="scbar">Console<button class="scclear">Clear</button><button class="bfix" hidden>Fix with WyneAI</button></div><div class="sconsole"></div></div>';
+    + '<div class="sconsolewrap" hidden><div class="scbar">Console<button class="scclear">Clear</button><button class="bfix" hidden>Fix with WrenbyAI</button></div><div class="sconsole"></div></div>';
   const resizer = $("div", "sresize"); resizer.title = "Drag to resize"; side.appendChild(resizer);
   document.body.appendChild(side);
   setupResizer(resizer, side);
@@ -137,7 +137,7 @@ function pickName(ext, i) { const base = ext === "html" ? "index" : ext === "py"
   while (files.has(n) && i > 0) n = base + "-" + (++k) + "." + ext; return files.has(n) && base !== "index" ? base + "-" + (files.size + 1) + "." + ext : n; }
 
 export function contextForModel() { const f = files.get(active); if (!f) return "";
-  return "[The user is editing this file in the WyneAI editor. Current contents of " + active + ":]\n```\n" + f.content.slice(0, 8000) + "\n```\n[To change it, call edit_file with an exact search/replace. Use create_file only for a new file or a full rewrite.]"; }
+  return "[The user is editing this file in the WrenbyAI editor. Current contents of " + active + ":]\n```\n" + f.content.slice(0, 8000) + "\n```\n[To change it, call edit_file with an exact search/replace. Use create_file only for a new file or a full rewrite.]"; }
 export function hasFiles() { return files.size > 0; }
 
 function renderTabs() { els.tabs.innerHTML = "";

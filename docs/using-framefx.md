@@ -1,7 +1,7 @@
 ---
 title: Using FrameFX
 ---
-[Home](./) · [Install](install.html) · [Using FrameFX](using-framefx.html) · [Presets & Beta7](presets.html) · [WyneAI](assistant.html) · [**💬 Chat with WyneAI**](chat/) · [Privacy & safety](privacy.html) · [FAQ](faq.html) · [Changelog](changelog.html)
+[Home](./) · [Install](install.html) · [Using FrameFX](using-framefx.html) · [Presets & Beta7](presets.html) · [WrenbyAI](assistant.html) · [**💬 Chat with WrenbyAI**](chat/) · [Privacy & safety](privacy.html) · [FAQ](faq.html) · [Changelog](changelog.html)
 
 # Using FrameFX
 

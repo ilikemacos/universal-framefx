@@ -1,13 +1,13 @@
 ---
 title: Changelog
 ---
-[Home](./) · [Install](install.html) · [Using FrameFX](using-framefx.html) · [Presets & Beta7](presets.html) · [WyneAI](assistant.html) · [**💬 Chat with WyneAI**](chat/) · [Privacy & safety](privacy.html) · [FAQ](faq.html) · [Changelog](changelog.html)
+[Home](./) · [Install](install.html) · [Using FrameFX](using-framefx.html) · [Presets & Beta7](presets.html) · [WrenbyAI](assistant.html) · [**💬 Chat with WrenbyAI**](chat/) · [Privacy & safety](privacy.html) · [FAQ](faq.html) · [Changelog](changelog.html)
 
 # Changelog
 
 ## Upcoming (in development)
 - Beta7 AI presets with the model-first pipeline.
-- WyneAI (web preview at [preset-ai-chat.vercel.app](https://preset-ai-chat.vercel.app); in-app version in development).
+- WrenbyAI (web preview at [preset-ai-chat.vercel.app](https://preset-ai-chat.vercel.app); in-app version in development).
 
 ## v1.4.1 Beta4
 - The AI frame generation option is now called **CSR Flux BETA**, and it stays on instead of switching to CSR 2.0.

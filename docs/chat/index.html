@@ -1,5 +1,5 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="favicon.ico" sizes="48x48"><link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="apple-touch-icon.png"><meta name="theme-color" content="#111111"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="./md/highlight.min.js"></script><script src="./md/fflate.min.js"></script><title>WyneAI</title>
+<script src="./md/highlight.min.js"></script><script src="./md/fflate.min.js"></script><title>WrenbyAI</title>
 <style>
 :root{--bg:#111111;--fg:#ececec;--muted:#9a9a9a;--rule:#2a2a2a;--card:#181818;--accent:#ff6a2b;--warn:#e0a03a;--sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;--mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace}
 *{box-sizing:border-box}[hidden]{display:none!important}body{margin:0;font:15px/1.6 var(--sans);background:var(--bg);color:var(--fg);height:100vh;display:flex;-webkit-font-smoothing:antialiased}
@@ -118,11 +118,11 @@ body.side-open main{flex:1 1 0;min-width:360px}
 #tier{background:transparent;color:var(--fg);border:1px solid #3a3a3a;border-radius:4px;height:32px;padding:0 8px;font:inherit;font-size:13px;font-weight:500;cursor:pointer}#tier:hover{border-color:#555}
 .dots::after{content:"…";animation:b 1s infinite}@keyframes b{50%{opacity:.2}}
 </style></head><body>
-<main><header><img class="logo" src="favicon.svg" alt="WyneAI"><h1>WyneAI</h1><span class="badge" id="badge" title="Trained on a 2021 ROG Zephyrus G14. Presets are built by the FrameFX preset engine in your browser.">coding assistant · also FrameFX</span><span id="status">Loading…</span><select id="tier" title="Output length and memory"><option value="spark">Spark · 6k</option><option value="turbo">Turbo · 24k</option><option value="forge">Forge · 48k</option><option value="zenith" title="uses the most usage">Zenith · 72k</option></select><span id="tierhint"></span><button id="reset">New chat</button></header>
+<main><header><img class="logo" src="favicon.svg" alt="WrenbyAI"><h1>WrenbyAI</h1><span class="badge" id="badge" title="Trained on a 2021 ROG Zephyrus G14. Presets are built by the FrameFX preset engine in your browser.">coding assistant · also FrameFX</span><span id="status">Loading…</span><select id="tier" title="Output length and memory"><option value="spark">Spark · 6k</option><option value="turbo">Turbo · 24k</option><option value="forge">Forge · 48k</option><option value="zenith" title="uses the most usage">Zenith · 72k</option></select><span id="tierhint"></span><button id="reset">New chat</button></header>
 <div id="notice" hidden></div><div id="log"></div>
 
-<form id="f"><input id="q" autocomplete="off" placeholder="Message WyneAI…" disabled><button id="send" disabled>Send</button></form>
-<p class="foot">Trained on a 2021 ROG Zephyrus G14. An internet connection is required. WyneAI can search the web and cites its sources; presets are computed locally by the FrameFX preset engine. It can make mistakes.</p></main>
+<form id="f"><input id="q" autocomplete="off" placeholder="Message WrenbyAI…" disabled><button id="send" disabled>Send</button></form>
+<p class="foot">Trained on a 2021 ROG Zephyrus G14. An internet connection is required. WrenbyAI can search the web and cites its sources; presets are computed locally by the FrameFX preset engine. It can make mistakes.</p></main>
 <script type="module">
 import * as ort from "./ort/ort.wasm.min.mjs";
 import { Model, Chat } from "./presetai.js";
@@ -135,7 +135,7 @@ ort.env.wasm.wasmPaths = new URL("./ort/", location.href).href; ort.env.wasm.num
 const $ = s => document.querySelector(s), log = $("#log");
 const TIERS = { spark: { max: 6144, ctx: 32000, steps: 6 }, turbo: { max: 24576, ctx: 64000, steps: 10 }, forge: { max: 49152, ctx: 128000, steps: 16 }, zenith: { max: 73728, ctx: 128000, steps: 24 } };
 let tier = TIERS[localStorage.getItem("wy.tier")] ? localStorage.getItem("wy.tier") : "forge";
-const scrub = t => t.replace(/\b(Nemotron|Nvidia|NVIDIA|Qwen|Llama|Mistral|OpenAI|GPT)[\w.\/-]*/gi, "WyneAI");
+const scrub = t => t.replace(/\b(Nemotron|Nvidia|NVIDIA|Qwen|Llama|Mistral|OpenAI|GPT)[\w.\/-]*/gi, "WrenbyAI");
 marked.setOptions({ gfm: true, breaks: true });
 function enhanceMD(el) {
   el.querySelectorAll("a[href]").forEach(a => { a.target = "_blank"; a.rel = "noopener noreferrer"; });
@@ -178,7 +178,7 @@ function fileCard(host, call, res) {
     if (!f.isZip) mk("Copy", e => { navigator.clipboard.writeText(content).then(() => { e.target.textContent = "Copied"; setTimeout(() => e.target.textContent = "Copy", 1200); }).catch(() => {}); }); }
   if (!f.isZip && content) mk("Open in panel", () => ideOpenFile(f.name));
   card.appendChild(row); host.appendChild(card); log.scrollTop = 1e9; }
-function add(who, text) { const d = document.createElement("div"); d.className = "msg " + who; d.innerHTML = `<div class="av">${who === "u" ? "You" : '<img src="favicon.svg" alt="WyneAI" style="width:24px;height:24px;border-radius:5px">'}</div><div class="bub"></div>`;
+function add(who, text) { const d = document.createElement("div"); d.className = "msg " + who; d.innerHTML = `<div class="av">${who === "u" ? "You" : '<img src="favicon.svg" alt="WrenbyAI" style="width:24px;height:24px;border-radius:5px">'}</div><div class="bub"></div>`;
   const b = d.querySelector(".bub"); if (text === null) b.className += " dots"; else if (who === "a") renderMD(b, scrub(text), true); else setText(b, text); log.appendChild(d); log.scrollTop = 1e9; return b; }
 function setText(b, text) { b.textContent = ""; text.split("\n").forEach(l => { const s = document.createElement("div"); if (l.startsWith("WARNING")) s.className = "warn"; linkify(s, l || "\u00a0"); b.appendChild(s); }); }
 function linkify(el, l) { const re = /\[([^\]]{1,200})\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s)<>\]]+)/g; let i = 0, m;
@@ -193,7 +193,7 @@ function card(bub) { const a = window.bot; const st = a.chat.state(), set = Chat
   c.querySelector(".tog").onclick = e => { pre.hidden = !pre.hidden; e.target.textContent = pre.hidden ? "Show JSON" : "Hide JSON"; };
   c.querySelector(".copy").onclick = async e => { try { await navigator.clipboard.writeText(js); e.target.textContent = "Copied"; } catch { e.target.textContent = "Copy failed"; } setTimeout(() => e.target.textContent = "Copy JSON", 1200); };
   bub.appendChild(c); log.scrollTop = 1e9; }
-const hello = () => { add("a", "Hi, I'm WyneAI. I write and run code, and I can help with FrameFX too. What are we building?"); };
+const hello = () => { add("a", "Hi, I'm WrenbyAI. I write and run code, and I can help with FrameFX too. What are we building?"); };
 let llmState = "ready"; const llmFn = cloudLLM("https://preset-ai-chat.vercel.app/api/chat"); setApiBase("https://preset-ai-chat.vercel.app/api/chat");
 function notice(t) { $("#notice").hidden = !t; $("#notice").textContent = t || ""; }
 const ui = {
@@ -244,8 +244,8 @@ async function handle(t) {
             r = { text: txt }; }
     else r = await agent.deterministic(t, on); }
   else { try { r = await agent.runNative(modelText, on); }
-    catch (e) { const msg = e.status === 429 ? "I'm getting too many requests right now (rate limit). Here's what I can do in basic mode:" : "I couldn't reach WyneAI (" + (e.message || e) + "), so I'm in basic mode for this message.";
-      notice(e.status === 429 ? "Rate limited: please wait a minute. Basic mode is used meanwhile." : "WyneAI is unavailable right now; using basic mode (presets and FrameFX help still work).");
+    catch (e) { const msg = e.status === 429 ? "I'm getting too many requests right now (rate limit). Here's what I can do in basic mode:" : "I couldn't reach WrenbyAI (" + (e.message || e) + "), so I'm in basic mode for this message.";
+      notice(e.status === 429 ? "Rate limited: please wait a minute. Basic mode is used meanwhile." : "WrenbyAI is unavailable right now; using basic mode (presets and FrameFX help still work).");
       agent.llm = null; if (window.bot.route(t)) { const x = await window.bot.send(t); r = { text: msg + "\n" + x.text }; } else { r = await agent.deterministic(t, on); r.text = msg + "\n" + (r.text || "I couldn't do that in basic mode."); } } }
   done = true; finishThink(); wrap.classList.remove("dots"); renderMD(wrap, scrub(r.text || ""), true); harvest(wrap);
   if (!steps.children.length) steps.remove(); if (reason.hidden) reason.remove();
@@ -259,7 +259,7 @@ try { window.bot = new Assistant(await Model.load(ort, "./preset_beta7.onnx")); 
 const tierHint = $("#tierhint"); const showHint = () => { if (tierHint) tierHint.textContent = tier === "zenith" ? "uses the most usage" : ""; };
 const tierSel = $("#tier"); if (tierSel) { tierSel.value = tier; tierSel.onchange = () => { tier = tierSel.value; localStorage.setItem("wy.tier", tier); showHint(); }; showHint(); }
 let busy = false;
-async function submitHidden(modelText) { if (busy || !window.bot) return; busy = true; add("u", "Fix with WyneAI \u2192 sent the error"); $("#send").disabled = true; if (window.agent) window.agent.stopped = false;
+async function submitHidden(modelText) { if (busy || !window.bot) return; busy = true; add("u", "Fix with WrenbyAI \u2192 sent the error"); $("#send").disabled = true; if (window.agent) window.agent.stopped = false;
   try { await handle(modelText); } catch (err) { add("a", "Error: " + (err.message || err)); }
   busy = false; $("#send").disabled = false; $("#q").focus(); }
 $("#f").onsubmit = async e => { e.preventDefault(); const t = $("#q").value.trim(); if (!t || !window.bot || busy) return; busy = true; $("#q").value = ""; add("u", t); $("#send").disabled = true;

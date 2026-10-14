@@ -1,4 +1,4 @@
-// WyneAI agent: LLM plans + calls tools (Qwen <tool_call> JSON protocol, with repair), deterministic fast path/fallback.
+// WrenbyAI agent: LLM plans + calls tools (Qwen <tool_call> JSON protocol, with repair), deterministic fast path/fallback.
 // Only the Beta7 pipeline (Chat.turn via make_preset/change_preset) ever sets preset fields.
 import { GAMES, GPUS } from "./kb.js";
 import { Chat, WHY } from "./presetai.js";
@@ -108,7 +108,7 @@ export const isPlainPreset = (text, assistant) => !assistant.route(text) && !/\b
 
 // ---------- agent loop ----------
 export function systemPrompt(presetCtx) {
-  return `You are WyneAI, the AI assistant built into FrameFX (Universal FrameFX), a Windows app adding frame generation, upscaling (CSR 1.3/2.0/AI, FSR 1-4, XeSS), SSGI, RT lighting and CPU boost to games via per-game presets. You were made for FrameFX; if asked who/what model you are or who made you, say you are WyneAI, made for FrameFX, and never name another model or company. You can chat about anything, but say so instead of guessing about recent events.
+  return `You are WrenbyAI, the AI assistant built into FrameFX (Universal FrameFX), a Windows app adding frame generation, upscaling (CSR 1.3/2.0/AI, FSR 1-4, XeSS), SSGI, RT lighting and CPU boost to games via per-game presets. You were made for FrameFX; if asked who/what model you are or who made you, say you are WrenbyAI, made for FrameFX, and never name another model or company. You can chat about anything, but say so instead of guessing about recent events.
 
 You can use tools. NEVER invent preset values yourself: presets are only created/changed by make_preset/change_preset. For multi-step requests, call tools one after another. To call a tool, output ONLY:
 <tool_call>
@@ -178,7 +178,7 @@ const buildSchemas = () => TOOLS.map(t => ({ type: "function", function: { name:
   parameters: { type: "object", properties: PROPS[t.name], required: REQ[t.name] || Object.keys(PROPS[t.name]).filter(k => k !== "mode") } } }));
 export const TOOL_SCHEMAS = buildSchemas();
 export function nativeSystemPrompt(presetCtx) {
-  return `You are WyneAI, a coding-first AI assistant. Your main job is helping people plan and write complete, runnable code and small apps, and iterate when things break. Your second job is FrameFX, a Windows game-tuning app.
+  return `You are WrenbyAI, a coding-first AI assistant. Your main job is helping people plan and write complete, runnable code and small apps, and iterate when things break. Your second job is FrameFX, a Windows game-tuning app.
 
 Coding:
 - When asked to build or write something, plan briefly, then produce COMPLETE, runnable code: no placeholders, no ellipsis, no TODO stubs. Prefer one self-contained file when reasonable.

@@ -31,7 +31,7 @@ const TERMS = [
   [/resolution|1440|4k|1080|native/, "Resolution is the output resolution FrameFX targets (native, 1080p, 1440p or 4K). Higher resolution costs fps, so tell me yours and I'll factor it in."],
   [/framefx|this app|universal/, "FrameFX (Universal FrameFX) is a Windows app that adds frame generation, upscaling and lighting effects to games, with per-game profiles. I'm its built-in assistant: I build and tweak those profiles for you by chatting."],
 ];
-const CAPS = "I'm WyneAI. I can:\n• Build a FrameFX preset from a sentence, e.g. \"Cyberpunk on a 3060 laptop, 45 fps, want 120\".\n• Tweak it as we talk: \"what about 4K\", \"make it quieter\", \"turn frame gen off\", \"actually I have a 4070\", \"add ray tracing\".\n• Explain settings: frame gen, upscalers, FSR/XeSS, anti-cheat, SSGI, RT lighting, CPU boost.\n• Tell you what I know about a game or GPU, or compare two GPUs.\nI run fully offline in your browser with a small 1M-parameter model, so I'm not a general chatbot. Gaming and FrameFX are my thing.";
+const CAPS = "I'm WrenbyAI. I can:\n• Build a FrameFX preset from a sentence, e.g. \"Cyberpunk on a 3060 laptop, 45 fps, want 120\".\n• Tweak it as we talk: \"what about 4K\", \"make it quieter\", \"turn frame gen off\", \"actually I have a 4070\", \"add ray tracing\".\n• Explain settings: frame gen, upscalers, FSR/XeSS, anti-cheat, SSGI, RT lighting, CPU boost.\n• Tell you what I know about a game or GPU, or compare two GPUs.\nI run fully offline in your browser with a small 1M-parameter model, so I'm not a general chatbot. Gaming and FrameFX are my thing.";
 
 export class Assistant {
   constructor(model) { this.chat = new Chat(model); this.lastKind = null; }
@@ -58,12 +58,12 @@ export class Assistant {
     const t = norm(raw), q = t.replace(/[?!.]+$/, ""), ctx = this.chat.f.game;
     const isQ = /\?$/.test(t) || /^(what|whats|which|how|why|does|do|is|are|can|should|tell me|explain|whos|who|when)\b/.test(t);
     if (/^(hi|hello|hey|yo|sup|hiya|howdy|good (morning|afternoon|evening))\b[\s!.,]*(there|bot|assistant)?[\s!.]*$/.test(t))
-      return { kind: "greet", text: pick(["Hey! I'm WyneAI. What are you playing, and on which GPU?", "Hi there! Tell me your game and GPU and I'll build a FrameFX preset, or ask me about any setting."]) };
+      return { kind: "greet", text: pick(["Hey! I'm WrenbyAI. What are you playing, and on which GPU?", "Hi there! Tell me your game and GPU and I'll build a FrameFX preset, or ask me about any setting."]) };
     if (/^(thanks|thank you|thx|ty|cheers|appreciate it|nice|cool|great|awesome|perfect|ok|okay|k|got it)\b[\s!.]*(thanks|man|dude|bro)?[\s!.]*$/.test(t))
       return { kind: "thanks", text: this.chat.last ? pick(["You're welcome! Want me to tweak anything else, like resolution, frame gen or noise?", "Anytime! Hit Copy JSON on the preset card to paste it into FrameFX."]) : "No problem! Whenever you're ready, tell me a game and GPU." };
     if (/^(bye|goodbye|see ya|cya|good night|gn|later)\b/.test(t)) return { kind: "bye", text: "See you! Have fun gaming." };
     if (/^(how are you|how r u|hows it going|whats up|wassup|how you doing)\b/.test(t)) return { kind: "smalltalk", text: "Doing great, my weights are warm and ready. What game are we tuning today?" };
-    if (/(who|what) are you|your name|are you (an? )?(ai|bot|human|chatgpt|gpt)|what model/.test(t)) return { kind: "about", text: "I'm WyneAI, a small AI trained from scratch for FrameFX that runs entirely in your browser (offline, ~1M parameters). I'm good at presets and FrameFX settings, but I'm not a general-knowledge chatbot." };
+    if (/(who|what) are you|your name|are you (an? )?(ai|bot|human|chatgpt|gpt)|what model/.test(t)) return { kind: "about", text: "I'm WrenbyAI, a small AI trained from scratch for FrameFX that runs entirely in your browser (offline, ~1M parameters). I'm good at presets and FrameFX settings, but I'm not a general-knowledge chatbot." };
     if (/^(help|\?|menu)$|what can you do|how do (i|you) (use|work)|what do you do|how does this work/.test(t)) return { kind: "help", text: CAPS };
     if (/(supported|which|what) games|list (of )?games|games (do )?you (know|support)/.test(t))
       return { kind: "kb", text: `I know ${GAMES.length} games, including ${GAMES.slice(0, 12).map(g => g[0]).join(", ")}, plus competitive titles like Valorant, CS2 and Apex. Just name yours.` };
@@ -99,5 +99,5 @@ export class Assistant {
     if (/joke/.test(t)) return pick(["Why did the GPU break up with the CPU? It needed more space to render its feelings. Anyway, want a preset?", "I'd tell you a joke about 30 fps, but you wouldn't see the punchline in time."]);
     if (/weather|news|president|stock|score|won|capital|recipe|code|math|homework/.test(t)) return "I can't look that up, sorry. I run offline in your browser and only know FrameFX and gaming stuff. " + (this.chat.f.game ? `Want to keep tweaking your ${this.chat.f.game[0]} preset?` : "Tell me a game and GPU and I'll build you a preset.");
     return this.chat.f.game ? pick([`Not sure I follow, but I'm happy to keep tuning ${this.chat.f.game[0]}. Try "what about 4K", "make it quieter", "turn frame gen off" or "actually I have a 4070".`, `Hmm, I didn't get that one. I'm best at FrameFX stuff. You can change the resolution, GPU, fps target or frame gen for ${this.chat.f.game[0]}, or ask me what a setting does.`])
-      : pick(["I'm not much of a general chatbot, sorry. I'm WyneAI. Tell me what you're playing and on which GPU, or ask \"what can you do\".", "That's outside what I know. I only cover FrameFX and gaming, and I run offline. Try \"Cyberpunk on a 3060, want 120 fps\" or \"what is frame gen?\""]); }
+      : pick(["I'm not much of a general chatbot, sorry. I'm WrenbyAI. Tell me what you're playing and on which GPU, or ask \"what can you do\".", "That's outside what I know. I only cover FrameFX and gaming, and I run offline. Try \"Cyberpunk on a 3060, want 120 fps\" or \"what is frame gen?\""]); }
 }

@@ -1,16 +1,16 @@
 ---
-title: WyneAI
+title: WrenbyAI
 ---
-[Home](./) · [Install](install.html) · [Using FrameFX](using-framefx.html) · [Presets & Beta7](presets.html) · [WyneAI](assistant.html) · [**💬 Chat with WyneAI**](chat/) · [Privacy & safety](privacy.html) · [FAQ](faq.html) · [Changelog](changelog.html)
+[Home](./) · [Install](install.html) · [Using FrameFX](using-framefx.html) · [Presets & Beta7](presets.html) · [WrenbyAI](assistant.html) · [**💬 Chat with WrenbyAI**](chat/) · [Privacy & safety](privacy.html) · [FAQ](faq.html) · [Changelog](changelog.html)
 
-# WyneAI
+# WrenbyAI
 
-WyneAI is a coding-first assistant, with FrameFX help as its second job. It plans and writes complete, runnable code, shows it in a side panel, and runs HTML/CSS/JS right in your browser; it can make files (single or zipped), search the web, and iterate on errors. For FrameFX it answers questions and builds presets with the Beta7 pipeline, and in the desktop app it can take actions for you, always with your confirmation.
+WrenbyAI is a coding-first assistant, with FrameFX help as its second job. It plans and writes complete, runnable code, shows it in a side panel, and runs HTML/CSS/JS right in your browser; it can make files (single or zipped), search the web, and iterate on errors. For FrameFX it answers questions and builds presets with the Beta7 pipeline, and in the desktop app it can take actions for you, always with your confirmation.
 
 ## Try it on the web
 Trained on a 2021 ROG Zephyrus G14.
 
-Try it at [ilikemacos.github.io/framefx-assistant](https://ilikemacos.github.io/framefx-assistant/) or [preset-ai-chat.vercel.app](https://preset-ai-chat.vercel.app) (needs internet). Plain preset requests are handled instantly in your browser. WyneAI can search the web for current information and cites its sources as links. It can build presets and copy them to your clipboard for FrameFX. Replies are limited in length, and requests are rate-limited per visitor (about 20 a minute, web searches included).
+Try it at [ilikemacos.github.io/framefx-assistant](https://ilikemacos.github.io/framefx-assistant/) or [preset-ai-chat.vercel.app](https://preset-ai-chat.vercel.app) (needs internet). Plain preset requests are handled instantly in your browser. WrenbyAI can search the web for current information and cites its sources as links. It can build presets and copy them to your clipboard for FrameFX. Replies are limited in length, and requests are rate-limited per visitor (about 20 a minute, web searches included).
 
 ## In the app (in development)
 > The in-app Assistant is in development and not in a released build yet.

@@ -1,7 +1,7 @@
 ---
 title: FAQ
 ---
-[Home](./) · [Install](install.html) · [Using FrameFX](using-framefx.html) · [Presets & Beta7](presets.html) · [WyneAI](assistant.html) · [**💬 Chat with WyneAI**](chat/) · [Privacy & safety](privacy.html) · [FAQ](faq.html) · [Changelog](changelog.html)
+[Home](./) · [Install](install.html) · [Using FrameFX](using-framefx.html) · [Presets & Beta7](presets.html) · [WrenbyAI](assistant.html) · [**💬 Chat with WrenbyAI**](chat/) · [Privacy & safety](privacy.html) · [FAQ](faq.html) · [Changelog](changelog.html)
 
 # FAQ
 
@@ -15,6 +15,6 @@ title: FAQ
 
 **Can I build it myself?** Yes, but the build uses a placeholder engine; the image-processing engine is closed.
 
-**Which AI does the Assistant use?** It's WyneAI, made for FrameFX and trained on a 2021 ROG Zephyrus G14. In the app it runs locally on your GPU; the website version needs an internet connection.
+**Which AI does the Assistant use?** It's WrenbyAI, made for FrameFX and trained on a 2021 ROG Zephyrus G14. In the app it runs locally on your GPU; the website version needs an internet connection.
 
 **My GPU is weak.** Try CSR 2.0's Lighter mode or the Performance preset. Ray-traced lighting works even without hardware RT.
