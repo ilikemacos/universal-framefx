@@ -21,7 +21,7 @@ public sealed record AgentPaths(string Root)
 }
 
 /// <summary>
-/// Starts the bundled llama-server (Vulkan build) on 127.0.0.1 with a random port, waits for /health,
+/// Starts the bundled llama-server (Vulkan build) on 127.0.0.1, port 8737 when free (the WyneAI web page connects there) or a random port otherwise, waits for /health,
 /// and walks the ContextSizer fallback ladder if the process dies while loading (usually out of VRAM).
 /// Bound to localhost only; --jinja turns on native tool calling through the chat template.
 /// </summary>
@@ -60,7 +60,9 @@ public sealed class LlamaServerHost : IDisposable
             WorkingDirectory = Path.GetDirectoryName(_paths.ServerExe)!,
         };
         foreach (var a in new[] { "-m", _paths.ModelFile, "--host", "127.0.0.1", "--port", port.ToString(),
-                                  "--jinja", "--parallel", "1", "--no-webui", "--alias", "framefx-assistant" })
+                                  "--jinja", "--parallel", "1", "--no-webui", "--alias", "wyneai",
+                                  // Only the WyneAI web page may call this server from a browser (other sites get no CORS header).
+                                  "--cors-origins", "https://ilikemacos.github.io" })
             psi.ArgumentList.Add(a);
         foreach (var a in plan.ToArgs()) psi.ArgumentList.Add(a);
 
@@ -91,8 +93,17 @@ public sealed class LlamaServerHost : IDisposable
         return false;
     }
 
+    /// <summary>Fixed port the WyneAI web page (ilikemacos.github.io/framefx/wyneai/) uses by default.</summary>
+    public const int PreferredPort = 8737;
+
     static int FreePort()
     {
+        try
+        {
+            var f = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, PreferredPort);
+            f.Start(); f.Stop(); return PreferredPort;
+        }
+        catch (System.Net.Sockets.SocketException) { }
         var l = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
         l.Start(); int p = ((System.Net.IPEndPoint)l.LocalEndpoint).Port; l.Stop(); return p;
     }
