@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   One-time setup for WyneAI: downloads the llama.cpp Vulkan server and the 3B Q4_K_M model (~1.93 GB).
 .PARAMETER InstallDir
@@ -57,7 +57,7 @@ if ($Force -or -not (Test-Path $serverExe)) {
   $rel = Invoke-RestMethod -Uri $api -Headers @{ 'User-Agent' = 'FrameFX-Setup' }
   $asset = $rel.assets | Where-Object { $_.name -match 'bin-win-vulkan-x64\.zip$' } | Select-Object -First 1
   if (-not $asset) { throw "No Vulkan x64 Windows build in llama.cpp release $($rel.tag_name)." }
-  Write-Host "Downloading llama.cpp $($rel.tag_name) ($([math]::Round($asset.size/1MB)) MB)…"
+  Write-Host "Downloading llama.cpp $($rel.tag_name) ($([math]::Round($asset.size/1MB)) MB)..."
   $zip = Join-Path $InstallDir 'llama.zip'
   Get-File $asset.browser_download_url $zip
   Expand-Archive -Force $zip $llamaDir
@@ -74,7 +74,7 @@ if ($Force -or -not (Test-Path $modelFile)) {
   $ok = $false
   foreach ($m in $models) {
     try {
-      Write-Host "Downloading the assistant model ($([math]::Round($m.Size/1GB,2)) GB)…"
+      Write-Host "Downloading the assistant model ($([math]::Round($m.Size/1GB,2)) GB)..."
       Get-File $m.Url $modelFile
       $h = (Get-FileHash $modelFile -Algorithm SHA256).Hash.ToLower()
       if ($h -ne $m.Sha256) { Remove-Item $modelFile; throw "checksum mismatch ($h)" }
@@ -95,4 +95,4 @@ if ($InstallDir -ne (Join-Path $env:LOCALAPPDATA 'FrameFX\agent')) {
 
 # 4) Smoke test: the server lists a Vulkan device
 & $serverExe --list-devices 2>&1 | Select-Object -First 10 | ForEach-Object { Write-Host "  $_" }
-Write-Host 'Done. Open FrameFX → WyneAI.'
+Write-Host 'Done. Open FrameFX -> WyneAI.'
