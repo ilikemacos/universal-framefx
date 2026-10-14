@@ -1,5 +1,5 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="favicon.ico" sizes="48x48"><link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="apple-touch-icon.png"><meta name="theme-color" content="#111111"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<title>WyneAI</title>
+<script src="./md/highlight.min.js"></script><title>WyneAI</title>
 <style>
 :root{--bg:#111111;--fg:#ececec;--muted:#9a9a9a;--rule:#2a2a2a;--card:#181818;--accent:#ff6a2b;--warn:#e0a03a;--sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;--mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace}
 *{box-sizing:border-box}body{margin:0;font:15px/1.6 var(--sans);background:var(--bg);color:var(--fg);height:100vh;display:flex;-webkit-font-smoothing:antialiased}
@@ -36,7 +36,7 @@ pre{font-family:var(--mono);background:#0c0c0c;border:1px solid var(--rule);bord
 .ttime{font-family:var(--mono);font-size:11px;color:var(--muted)}
 .tchev{margin-left:auto;transition:transform .15s;color:var(--muted);font-size:11px}
 .think[open] .tchev{transform:rotate(180deg)}
-.treason{white-space:pre-wrap;font-size:12.5px;line-height:1.55;color:var(--muted);padding:10px 12px;border-top:1px solid var(--rule)}
+.treason{white-space:normal;font-size:12.5px;line-height:1.55;color:var(--muted);padding:10px 12px;border-top:1px solid var(--rule)}
 .think .steps{padding:8px 12px 10px;margin:0}
 .walk{display:flex;align-items:flex-end;gap:10px;padding:10px 12px;border-top:1px solid var(--rule)}
 .wl{font-family:var(--mono);font-size:10px;color:#6a6a6a;text-transform:uppercase;letter-spacing:.09em;padding-bottom:1px;user-select:none}
@@ -54,6 +54,29 @@ pre{font-family:var(--mono);background:#0c0c0c;border:1px solid var(--rule);bord
 @keyframes mbob{0%,100%{transform:translateY(0)}50%{transform:translateY(-1px)}}
 .think.done .walk{opacity:.4}.think.done .leg,.think.done .eye,.think.done .bob{animation:none}
 @media (prefers-reduced-motion:reduce){.mob{transition:none}.leg,.eye,.bob{animation:none}}
+.md>:first-child{margin-top:0}.md>:last-child{margin-bottom:0}.md p{margin:.5em 0}
+.md h1,.md h2,.md h3,.md h4{margin:.8em 0 .4em;font-weight:600;line-height:1.3;letter-spacing:-.01em}
+.md h1{font-size:1.3em}.md h2{font-size:1.18em}.md h3{font-size:1.05em}.md h4{font-size:1em}
+.md ul,.md ol{margin:.5em 0;padding-left:1.4em}.md li{margin:.2em 0}
+.md blockquote{margin:.6em 0;padding:.15em 0 .15em .9em;border-left:2px solid var(--accent);color:var(--muted)}
+.md :not(pre)>code{font-family:var(--mono);font-size:.88em;background:#0c0c0c;border:1px solid var(--rule);border-radius:3px;padding:.08em .35em}
+.md pre{position:relative;background:#0c0c0c;border:1px solid var(--rule);border-radius:4px;padding:12px;margin:.6em 0;overflow:auto;max-height:420px}
+.md pre code{background:none;border:0;padding:0;font-family:var(--mono);font-size:12.5px;display:block;line-height:1.5}
+.codecopy{position:absolute;top:6px;right:6px;height:24px;padding:0 8px;font-size:11px;background:#141414;border:1px solid var(--rule);color:var(--muted);border-radius:4px;cursor:pointer;opacity:0;transition:opacity .12s}
+.md pre:hover .codecopy,.codecopy:focus{opacity:1}
+.md table{border-collapse:collapse;margin:.6em 0;font-size:13px;width:auto;max-width:100%}
+.md th,.md td{border:1px solid var(--rule);padding:6px 10px;text-align:left;vertical-align:top}
+.md th{background:#181818;font-weight:600}
+.md a{color:var(--fg);text-decoration:underline;text-decoration-color:#555;text-underline-offset:3px}.md a:hover{text-decoration-color:var(--accent)}
+.md hr{border:0;border-top:1px solid var(--rule);margin:1em 0}.md strong{font-weight:600;color:#fff}.md em{font-style:italic}
+.treason.md p{margin:.3em 0}.treason.md{font-size:12.5px}
+.hljs-comment,.hljs-quote{color:#6a6a6a;font-style:italic}
+.hljs-keyword,.hljs-selector-tag,.hljs-literal,.hljs-section,.hljs-name{color:#ff8c5a}
+.hljs-string,.hljs-attr,.hljs-template-tag,.hljs-addition{color:#b7c94d}
+.hljs-number,.hljs-built_in,.hljs-type,.hljs-class .hljs-title{color:#e0a03a}
+.hljs-title,.hljs-function .hljs-title{color:#ededed}
+.hljs-attribute,.hljs-variable,.hljs-tag,.hljs-regexp{color:#8fc7ef}
+.hljs-meta,.hljs-symbol,.hljs-bullet{color:#9a9a9a}.hljs-deletion{color:#e06a5a}
 #tier{background:transparent;color:var(--fg);border:1px solid #3a3a3a;border-radius:4px;height:32px;padding:0 8px;font:inherit;font-size:13px;font-weight:500;cursor:pointer}#tier:hover{border-color:#555}
 .dots::after{content:"…";animation:b 1s infinite}@keyframes b{50%{opacity:.2}}
 </style></head><body>
@@ -67,13 +90,24 @@ import * as ort from "./ort/ort.wasm.min.mjs";
 import { Model, Chat } from "./presetai.js";
 import { Assistant } from "./assistant.js";
 import { Agent, planDeterministic, cloudLLM, setApiBase } from "./agent.js";
+import { marked } from "./md/marked.esm.js";
+import DOMPurify from "./md/purify.es.mjs";
 ort.env.wasm.wasmPaths = new URL("./ort/", location.href).href; ort.env.wasm.numThreads = 1;
 const $ = s => document.querySelector(s), log = $("#log");
 const TIERS = { spark: { max: 6144, ctx: 32000 }, turbo: { max: 24576, ctx: 64000 }, forge: { max: 49152, ctx: 128000 } };
 let tier = TIERS[localStorage.getItem("wy.tier")] ? localStorage.getItem("wy.tier") : "turbo";
-const scrub = t => t.replace(/\b(Nemotron|Qwen)[\w.-]*/gi, "WyneAI").replace(/\*\*/g, "");
+const scrub = t => t.replace(/\b(Nemotron|Nvidia|NVIDIA|Qwen|Llama|Mistral|OpenAI|GPT)[\w.\/-]*/gi, "WyneAI");
+marked.setOptions({ gfm: true, breaks: true });
+function enhanceMD(el) {
+  el.querySelectorAll("a[href]").forEach(a => { a.target = "_blank"; a.rel = "noopener noreferrer"; });
+  el.querySelectorAll("pre > code").forEach(code => { const pre = code.parentElement; if (pre.dataset.enh) return; pre.dataset.enh = "1";
+    try { if (window.hljs) window.hljs.highlightElement(code); } catch {}
+    const btn = document.createElement("button"); btn.className = "codecopy"; btn.type = "button"; btn.textContent = "Copy";
+    btn.onclick = () => { navigator.clipboard.writeText(code.textContent).then(() => { btn.textContent = "Copied"; setTimeout(() => btn.textContent = "Copy", 1200); }).catch(() => {}); };
+    pre.appendChild(btn); }); }
+function renderMD(el, md, final) { el.classList.add("md"); el.innerHTML = DOMPurify.sanitize(marked.parse(md || ""), { ADD_ATTR: ["target"] }); if (final) enhanceMD(el); log.scrollTop = 1e9; }
 function add(who, text) { const d = document.createElement("div"); d.className = "msg " + who; d.innerHTML = `<div class="av">${who === "u" ? "You" : '<img src="favicon.svg" alt="WyneAI" style="width:24px;height:24px;border-radius:5px">'}</div><div class="bub"></div>`;
-  const b = d.querySelector(".bub"); if (text === null) b.className += " dots"; else setText(b, text); log.appendChild(d); log.scrollTop = 1e9; return b; }
+  const b = d.querySelector(".bub"); if (text === null) b.className += " dots"; else if (who === "a") renderMD(b, scrub(text), true); else setText(b, text); log.appendChild(d); log.scrollTop = 1e9; return b; }
 function setText(b, text) { b.textContent = ""; text.split("\n").forEach(l => { const s = document.createElement("div"); if (l.startsWith("WARNING")) s.className = "warn"; linkify(s, l || "\u00a0"); b.appendChild(s); }); }
 function linkify(el, l) { const re = /\[([^\]]{1,200})\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s)<>\]]+)/g; let i = 0, m;
   while ((m = re.exec(l))) { el.append(l.slice(i, m.index)); const a = document.createElement("a"); a.href = m[2] || m[3]; a.textContent = m[1] || m[3]; a.target = "_blank"; a.rel = "noopener noreferrer"; el.append(a); i = re.lastIndex; } el.append(l.slice(i)); }
@@ -117,17 +151,19 @@ async function handle(t) {
   const setDir = d => { if (dirTimer) { clearTimeout(dirTimer); dirTimer = null; } mtrack.dataset.dir = d; };
   const toWeb = () => { setDir("right"); dirTimer = setTimeout(() => { if (!answering) mtrack.dataset.dir = "left"; }, 1800); };
   const wrap = document.createElement("div"); wrap.className = "dots"; bub.append(think, wrap);
-  let presetShown = false, answering = false; const t0 = Date.now();
+  let presetShown = false, answering = false, done = false; const t0 = Date.now();
+  const mkPaint = () => { let pend = null, sched = false; return (el, md) => { pend = [el, md]; if (sched || done) return; sched = true; setTimeout(() => { sched = false; if (done) return; renderMD(pend[0], pend[1], false); }, 90); }; };
+  const paintAns = mkPaint(), paintThink = mkPaint();
   const timer = setInterval(() => { if (!answering) think.querySelector(".ttime").textContent = Math.round((Date.now() - t0) / 1000) + "s"; }, 250);
   const finishThink = () => { if (answering) return; answering = true; clearInterval(timer); const secs = Math.round((Date.now() - t0) / 1000);
     think.classList.add("done"); think.open = false; think.querySelector(".tlabel").textContent = "Thought for " + secs + "s"; think.querySelector(".ttime").textContent = ""; };
   const on = {
     maxTokens: TIERS[tier].max,
     continued: n => { const d = document.createElement("div"); d.className = "step"; d.textContent = "Continuing the long reply \u00b7 part " + (n + 1); steps.appendChild(d); log.scrollTop = 1e9; },
-    reasoning: buf => { if (answering) return; reason.hidden = false; reason.textContent = scrub(buf); log.scrollTop = 1e9; },
+    reasoning: buf => { if (answering) return; reason.hidden = false; paintThink(reason, scrub(buf)); },
     search: ev => { toWeb(); const d = document.createElement("div"); d.className = "step"; d.textContent = "Searched the web \u00b7 " + ev.count + " result" + (ev.count === 1 ? "" : "s"); steps.appendChild(d); log.scrollTop = 1e9; },
     step: (c, r) => { toWeb(); steps.appendChild(stepRow(c, r)); if (r.preset_changed) presetShown = true; log.scrollTop = 1e9; },
-    token: buf => { if (/<tool_call|^\s*[{`]/.test(buf)) { wrap.classList.add("dots"); wrap.textContent = ""; return; } setDir("left"); finishThink(); wrap.classList.remove("dots"); setText(wrap, scrub(buf)); log.scrollTop = 1e9; },
+    token: buf => { if (/<tool_call|^\s*[{`]/.test(buf)) { wrap.classList.add("dots"); wrap.textContent = ""; return; } setDir("left"); finishThink(); wrap.classList.remove("dots"); paintAns(wrap, scrub(buf)); },
     clear: () => { wrap.textContent = ""; wrap.classList.add("dots"); }, error: e => console.warn("agent LLM error", e) };
   let r;
   if (basic) { const plan = planDeterministic(t, !!window.bot.chat.last);
@@ -139,7 +175,7 @@ async function handle(t) {
     catch (e) { const msg = e.status === 429 ? "I'm getting too many requests right now (rate limit). Here's what I can do in basic mode:" : "I couldn't reach WyneAI (" + (e.message || e) + "), so I'm in basic mode for this message.";
       notice(e.status === 429 ? "Rate limited: please wait a minute. Basic mode is used meanwhile." : "WyneAI is unavailable right now; using basic mode (presets and FrameFX help still work).");
       agent.llm = null; if (window.bot.route(t)) { const x = await window.bot.send(t); r = { text: msg + "\n" + x.text }; } else { r = await agent.deterministic(t, on); r.text = msg + "\n" + (r.text || "I couldn't do that in basic mode."); } } }
-  finishThink(); wrap.classList.remove("dots"); setText(wrap, scrub(r.text || ""));
+  done = true; finishThink(); wrap.classList.remove("dots"); renderMD(wrap, scrub(r.text || ""), true);
   if (!steps.children.length) steps.remove(); if (reason.hidden) reason.remove();
   if (!think.querySelector(".treason") && !think.querySelector(".steps")) think.remove();
   if (presetShown && window.bot.last) card(bub); }
