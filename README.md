@@ -7,6 +7,7 @@ No account · no telemetry · FrameFX itself needs no admin rights.
 
 **Canonical site:** [https://chopstickshq.com/universal-framefx/](https://chopstickshq.com/universal-framefx/)
 **Hub:** [https://chopstickshq.com/](https://chopstickshq.com/)
+**Docs:** [https://ilikemacos.github.io/universal-framefx/](https://ilikemacos.github.io/universal-framefx/)
 
 [![Download](https://img.shields.io/badge/download-v1.4.1%20Beta4-4d9eff)](https://chopstickshq.com/universal-framefx/)
 [![Windows 10/11](https://img.shields.io/badge/Windows-10%20%2F%2011%20x64-111111)](https://chopstickshq.com/universal-framefx/)
