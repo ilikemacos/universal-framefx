@@ -187,6 +187,17 @@ public static class CpuBoost
         "wmiprvse", "unsecapp", "backgroundtaskhost", "compattelrunner",
     };
 
+    public static CpuBoostSettings FromAssistant(bool enabled) => Sanitize(new CpuBoostSettings
+    {
+        PowerPlan = enabled,
+        DisableCoreParking = enabled,
+        BoostMode = enabled ? 1 : 0,
+        HighPriority = enabled,
+        PreferFastCores = enabled,
+        LowerFrameFxPriority = enabled,
+        DisablePowerThrottling = enabled,
+    });
+
     public static CpuBoostSettings Sanitize(CpuBoostSettings? s)
     {
         s ??= new CpuBoostSettings();

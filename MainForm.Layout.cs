@@ -91,6 +91,7 @@ public sealed partial class MainForm
         _nav.Items.Add(new NavList.Item("upscaling", "Upscaling"));
         _nav.Items.Add(new NavList.Item("frame-generation", "Frame generation"));
         _nav.Items.Add(new NavList.Item("games", "Games"));
+        _nav.Items.Add(new NavList.Item("assistant", "Preset Assistant"));
         _nav.Items.Add(new NavList.Item("cpu", "CPU"));
         _nav.Items.Add(new NavList.Item("advanced", "Advanced"));
         _nav.Items.Add(new NavList.Item("about", "About"));
@@ -122,6 +123,7 @@ public sealed partial class MainForm
         BuildUpscaling();
         BuildFg();
         BuildGames();
+        BuildAssistant();
         BuildCpu();
         BuildAdvanced();
         BuildAbout();
@@ -490,6 +492,15 @@ public sealed partial class MainForm
         _building = null;
     }
 
+    void BuildAssistant()
+    {
+        var p = Page("assistant", "Preset Assistant", "Offline AI (no cloud LLM): describe your game, GPU, and fps goals; apply suggested presets with undo.");
+        var openAssistant = new PillButton { Text = "Open chat", AutoSize = true, Kind = PillKind.Primary };
+        openAssistant.Click += (_, _) => ShowPresetAssistant();
+        p.Controls.Add(BtnRow(openAssistant));
+        p.Controls.Add(Line("Uses the built-in 1M-parameter preset model plus rules. All writes go through normal per-game profile save.", Theme.TextMuted));
+    }
+
     void BuildCpu()
     {
         var p = Page("cpu", "CPU", "Optional, reversible CPU help for the detected game. Everything is off until you turn it on.");
@@ -613,6 +624,11 @@ public sealed partial class MainForm
 
     void ShowPage(string key)
     {
+        if (ResolvePage(key) == "assistant")
+        {
+            ShowPresetAssistant();
+            key = _ui.Page.Length > 0 && _pages.ContainsKey(_ui.Page) ? _ui.Page : "home";
+        }
         var page = _pages.GetValueOrDefault(ResolvePage(key)) ?? _pages.GetValueOrDefault("home");
         if (page == null) return;
         foreach (var kv in _pages) kv.Value.Visible = kv.Value == page;

@@ -4,6 +4,7 @@ using System.Net.Http;
 using System.Reflection;
 using System.Text.Json;
 using System.Windows.Forms;
+using UniversalFrameFX.PresetAi;
 
 namespace UniversalFrameFX;
 
@@ -127,6 +128,7 @@ public sealed partial class MainForm : Form
     bool _updBusy;
     public string? UpdateMarker, UpdatedFrom, UpdateFailed;
     OutputForm? _out;
+    PresetAssistantForm? _presetAssistant;
 
     static readonly (string name, double ratio)[] Qualities =
         { ("Quality (1.5x)", 1.5), ("Balanced (1.7x)", 1.7), ("Performance (2.0x)", 2.0), ("Ultra Performance (3.0x)", 3.0) };
@@ -1649,6 +1651,58 @@ public sealed partial class MainForm : Form
     }
 
     static void Open(string url) { try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); } catch { } }
+
+    public sealed record AssistantBaseline(Dictionary<string, GameProfile> Profiles, GameProfile GlobalUi, string? ActiveExe);
+
+    public AssistantBaseline CaptureAssistantBaseline() => new(
+        _ui.Profiles.ToDictionary(kv => kv.Key, kv => GameProfiles.Clone(kv.Value), StringComparer.OrdinalIgnoreCase),
+        CaptureUiProfile(),
+        ActiveGameExe());
+
+    public void RestoreAssistantBaseline(AssistantBaseline b)
+    {
+        _ui.Profiles = b.Profiles;
+        SaveUi();
+        RebuildProfileList();
+        if (b.ActiveExe != null) PrepareGameSettings(b.ActiveExe);
+        else ApplyProfileToUi(b.GlobalUi);
+    }
+
+    public void ApplyAssistantProfile(string exe, GameProfile prof)
+    {
+        prof = GameProfiles.Sanitize(prof);
+        if (AntiCheat.LookupBuiltin(exe) != null)
+        {
+            prof.FgSelect = (int)FgSelect.Off;
+            prof.FrameGen = false;
+            prof.FgMultiplier = 4;
+            prof = GameProfiles.Sanitize(prof);
+        }
+        GameProfiles.Remember(_ui.Profiles, exe, prof);
+        SaveUi();
+        RebuildProfileList();
+        string active = GameProfiles.NormalizeKey(ActiveGameExe());
+        if (active.Length > 0 && string.Equals(active, GameProfiles.NormalizeKey(exe), StringComparison.OrdinalIgnoreCase))
+            ApplyProfileToUi(prof);
+    }
+
+    public string? ActiveProfileSummary()
+    {
+        if (ActiveGameExe() is { } exe && _ui.Profiles.TryGetValue(GameProfiles.NormalizeKey(exe), out var p))
+            return GameProfiles.Summary(p);
+        return GameProfiles.Summary(CaptureUiProfile());
+    }
+
+    void ShowPresetAssistant()
+    {
+        if (_presetAssistant == null || _presetAssistant.IsDisposed)
+        {
+            var model = PresetModelSettings.LoadDefault();
+            _presetAssistant = new PresetAssistantForm(this, model);
+        }
+        _presetAssistant.Show();
+        _presetAssistant.BringToFront();
+    }
 
     void ShowAbout()
     {
