@@ -225,3 +225,6 @@ function injectStyle() {
 `;
   document.head.appendChild(s);
 }
+
+// Used by cloud tasks.
+export const authInfo = () => ({ base: S.base, token: S.token, user: S.user });
