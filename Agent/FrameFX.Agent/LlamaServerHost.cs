@@ -21,7 +21,7 @@ public sealed record AgentPaths(string Root)
 }
 
 /// <summary>
-/// Starts the bundled llama-server (Vulkan build) on 127.0.0.1, port 8737 when free (the WyneAI web page connects there) or a random port otherwise, waits for /health,
+/// Starts the bundled llama-server (Vulkan build) on 127.0.0.1, port 8737 when free (the WrenbyAI web page connects there) or a random port otherwise, waits for /health,
 /// and walks the ContextSizer fallback ladder if the process dies while loading (usually out of VRAM).
 /// Bound to localhost only; --jinja turns on native tool calling through the chat template.
 /// </summary>
@@ -62,7 +62,7 @@ public sealed class LlamaServerHost : IDisposable
         ConfigureEnvironment(psi);
         foreach (var a in new[] { "-m", _paths.ModelFile, "--host", "127.0.0.1", "--port", port.ToString(),
                                   "--jinja", "--parallel", "1", "--no-webui", "--alias", "wyneai",
-                                  // Only the WyneAI web page may call this server from a browser (other sites get no CORS header).
+                                  // Only the WrenbyAI web page may call this server from a browser (other sites get no CORS header).
                                   "--cors-origins", "https://ilikemacos.github.io" })
             psi.ArgumentList.Add(a);
         foreach (var a in plan.ToArgs()) psi.ArgumentList.Add(a);
@@ -94,7 +94,7 @@ public sealed class LlamaServerHost : IDisposable
         return false;
     }
 
-    /// <summary>Fixed port the WyneAI web page (ilikemacos.github.io/framefx/wyneai/) uses by default.</summary>
+    /// <summary>Fixed port the WrenbyAI web page (ilikemacos.github.io/framefx/wyneai/) uses by default.</summary>
     public const int PreferredPort = 8737;
 
     /// <summary>RivaTuner (RTSS) injects a Vulkan layer that crashes llama-server; this turns it off for the server only.</summary>

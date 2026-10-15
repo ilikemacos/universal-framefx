@@ -23,7 +23,7 @@ public sealed class AgentChatForm : Form
     public AgentChatForm(Func<Task<AgentLoop>> start)
     {
         _start = start;
-        Text = "WyneAI"; Width = 760; Height = 640; StartPosition = FormStartPosition.CenterParent;
+        Text = "WrenbyAI"; Width = 760; Height = 640; StartPosition = FormStartPosition.CenterParent;
         _toolsView.Columns.Add("Tool", 150); _toolsView.Columns.Add("Result", 560);
         _toolsView.ItemActivate += (_, _) =>
         {
@@ -40,7 +40,7 @@ public sealed class AgentChatForm : Form
         Load += async (_, _) =>
         {
             SetBusy(true);
-            try { _agent = await _start(); Append("WyneAI", "Hi! I'm WyneAI. Ask me anything, or tell me what to set up.\n"); }
+            try { _agent = await _start(); Append("WrenbyAI", "Hi! I'm WrenbyAI. Ask me anything, or tell me what to set up.\n"); }
             catch (Exception ex) { Append("Error", ex.Message + "\n"); }
             finally { SetBusy(false); UpdateStatus(); }
         };
@@ -52,7 +52,7 @@ public sealed class AgentChatForm : Form
         if (text.Length == 0 || _agent == null || _cts != null) return;
         _input.Clear();
         Append("You", text + "\n");
-        Append("WyneAI", "");
+        Append("WrenbyAI", "");
         _cts = new CancellationTokenSource();
         SetBusy(true);
         try
