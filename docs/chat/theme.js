@@ -16,12 +16,12 @@ form#f #q{background:transparent!important;border:0!important;height:44px!import
 form#f select#tier{border:1px solid #2c2c2c!important;border-radius:999px!important;height:34px!important;background:#1f1f1f!important;color:#ddd;font-size:12px!important;padding:0 10px!important}
 form#f #send,form#f #stop{border-radius:999px!important;height:38px!important;min-width:38px;padding:0 16px!important;background:#f2f2f2!important;color:#111!important;border:0!important;font-weight:600}
 form#f .ctmode{flex:none}#tierhint{display:none!important}
-.foot{font-size:11px!important;color:#6b6b6b!important;text-align:center;margin:4px 0 10px!important}
+.foot{font-size:11px!important;color:#6b6b6b!important;text-align:center!important;max-width:780px!important;width:calc(100% - 32px)!important;margin:4px auto 10px!important;padding:0 12px!important;box-sizing:border-box;align-self:center}
 #histbar{background:#0f0f0f!important;border-right:1px solid #1c1c1c!important;width:250px}#histbar .hitem{border-radius:10px!important;border:0!important}#histbar .hitem.on{background:#1c1c1c!important}
 #histbar .hnew{border-radius:999px!important}.wy-hamb{border-radius:999px!important}
 .fcard,.think,pre{border-radius:14px!important}.fcard{border-color:#262626!important;background:#141414!important}.zipall,.fhead .primary{background:#f2f2f2!important;color:#111!important;border-radius:999px!important}
 button{border-radius:10px}a{color:#cfcfcf}
-@media(max-width:640px){form#f{padding-left:14px!important}form#f .ctmode .ctm{padding:0 7px}form#f select#tier{max-width:96px}}
+@media(max-width:640px){header{padding:6px 10px!important;gap:6px!important;flex-wrap:nowrap!important}header #status{display:none}form#f{flex-wrap:wrap;border-radius:22px;padding:6px 8px 6px 14px!important;width:calc(100% - 16px)!important}form#f #q{flex-basis:100%}.msg{padding:8px 14px!important}.msg.u .bub{max-width:88%}form#f{padding-left:14px!important}form#f .ctmode .ctm{padding:0 7px}form#f select#tier{max-width:96px}}
 `;
 export function applyTheme() { injectCSS(); if (!document.getElementById("wtheme")) { const s = document.createElement("style"); s.id = "wtheme"; s.textContent = CSS; document.head.appendChild(s); }
   const f = document.getElementById("f"), q = document.getElementById("q"), tier = document.getElementById("tier");

@@ -33,7 +33,7 @@ export async function runCloudTask(bub, prompt, tier, { signal, onStatus } = {})
     if (e.type === "say") { said.push(e.text); line("say", e.text); }
     else if (e.type === "cmd") { line("cmd", "$ " + e.cmd); if (e.output?.trim()) line("out" + (e.exitCode ? " bad" : ""), e.output.trim()); line("dim", "exit " + e.exitCode); }
     else if (e.type === "write") line("dim", "wrote " + e.path + " (" + e.bytes + " bytes)");
-    else if (e.type === "read") line("dim", "read " + e.path);
+    else if (e.type === "read") line("dim", "read " + e.path + (e.cached ? " (unchanged)" : ""));
     else if (e.type === "denied") line("err", "denied: " + e.text);
     else if (e.type === "error" || e.type === "limit") line("err", e.text); } };
   // Ask mode: show the pending call and wait for Approve / Deny / Always allow this task.
@@ -42,14 +42,16 @@ export async function runCloudTask(bub, prompt, tier, { signal, onStatus } = {})
     const row = el("div", "ctabtns"); const btn = (label, cls, v) => { const b = el("button", cls, label); b.type = "button"; b.onclick = () => res(v); row.appendChild(b); };
     btn("Approve", "primary", { allow: true }); btn("Deny", "", { allow: false }); btn("Always allow this task", "", { allow: true, always: true }); ap.appendChild(row); scroll();
     onStatus?.("Waiting for your approval"); stat.textContent = "· waiting for approval"; });
-  let res = { status: "running" }, said = [];
+  let res = { status: "running" }, said = [], retries = 0;
   while (!stopped && (res.status === "running" || res.status === "needs_approval")) {
     try {
       if (res.status === "needs_approval") { const d = await askUser(res.pending); ap.hidden = true; wake = null; if (stopped || !d) break;
         if (d.always) { mode = "auto"; showMode(); } stat.textContent = "· running"; res = await api({ action: "approve", id: st.id, ...d }); }
       else { stat.textContent = `· step ${(res.step || 0) + 1}/${st.maxSteps}`; onStatus?.(`Cloud sandbox · step ${(res.step || 0) + 1}`); res = await api({ action: "step", id: st.id }); }
-    } catch (e) { if (stopped) break; line("err", "error: " + e.message); res = { status: "failed" }; api({ action: "stop", id: st.id }).catch(() => {}); break; }
-    if (res.mode && res.mode !== mode) { mode = res.mode; showMode(); } render(res.events); }
+    } catch (e) { if (stopped) break;
+      if (res.status === "running" && e.body?.retryable && (retries = (retries || 0) + 1) <= 2) { line("dim", "temporary error, retrying…"); await new Promise(r => setTimeout(r, 2500 * retries)); continue; }
+      line("err", "error: " + e.message + (e.body?.ref ? " (ref " + e.body.ref + ")" : "")); res = { status: "failed" }; api({ action: "stop", id: st.id }).catch(() => {}); break; }
+    retries = 0; if (res.mode && res.mode !== mode) { mode = res.mode; showMode(); } render(res.events); }
   const final = stopped ? "stopped" : res.status; card.classList.add("end", final); ap.hidden = true;
   stat.textContent = "· " + (final === "done" ? "finished, sandbox shut down" : final === "stopped" ? "stopped, sandbox shut down" : "failed"); $(".ctstop").remove();
   return { status: final, summary: res.summary || (stopped ? "Stopped." : said.at(-1) || ""), files: (res.files || []).map(f => ({ name: "/" + f.name, content: f.content })) };
