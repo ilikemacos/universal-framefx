@@ -15,8 +15,8 @@ public static class AgentBootstrap
         var paths = AgentPaths.Default();
         if (!paths.Installed)
         {
-            MessageBox.Show(form, "WyneAI needs a one-time download (about 2 GB).\nRun agent\\scripts\\Setup-FrameFXAgent.ps1 from the FrameFX folder, then try again.",
-                "WyneAI");
+            MessageBox.Show(form, "WrenbyAI needs a one-time download (about 2 GB).\nRun agent\\scripts\\Setup-FrameFXAgent.ps1 from the FrameFX folder, then try again.",
+                "WrenbyAI");
             return;
         }
         AgentChatForm? chat = null;
