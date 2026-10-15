@@ -21,7 +21,7 @@ form#f .ctmode{flex:none}#tierhint{display:none!important}
 #histbar .hnew{border-radius:999px!important}.wy-hamb{border-radius:999px!important}
 .fcard,.think,pre{border-radius:14px!important}.fcard{border-color:#262626!important;background:#141414!important}.zipall,.fhead .primary{background:#f2f2f2!important;color:#111!important;border-radius:999px!important}
 button{border-radius:10px}a{color:#cfcfcf}
-@media(max-width:640px){header{padding:6px 10px!important;gap:6px!important;flex-wrap:nowrap!important}header #status{display:none}form#f{flex-wrap:wrap;border-radius:22px;padding:6px 8px 6px 14px!important;width:calc(100% - 16px)!important}form#f #q{flex-basis:100%}.msg{padding:8px 14px!important}.msg.u .bub{max-width:88%}form#f{padding-left:14px!important}form#f .ctmode .ctm{padding:0 7px}form#f select#tier{max-width:96px}}
+@media(max-width:640px){header{padding:6px 10px!important;gap:6px!important;flex-wrap:nowrap!important}header button{white-space:nowrap;padding:0 10px!important;height:32px!important;font-size:12px!important}header h1{white-space:nowrap}form#f #send,form#f #stop{margin-left:auto}header #status{display:none}form#f{flex-wrap:wrap;border-radius:22px;padding:6px 8px 6px 14px!important;width:calc(100% - 16px)!important}form#f #q{flex-basis:100%}.msg{padding:8px 14px!important}.msg.u .bub{max-width:88%}form#f{padding-left:14px!important}form#f .ctmode .ctm{padding:0 7px}form#f select#tier{max-width:96px}}
 `;
 export function applyTheme() { injectCSS(); if (!document.getElementById("wtheme")) { const s = document.createElement("style"); s.id = "wtheme"; s.textContent = CSS; document.head.appendChild(s); }
   const f = document.getElementById("f"), q = document.getElementById("q"), tier = document.getElementById("tier");
