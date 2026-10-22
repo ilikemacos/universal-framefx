@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-  One-time setup for WrenbyAI: downloads the llama.cpp Vulkan server and the 3B Q4_K_M model (~1.93 GB).
+  One-time setup for LarkquillAI: downloads the llama.cpp Vulkan server and the 3B Q4_K_M model (~1.93 GB).
 .PARAMETER InstallDir
   Default on MEHPC: W:\FrameFX\agent (MEHPC keeps everything on W:). Elsewhere: %LOCALAPPDATA%\FrameFX\agent.
   Pass -InstallDir to override, e.g. -InstallDir W:\FrameFX\agent to keep it off C:.
@@ -41,11 +41,11 @@ New-Item -ItemType Directory -Force -Path $llamaDir, $modelDir, (Join-Path $Inst
 $drive = (Get-Item $InstallDir).PSDrive
 $freeGB = [math]::Round($drive.Free / 1GB, 1)
 if ($drive.Free -lt 3GB) { throw "Need about 3 GB free on $($drive.Name):, only $freeGB GB free." }
-Write-Host "Installing WrenbyAI to $InstallDir ($freeGB GB free)"
+Write-Host "Installing LarkquillAI to $InstallDir ($freeGB GB free)"
 
 function Get-File($url, $dest) {
   $tmp = "$dest.part"
-  try { Start-BitsTransfer -Source $url -Destination $tmp -DisplayName 'WrenbyAI' -ErrorAction Stop }
+  try { Start-BitsTransfer -Source $url -Destination $tmp -DisplayName 'LarkquillAI' -ErrorAction Stop }
   catch { Write-Host "  BITS unavailable, using Invoke-WebRequest"; Invoke-WebRequest -Uri $url -OutFile $tmp -UseBasicParsing }
   Move-Item -Force $tmp $dest
 }
@@ -110,4 +110,4 @@ if ($InstallDir -ne (Join-Path $env:LOCALAPPDATA 'FrameFX\agent')) {
 # RivaTuner (RTSS) injects a Vulkan layer that crashes llama-server; turn it off for this process.
 $env:DISABLE_RTSS_LAYER = '1'
 & $serverExe --list-devices 2>&1 | Select-Object -First 10 | ForEach-Object { Write-Host "  $_" }
-Write-Host 'Done. Open FrameFX -> WrenbyAI.'
+Write-Host 'Done. Open FrameFX -> LarkquillAI.'
