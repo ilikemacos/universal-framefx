@@ -1,13 +1,22 @@
 ---
 title: Changelog
 ---
-[Home](./) · [Install](install.html) · [Using FrameFX](using-framefx.html) · [Presets & Beta7](presets.html) · [WrenbyAI](assistant.html) · [**💬 Chat with WrenbyAI**](chat/) · [Privacy & safety](privacy.html) · [FAQ](faq.html) · [Changelog](changelog.html)
+[Home](./) · [Install](install.html) · [Using FrameFX](using-framefx.html) · [Presets & Beta7](presets.html) · [LarkquillAI](assistant.html) · [**💬 Chat with LarkquillAI**](chat/) · [Privacy & safety](privacy.html) · [FAQ](faq.html) · [Changelog](changelog.html)
 
 # Changelog
 
-## Upcoming (in development)
+## v1.4.1 Beta10 (Latest)
+- LarkquillAI: a new assistant panel built into FrameFX. It answers FrameFX questions and builds, applies or changes presets, always asking you to confirm. Frame generation stays off in anti-cheat games.
+- Paste a LarkquillAI API key once (free at [larkquillai.vercel.app/api](https://larkquillai.vercel.app/api)); it's stored encrypted for your Windows account.
+- Models: Quill Wren (fast) and Quill Scribe (default) on Hobby (free), Quill Sage on Pro, Quill Sovereign on Max.
+- No key or no internet? The panel uses the offline preset model.
+- The old local assistant (WrenbyAI) is now LarkquillAI Local (experimental).
+- Includes everything in Beta9. Windows only; the ROG Ally / Ally X edition stays on Beta4.
+- [Download](https://github.com/ilikemacos/universal-framefx/releases/tag/v1.4.1-beta.10)
+
+## Earlier preview
 - Beta7 AI presets with the model-first pipeline.
-- WrenbyAI (web preview at [preset-ai-chat.vercel.app](https://preset-ai-chat.vercel.app); in-app version in development).
+- WrenbyAI web preview (now LarkquillAI).
 
 ## v1.4.1 Beta4
 - The AI frame generation option is now called **CSR Flux BETA**, and it stays on instead of switching to CSR 2.0.
