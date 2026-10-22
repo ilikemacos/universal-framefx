@@ -5,7 +5,7 @@ namespace UniversalFrameFX;
 
 public static class AppVersion
 {
-    public static readonly string Version = (typeof(AppVersion).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "1.4.1-beta.3").Split('+')[0];
+    public static readonly string Version = (typeof(AppVersion).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "1.4.1-beta.10").Split('+')[0];
     public static string Display => Pretty(Version);
     public static string Pretty(string v)
     {

@@ -49,13 +49,14 @@ public class LarkquillTests
     [Fact]
     public void ModelsAndPlans()
     {
-        Assert.Equal(["larkquill-chirp-1", "larkquill-trill-1", "larkquill-aria-1.5", "larkquill-chorus-0.7"], Larkquill.Models.Select(m => m.Id));
+        Assert.Equal(["quill-wren", "quill-scribe", "quill-sage", "quill-sovereign"], Larkquill.Models.Select(m => m.Id));
+        Assert.Equal("quill-sage", Larkquill.ById("larkquill-aria-1.5").Id);
         Assert.True(Larkquill.Unlocked(Larkquill.ById("larkquill-trill-1"), LarkquillPlan.Hobby));
         Assert.False(Larkquill.Unlocked(Larkquill.ById("larkquill-aria-1.5"), LarkquillPlan.Hobby));
         Assert.True(Larkquill.Unlocked(Larkquill.ById("larkquill-aria-1.5"), LarkquillPlan.Pro));
         Assert.False(Larkquill.Unlocked(Larkquill.ById("larkquill-chorus-0.7"), LarkquillPlan.Pro));
         Assert.True(Larkquill.Unlocked(Larkquill.ById("larkquill-chorus-0.7"), LarkquillPlan.Max));
-        Assert.Equal("larkquill-chirp-1", Larkquill.ById("nope").Id);
+        Assert.Equal("quill-scribe", Larkquill.ById("nope").Id);
     }
 
     [Fact]
@@ -84,7 +85,7 @@ public class LarkquillTests
         Assert.Equal("Bearer", req.Headers.Authorization!.Scheme);
         Assert.Equal("lq_test_key_123456", req.Headers.Authorization.Parameter);
         using var doc = JsonDocument.Parse(body);
-        Assert.Equal("larkquill-trill-1", doc.RootElement.GetProperty("model").GetString());
+        Assert.Equal("quill-scribe", doc.RootElement.GetProperty("model").GetString());
         Assert.True(doc.RootElement.GetProperty("stream").GetBoolean());
     }
 
@@ -93,7 +94,7 @@ public class LarkquillTests
     {
         var h = new FakeHandler((_, _) => Err(HttpStatusCode.Forbidden, new
         {
-            message = "larkquill-aria-1.5 needs LarkquillAI Pro; this key's account is on Hobby.", type = "permission_error",
+            message = "quill-sage needs LarkquillAI Pro; this key's account is on Hobby.", type = "permission_error",
             code = "plan_required", plan = "hobby", plan_needed = "pro", upgrade_url = "https://ilikemacos.github.io/larkquillai/plans.html",
         }));
         var c = new LarkquillClient("lq_test_key_123456", Larkquill.ById("larkquill-aria-1.5"), h);
