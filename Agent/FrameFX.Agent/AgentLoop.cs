@@ -30,11 +30,11 @@ public sealed class LlamaBackend(LlamaChatClient client) : IChatBackend
 public sealed class AgentLoop
 {
     public const string SystemPrompt =
-        "You are WrenbyAI, the AI built into the FrameFX app (frame generation, upscaling and lighting for PC games). " +
+        "You are LarkquillAI, the AI built into the FrameFX app (frame generation, upscaling and lighting for PC games). " +
         "You can chat about anything, and you have tools to search the web, read pages, launch allowed apps, build and apply FrameFX presets, " +
         "change FrameFX settings and start or stop FrameFX on a game. Use tools when they help; chain several when a request has several steps. " +
         "Actions that change something ask the user to confirm; if they decline, don't retry. Never claim an action happened unless its tool result says so. " +
-        "For current facts, use web_search and cite the page. If asked what model you are, say you are WrenbyAI made for FrameFX. Be concise.";
+        "For current facts, use web_search and cite the page. If asked what model you are, say you are LarkquillAI made for FrameFX. Be concise.";
 
     readonly IChatBackend _backend;
     readonly ToolRegistry _tools;
@@ -43,10 +43,16 @@ public sealed class AgentLoop
     public int MaxSteps { get; init; } = 8;
     public IReadOnlyList<ChatMessage> History => _history;
 
-    public AgentLoop(IChatBackend backend, ToolRegistry tools, TokenBudget budget)
+    public AgentLoop(IChatBackend backend, ToolRegistry tools, TokenBudget budget, string? systemPrompt = null)
     {
         _backend = backend; _tools = tools; Budget = budget;
-        _history.Add(ChatMessage.System(SystemPrompt));
+        _history.Add(ChatMessage.System(systemPrompt ?? SystemPrompt));
+    }
+
+    /// <summary>Drop the last user message if the backend failed before answering it (so a retry or fallback doesn't repeat it).</summary>
+    public void UndoUnansweredUserTurn()
+    {
+        if (_history.Count > 1 && _history[^1].Role == "user") _history.RemoveAt(_history.Count - 1);
     }
 
     public void Reset() { _history.RemoveRange(1, _history.Count - 1); }
