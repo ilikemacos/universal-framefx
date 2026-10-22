@@ -10,7 +10,7 @@ namespace UniversalFrameFX.Agent.Cloud;
 /// <summary>LarkquillAI plans. Hobby is free; Pro and Max are one-time purchases on the LarkquillAI site.</summary>
 public enum LarkquillPlan { Hobby = 0, Pro = 1, Max = 2 }
 
-public sealed record LarkquillModel(string Id, string Name, LarkquillPlan Plan, int ContextTokens)
+public sealed record LarkquillModel(string Id, string Name, LarkquillPlan Plan, int ContextTokens, params string[] Aliases)
 {
     public string PlanLabel => Plan switch { LarkquillPlan.Pro => "Pro", LarkquillPlan.Max => "Max", _ => "Hobby (free)" };
 }
@@ -23,20 +23,26 @@ public static class Larkquill
     public const string GetKeyUrl = "https://larkquillai.vercel.app/api";
     /// <summary>Fallback when a 403 doesn't carry its own upgrade_url.</summary>
     public const string UpgradeUrl = "https://ilikemacos.github.io/larkquillai/";
-    public const string PricingSummary = "Hobby (free): Chirp and Trill. Pro ($7.99 one-time): adds Aria. Max ($12.99 one-time): every model, including Chorus.";
+    public const string PricingSummary = "Hobby (free): Quill Wren and Quill Scribe. Pro ($7.99 one-time): adds Quill Sage. Max ($12.99 one-time): every model, including Quill Sovereign.";
 
     public static readonly IReadOnlyList<LarkquillModel> Models =
     [
-        new("larkquill-chirp-1", "Larkquill Chirp 1", LarkquillPlan.Hobby, 16_000),
-        new("larkquill-trill-1", "Larkquill Trill 1", LarkquillPlan.Hobby, 64_000),
-        new("larkquill-aria-1.5", "Larkquill Aria 1.5", LarkquillPlan.Pro, 128_000),
-        new("larkquill-chorus-0.7", "Larkquill Chorus 0.7", LarkquillPlan.Max, 200_000),
+        new("quill-wren", "Quill Wren", LarkquillPlan.Hobby, 16_000, "larkquill-chirp-1", "larkquill-chirp-1.1", "larkquill-chirp", "wrenby-chirp"),
+        new("quill-scribe", "Quill Scribe", LarkquillPlan.Hobby, 64_000, "larkquill-trill-1", "larkquill-trill", "wrenby-trill"),
+        new("quill-sage", "Quill Sage", LarkquillPlan.Pro, 128_000, "larkquill-aria-1.5", "larkquill-aria", "wrenby-aria"),
+        new("quill-sovereign", "Quill Sovereign", LarkquillPlan.Max, 200_000, "larkquill-chorus-0.7", "larkquill-chorus", "wrenby-chorus"),
     ];
 
-    public static LarkquillModel Default => Models[0];
+    /// <summary>Quill Scribe, the same default the LarkquillAI site uses when signed out.</summary>
+    public static LarkquillModel Default => Models[1];
 
-    public static LarkquillModel ById(string? id) =>
-        Models.FirstOrDefault(m => string.Equals(m.Id, id?.Trim(), StringComparison.OrdinalIgnoreCase)) ?? Default;
+    /// <summary>Finds a model by id or old id (saved settings from earlier betas keep working).</summary>
+    public static LarkquillModel ById(string? id)
+    {
+        string k = id?.Trim() ?? "";
+        return Models.FirstOrDefault(m => string.Equals(m.Id, k, StringComparison.OrdinalIgnoreCase)
+            || m.Aliases.Any(a => string.Equals(a, k, StringComparison.OrdinalIgnoreCase))) ?? Default;
+    }
 
     public static bool Unlocked(LarkquillModel m, LarkquillPlan plan) => (int)plan >= (int)m.Plan;
 

@@ -17,9 +17,9 @@
     <Product>Universal-FrameFX</Product>
     <Company>Chopsticks HQ</Company>
     <Copyright>Copyright (c) 2026 Chopsticks HQ</Copyright>
-    <Version>1.4.1-beta.3</Version>
-    <FileVersion>1.4.1.1</FileVersion>
-    <InformationalVersion>1.4.1-beta.3</InformationalVersion>
+    <Version>1.4.1-beta.10</Version>
+    <FileVersion>1.4.1.10</FileVersion>
+    <InformationalVersion>1.4.1-beta.10</InformationalVersion>
     <ApplicationIcon>app.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
