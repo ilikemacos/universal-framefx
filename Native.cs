@@ -19,28 +19,20 @@ internal static class Native
     [DllImport("dwmapi.dll")] public static extern int DwmGetWindowAttribute(IntPtr hwnd, int attr, out int value, int size);
     [DllImport("dwmapi.dll")] public static extern int DwmGetWindowAttribute(IntPtr hwnd, int attr, out RECT value, int size);
     [DllImport("kernel32.dll")] public static extern bool AttachConsole(int pid);
+    [DllImport("kernel32.dll")] public static extern uint WaitForSingleObject(IntPtr handle, uint ms);
+    [DllImport("kernel32.dll")] public static extern uint WaitForMultipleObjects(uint n, IntPtr[] handles, bool waitAll, uint ms);
     [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr hwnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
     [DllImport("user32.dll")] public static extern bool SetLayeredWindowAttributes(IntPtr hwnd, uint key, byte alpha, uint flags);
     [DllImport("user32.dll")] public static extern bool RegisterHotKey(IntPtr hwnd, int id, uint mods, uint vk);
     [DllImport("user32.dll")] public static extern bool UnregisterHotKey(IntPtr hwnd, int id);
     [DllImport("user32.dll")] public static extern bool IsWindow(IntPtr hwnd);
     [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+    // Beta2: exclusive-fullscreen detection (QUNS_RUNNING_D3D_FULL_SCREEN = 3) and AC/battery state.
     [DllImport("shell32.dll")] public static extern int SHQueryUserNotificationState(out int state);
     [StructLayout(LayoutKind.Sequential)] public struct SYSTEM_POWER_STATUS { public byte ACLineStatus, BatteryFlag, BatteryLifePercent, SystemStatusFlag; public int BatteryLifeTime, BatteryFullLifeTime; }
     [DllImport("kernel32.dll")] public static extern bool GetSystemPowerStatus(out SYSTEM_POWER_STATUS s);
     public static bool D3DExclusiveFullscreenActive() { try { return SHQueryUserNotificationState(out int st) == 0 && st == 3; } catch { return false; } }
     public static bool OnBattery() { try { return GetSystemPowerStatus(out var p) && p.ACLineStatus == 0; } catch { return false; } }
-    [DllImport("user32.dll")] public static extern IntPtr GetDC(IntPtr hwnd);
-    [DllImport("user32.dll")] public static extern int ReleaseDC(IntPtr hwnd, IntPtr hdc);
-    [DllImport("gdi32.dll")] public static extern int GetDeviceCaps(IntPtr hdc, int index);
-    public static int RefreshHz(IntPtr hwnd)
-    {
-        IntPtr dc = GetDC(hwnd);
-        if (dc == IntPtr.Zero) return 0;
-        int hz = GetDeviceCaps(dc, 116);
-        ReleaseDC(hwnd, dc);
-        return hz;
-    }
     [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hwnd);
     [DllImport("user32.dll")] public static extern IntPtr WindowFromPoint(POINT p);
     [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hwnd, int cmd);
@@ -86,7 +78,7 @@ internal static class Native
         EnumWindows((h, _) =>
         {
             if (h == shell || !IsWindowVisible(h) || IsIconic(h)) return true;
-            if (GetAncestor(h, 2) != h) return true;
+            if (GetAncestor(h, 2) != h) return true; // GA_ROOT
             if ((GetWindowLong(h, GWL_EXSTYLE) & WS_EX_TOOLWINDOW) != 0) return true;
             GetWindowThreadProcessId(h, out uint pid);
             if (pid == me) return true;

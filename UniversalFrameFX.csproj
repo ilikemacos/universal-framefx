@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <!-- FrameFX Assistant lives in Agent/ as its own projects (see Agent/README.md). -->
-    <DefaultItemExcludes>$(DefaultItemExcludes);Agent/**</DefaultItemExcludes>
+    <!-- FrameFX Assistant / LarkquillAI lives in Agent/ as its own projects (see Agent/README.md). -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);Agent/**;linux/**;ssgi/**</DefaultItemExcludes>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows10.0.22621.0</TargetFramework>
     <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
@@ -31,13 +31,42 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Vortice.Direct3D11" Version="3.6.2" />
+    <PackageReference Include="Vortice.Direct3D12" Version="3.6.2" />
     <PackageReference Include="Vortice.DXGI" Version="3.6.2" />
+    <PackageReference Include="Vortice.D3DCompiler" Version="3.6.2" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime.DirectML" Version="1.22.1" />
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="Shaders\FrameFX.hlsl" LogicalName="FrameFX.hlsl" />
     <EmbeddedResource Include="NOTICE.md" LogicalName="NOTICE.md" />
     <EmbeddedResource Include="app.ico" LogicalName="app.ico" />
+    <EmbeddedResource Include="Shaders\FgV2.hlsl" LogicalName="FgV2.hlsl" />
+    <EmbeddedResource Include="Shaders\Csr2Upscale.hlsl" LogicalName="Csr2Upscale.hlsl" />
+    <EmbeddedResource Include="Shaders\CsrAi.hlsl" LogicalName="CsrAi.hlsl" />
+    <EmbeddedResource Include="Shaders\CsrAiFg.hlsl" LogicalName="CsrAiFg.hlsl" />
+    <EmbeddedResource Include="Shaders\Fsr1.hlsl" LogicalName="Fsr1.hlsl" />
+    <EmbeddedResource Include="Shaders\ffx_a.h" LogicalName="ffx_a.h" />
+    <EmbeddedResource Include="Shaders\ffx_fsr1.h" LogicalName="ffx_fsr1.h" />
   </ItemGroup>
+  <!-- Optional vendor GPU runtimes (AMD FidelityFX DX12, Intel XeSS): binary redistributable only.
+       Place unmodified SDKs under vendor/bin for local release builds; not MIT source. -->
   <ItemGroup Condition="Exists('vendor\bin')">
     <Content Include="vendor\bin\*.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" Link="%(Filename)%(Extension)" />
+  </ItemGroup>
+  <!-- Optional SSGI native build output (run ssgi/build.sh on Windows first). -->
+  <ItemGroup>
+    <Content Include="ssgi\build\ssgi.dll" Condition="Exists('ssgi\build\ssgi.dll')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" Link="ssgi.dll" />
+    <Content Include="ssgi\build\cso\*.cso" Condition="Exists('ssgi\build\cso')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" Link="ssgi\%(Filename)%(Extension)" />
+  </ItemGroup>
+  <!-- First-party MIT model artifacts (CSR AI + preset assistant). -->
+  <ItemGroup>
+    <Content Include="Models\csr_ai_x2_fp16.onnx" Condition="Exists('Models\csr_ai_x2_fp16.onnx')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" Link="Models\csr_ai_x2_fp16.onnx" />
+    <Content Include="Models\csr_ai_x2_fp32.onnx" Condition="Exists('Models\csr_ai_x2_fp32.onnx')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" Link="Models\csr_ai_x2_fp32.onnx" />
+    <Content Include="Models\csr_ai_x2.weights.json" Condition="Exists('Models\csr_ai_x2.weights.json')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" Link="Models\csr_ai_x2.weights.json" />
+    <Content Include="Models\csr_ai_fg.weights.json" Condition="Exists('Models\csr_ai_fg.weights.json')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" Link="Models\csr_ai_fg.weights.json" />
+    <Content Include="Models\preset_assistant_v1.onnx" Condition="Exists('Models\preset_assistant_v1.onnx')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" Link="Models\preset_assistant_v1.onnx" />
+    <Content Include="Models\preset_kb.json" Condition="Exists('Models\preset_kb.json')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" Link="Models\preset_kb.json" />
+    <Content Include="PresetAi\Models\preset_g14.onnx" Condition="Exists('PresetAi\Models\preset_g14.onnx')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" Link="Models\preset_g14.onnx" />
+    <Content Include="PresetAi\Models\preset_beta7.onnx" Condition="Exists('PresetAi\Models\preset_beta7.onnx')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" Link="Models\preset_beta7.onnx" />
   </ItemGroup>
 </Project>

@@ -1,0 +1,125 @@
+#version 450
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(std140, binding = 0) uniform Csr2Params {
+    vec2 inSize;
+    vec2 outSize;
+    float historyValid;
+    float sharpness;
+    float hasMotion;
+    float hasConf;
+    float cheap;
+    float clampK;
+    float blendK;
+    float sharpK;
+    vec2 jitter;
+    vec2 _pad;
+} u;
+
+layout(binding = 1) uniform sampler2D color;
+layout(binding = 2) uniform sampler2D hist;
+layout(binding = 3) uniform sampler2D motion;
+layout(binding = 4) uniform sampler2D conf;
+layout(binding = 5, rgba32f) uniform writeonly image2D accumOut;
+layout(binding = 6, rgba32f) uniform writeonly image2D histOut;
+
+float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
+
+vec3 rgbToYCoCg(vec3 c) {
+    return vec3(0.25 * c.r + 0.5 * c.g + 0.25 * c.b, 0.5 * c.r - 0.5 * c.b, -0.25 * c.r + 0.5 * c.g - 0.25 * c.b);
+}
+vec3 yCoCgToRGB(vec3 c) { return vec3(c.x + c.y - c.z, c.x + c.z, c.x - c.y - c.z); }
+
+vec3 clipToBox(vec3 target, vec3 bMin, vec3 bMax) {
+    vec3 c = 0.5 * (bMax + bMin), e = 0.5 * (bMax - bMin) + 1e-6;
+    vec3 o = target - c;
+    vec3 uu = abs(o / e);
+    float m = max(uu.x, max(uu.y, uu.z));
+    return m > 1.0 ? c + o / m : target;
+}
+
+float catmullRom(float x) {
+    x = abs(x);
+    if (x <= 1.0) return (1.5 * x - 2.5) * x * x + 1.0;
+    if (x <= 2.0) return ((-0.5 * x + 2.5) * x - 4.0) * x + 2.0;
+    return 0.0;
+}
+
+vec3 historyCatmull(vec2 uv) {
+    vec2 size = u.outSize;
+    vec2 pos = uv * size - 0.5;
+    vec2 f = fract(pos), i = floor(pos);
+    float wx[4], wy[4];
+    for (int k = 0; k < 4; ++k) {
+        wx[k] = catmullRom(float(k - 1) - f.x);
+        wy[k] = catmullRom(float(k - 1) - f.y);
+    }
+    vec4 acc = vec4(0.0);
+    float ws = 0.0;
+    ivec2 hi = ivec2(size) - 1;
+    for (int y = 0; y < 4; ++y)
+        for (int x = 0; x < 4; ++x) {
+            float w = wx[x] * wy[y];
+            ivec2 tp = clamp(ivec2(i) + ivec2(x - 1, y - 1), ivec2(0), hi);
+            acc += texelFetch(hist, tp, 0) * w;
+            ws += w;
+        }
+    return (acc / max(ws, 1e-6)).rgb;
+}
+
+void main() {
+    ivec2 id = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 sz = imageSize(accumOut);
+    if (id.x >= sz.x || id.y >= sz.y) return;
+    vec2 uv = (vec2(id) + 0.5) / u.outSize;
+    vec3 curr = texelFetch(color, id, 0).rgb;
+    if (u.historyValid < 0.5) {
+        imageStore(accumOut, id, vec4(curr, 1.0));
+        imageStore(histOut, id, vec4(curr, 1.0));
+        return;
+    }
+    vec4 mv = vec4(0.0);
+    if (u.hasMotion > 0.5) mv = textureLod(motion, uv, 0.0);
+    vec2 prevUV = uv + mv.xy / max(u.inSize, vec2(1.0));
+    bool oob = any(lessThan(prevUV, vec2(0.0))) || any(greaterThan(prevUV, vec2(1.0)));
+    vec3 histRgb = oob ? curr : (u.cheap > 0.5 ? textureLod(hist, prevUV, 0.0).rgb : historyCatmull(prevUV));
+    float histN = oob ? 0.0 : textureLod(hist, prevUV, 0.0).a;
+
+    vec3 yC = rgbToYCoCg(curr);
+    vec3 yLo = yC, yHi = yC;
+    ivec2 hi = sz - ivec2(1);
+    for (int dy = -1; dy <= 1; ++dy)
+        for (int dx = -1; dx <= 1; ++dx) {
+            vec3 n = rgbToYCoCg(texelFetch(color, clamp(id + ivec2(dx, dy), ivec2(0), hi), 0).rgb);
+            yLo = min(yLo, n);
+            yHi = max(yHi, n);
+        }
+    float pad = 0.05 * u.clampK;
+    yLo -= pad;
+    yHi += pad;
+    histRgb = yCoCgToRGB(clipToBox(rgbToYCoCg(histRgb), yLo, yHi));
+
+    float occ = 0.0;
+    if (u.hasConf > 0.5) occ = clamp(textureLod(conf, uv, 0.0).r, 0.0, 1.0);
+    else {
+        float currL = luma(curr), prevL = luma(histRgb);
+        float lo = currL, hiL = currL;
+        for (int dy2 = -1; dy2 <= 1; ++dy2)
+            for (int dx2 = -1; dx2 <= 1; ++dx2) {
+                float n = luma(texelFetch(color, clamp(id + ivec2(dx2, dy2), ivec2(0), hi), 0).rgb);
+                lo = min(lo, n);
+                hiL = max(hiL, n);
+            }
+        float range = max(hiL - lo, 1e-4);
+        occ = clamp((abs(currL - prevL) - range) / 0.18, 0.0, 1.0);
+        occ = max(occ, clamp(1.0 - mv.z, 0.0, 1.0) * 0.65);
+    }
+    if (oob) occ = 1.0;
+    float w = (1.0 - occ) * clamp(u.blendK, 0.0, 1.0);
+    float n = min(max(histN, 1.0), u.cheap > 0.5 ? 8.0 : 16.0);
+    float k = w * n / (n + 1.0);
+    vec3 outRgb = mix(curr, histRgb, k);
+    float newN = w * n + 1.0;
+    imageStore(accumOut, id, vec4(outRgb, 1.0));
+    imageStore(histOut, id, vec4(outRgb, newN));
+}

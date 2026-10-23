@@ -1,0 +1,37 @@
+#version 450
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(std140, binding = 0) uniform FgV2Params {
+    float InW, InH, OutW, OutH;
+    float TileSize, TilesX, TilesY, InterpT;
+    float HistoryValid, Lambda, CensusW, SadW;
+    float OcclThresh, StaticThresh, SceneCutThresh, FrameCount;
+    float JitterX, JitterY, BidirOn, Fallback;
+    float MvGapN, WideSearch, ClassicCand, EdgeSmooth;
+    float AmbiguityGate, TemporalExtrap, History2Valid, BicubicOn;
+    float SharpBlendOn, PadFg2a, PadFg2b, PadFg2c;
+};
+
+layout(binding = 1) uniform sampler2D statCount;
+layout(binding = 2) uniform sampler2D currL;
+layout(binding = 3, r16f) uniform writeonly image2D hud;
+
+void main() {
+    ivec2 id = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 sz = imageSize(hud);
+    if (id.x >= sz.x || id.y >= sz.y) return;
+    ivec2 hi = sz - ivec2(1);
+    float mn = 64.0, lo = 1e9, hiL = -1e9;
+    for (int dy = -2; dy <= 2; ++dy)
+        for (int dx = -2; dx <= 2; ++dx) {
+            ivec2 q = clamp(id + ivec2(dx, dy), ivec2(0), hi);
+            mn = min(mn, texelFetch(statCount, q, 0).r);
+            if (abs(dx) <= 1 && abs(dy) <= 1) {
+                float s = texelFetch(currL, q, 0).r;
+                lo = min(lo, s);
+                hiL = max(hiL, s);
+            }
+        }
+    float v = (mn >= 3.0 && hiL - lo > 0.06) ? 1.0 : 0.0;
+    imageStore(hud, id, vec4(v, 0.0, 0.0, 0.0));
+}

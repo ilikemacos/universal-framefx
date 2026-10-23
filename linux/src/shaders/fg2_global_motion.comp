@@ -1,0 +1,77 @@
+#version 450
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(std140, binding = 0) uniform FgV2Params {
+    float InW, InH, OutW, OutH;
+    float TileSize, TilesX, TilesY, InterpT;
+    float HistoryValid, Lambda, CensusW, SadW;
+    float OcclThresh, StaticThresh, SceneCutThresh, FrameCount;
+    float JitterX, JitterY, BidirOn, Fallback;
+    float MvGapN, WideSearch, ClassicCand, EdgeSmooth;
+    float AmbiguityGate, TemporalExtrap, History2Valid, BicubicOn;
+    float SharpBlendOn, PadFg2a, PadFg2b, PadFg2c;
+};
+
+layout(binding = 1) uniform sampler2D prevL;
+layout(binding = 2) uniform sampler2D currL;
+layout(binding = 3, rg32f) uniform writeonly image2D gmv;
+
+#define GM_W 64
+#define GM_H 36
+#define GM_RX 12
+#define GM_RY 6
+#define GM_NC ((2 * GM_RX + 1) * (2 * GM_RY + 1))
+shared float gmA[GM_H * GM_W];
+shared float gmB[GM_H * GM_W];
+shared float gmCost[GM_NC];
+
+void main() {
+    uint li = gl_LocalInvocationID.x;
+    vec2 q = 0.25 / vec2(GM_W, GM_H);
+    for (uint k = li; k < uint(GM_W * GM_H); k += 256u) {
+        vec2 uv = (vec2(k % uint(GM_W), k / uint(GM_W)) + 0.5) / vec2(GM_W, GM_H);
+        float a = 0.0, b = 0.0;
+        for (int t = 0; t < 4; ++t) {
+            vec2 o = vec2((t & 1) != 0 ? q.x : -q.x, (t & 2) != 0 ? q.y : -q.y);
+            a += textureLod(prevL, uv + o, 0.0).r;
+            b += textureLod(currL, uv + o, 0.0).r;
+        }
+        gmA[k] = 0.25 * a;
+        gmB[k] = 0.25 * b;
+    }
+    barrier();
+    memoryBarrierShared();
+    for (uint c = li; c < uint(GM_NC); c += 256u) {
+        int dx = int(c % uint(2 * GM_RX + 1)) - GM_RX;
+        int dy = int(c / uint(2 * GM_RX + 1)) - GM_RY;
+        int x0 = max(0, -dx), x1 = min(GM_W, GM_W - dx), y0 = max(0, -dy), y1 = min(GM_H, GM_H - dy);
+        float sum = 0.0, nn = 0.0;
+        for (int y = y0; y < y1; ++y)
+            for (int x = x0; x < x1; ++x) {
+                sum += abs(gmA[(y + dy) * GM_W + x + dx] - gmB[y * GM_W + x]);
+                nn += 1.0;
+            }
+        gmCost[c] = (nn >= 400.0 ? sum / nn : 1e9) + 0.0005 * float(abs(dx) + abs(dy));
+    }
+    barrier();
+    memoryBarrierShared();
+    if (li != 0u) return;
+    uint bi = 0u;
+    float bc = 1e20;
+    for (uint c2 = 0u; c2 < uint(GM_NC); ++c2)
+        if (gmCost[c2] < bc) {
+            bc = gmCost[c2];
+            bi = c2;
+        }
+    int ix = int(bi % uint(2 * GM_RX + 1)), iy = int(bi / uint(2 * GM_RX + 1));
+    vec2 g = vec2(ix - GM_RX, iy - GM_RY);
+    if (ix > 0 && ix < 2 * GM_RX) {
+        float cl = gmCost[bi - 1u], cr = gmCost[bi + 1u], d = cl + cr - 2.0 * bc;
+        if (d > 1e-9) g.x += clamp(0.5 * (cl - cr) / d, -0.5, 0.5);
+    }
+    if (iy > 0 && iy < 2 * GM_RY) {
+        float cu = gmCost[bi - uint(2 * GM_RX + 1)], cd = gmCost[bi + uint(2 * GM_RX + 1)], d = cu + cd - 2.0 * bc;
+        if (d > 1e-9) g.y += clamp(0.5 * (cu - cd) / d, -0.5, 0.5);
+    }
+    imageStore(gmv, ivec2(0, 0), vec4(g / vec2(GM_W, GM_H), 0.0, 0.0));
+}

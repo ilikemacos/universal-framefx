@@ -1,0 +1,95 @@
+// rcas.comp — CSR 1.2 RCAS (contrast-adaptive sharpen).
+// Translated from macos/Resources/Shaders/Spatial.metal (csr_rcas / fx_rcas).
+//
+// Adapted from AMD FidelityFX Super Resolution 1 (MIT).
+//
+// Copyright (c) 2021 Advanced Micro Devices, Inc. All rights reserved.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+// THE SOFTWARE.
+//
+// Modifications Copyright (c) 2026 Chopsticks HQ
+
+#version 450
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(std140, binding = 0) uniform SpatialUniforms {
+    vec2 inputSize;
+    vec2 outputSize;
+    vec2 invInputSize;
+    vec2 scale;
+    float sharpness;
+    float _pad0;
+    vec2 _pad1;
+} u;
+
+layout(binding = 1, rgba32f) uniform readonly image2D src;
+layout(binding = 2, rgba32f) uniform writeonly image2D dst;
+
+float max3f(float a, float b, float c) { return max(a, max(b, c)); }
+float min3f(float a, float b, float c) { return min(a, min(b, c)); }
+float saturate(float x) { return clamp(x, 0.0, 1.0); }
+
+float safeRcp(float x) {
+    return x == 0.0 ? 0.0 : 1.0 / x;
+}
+
+void main() {
+    uvec2 gid = gl_GlobalInvocationID.xy;
+    int w = imageSize(dst).x;
+    int h = imageSize(dst).y;
+    if (int(gid.x) >= w || int(gid.y) >= h) {
+        return;
+    }
+
+    ivec2 p = ivec2(gid);
+    ivec2 hi = ivec2(w - 1, h - 1);
+
+    vec3 b  = imageLoad(src, clamp(p + ivec2( 0, -1), ivec2(0), hi)).rgb;
+    vec3 d  = imageLoad(src, clamp(p + ivec2(-1,  0), ivec2(0), hi)).rgb;
+    vec3 e  = imageLoad(src, clamp(p + ivec2( 0,  0), ivec2(0), hi)).rgb;
+    vec3 f  = imageLoad(src, clamp(p + ivec2( 1,  0), ivec2(0), hi)).rgb;
+    vec3 hC = imageLoad(src, clamp(p + ivec2( 0,  1), ivec2(0), hi)).rgb;
+
+    float bL = b.g, dL = d.g, eL = e.g;
+    float fL = f.g, hL = hC.g;
+
+    float nz = 0.25 * (bL + dL + fL + hL) - eL;
+    float range = max3f(max3f(bL, dL, eL), fL, hL) - min3f(min3f(bL, dL, eL), fL, hL);
+    nz = saturate(abs(nz) * safeRcp(range));
+    nz = 1.0 - 0.5 * nz;
+
+    vec3 mn4 = min(min(b, d), min(f, hC));
+    vec3 mx4 = max(max(b, d), max(f, hC));
+
+    vec3 hitMin = mn4 / max(4.0 * mx4, vec3(1e-6));
+    vec3 hitMax = (vec3(1.0) - mx4) / min(4.0 * mn4 - 4.0, vec3(-1e-6));
+    vec3 lobeRGB = max(-hitMin, hitMax);
+
+    const float kRcasLimit = 0.25 - (1.0 / 16.0);
+    float lobe = max(-kRcasLimit, min(max3f(lobeRGB.r, lobeRGB.g, lobeRGB.b), 0.0));
+
+    lobe *= exp2(-u.sharpness);
+    lobe *= nz;
+
+    float rcpL = safeRcp(4.0 * lobe + 1.0);
+    vec3 outC = (lobe * (b + d + f + hC) + e) * rcpL;
+
+    imageStore(dst, ivec2(gid), vec4(clamp(outC, 0.0, 1.0), 1.0));
+}

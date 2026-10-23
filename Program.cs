@@ -62,6 +62,40 @@ internal static class Program
             if (outPath != null) File.WriteAllText(outPath, sb.ToString());
             return 0;
         }
+        int bsc = Array.IndexOf(args, "--build-shadercache");
+        if (bsc >= 0 && bsc + 1 < args.Length)
+        {
+            Native.AttachConsole(-1);
+            ShaderCache.OverrideDir = Path.GetFullPath(args[bsc + 1]);
+            Directory.CreateDirectory(ShaderCache.OverrideDir);
+            using (var g = new Gpu()) { _ = new Fsr1(g); }
+            Console.WriteLine($"shader cache: {ShaderCache.Misses} compiled, {ShaderCache.Hits} reused -> {ShaderCache.OverrideDir}");
+            return 0;
+        }
+        int ofg = Array.IndexOf(args, "--offline-fg");
+        if (ofg >= 0 && ofg + 2 < args.Length)
+        {
+            Native.AttachConsole(-1);
+            return OfflineFg.Run(args[ofg + 1], args[ofg + 2], args);
+        }
+        int ou = Array.IndexOf(args, "--offline-upscale");
+        if (ou >= 0 && ou + 3 < args.Length)
+        {
+            Native.AttachConsole(-1);
+            return OfflineUpscale.Run(args[ou + 1], args[ou + 2], args[ou + 3], args);
+        }
+        if (args.Contains("--selftest"))
+        {
+            Native.AttachConsole(-1);
+            int idx = Array.IndexOf(args, "--out");
+            string? outPath = idx >= 0 && idx + 1 < args.Length ? args[idx + 1] : null;
+            int di = Array.IndexOf(args, "--dump");
+            if (di >= 0 && di + 1 < args.Length) { SelfTest.DumpDir = args[di + 1]; Directory.CreateDirectory(SelfTest.DumpDir); }
+            var sb = new StringBuilder();
+            int rc = SelfTest.Run(line => { Console.WriteLine(line); sb.AppendLine(line); });
+            if (outPath != null) File.WriteAllText(outPath, sb.ToString());
+            return rc;
+        }
         Diag.Mark("main");
         {
             int gi = Array.IndexOf(args, "--gpu");
@@ -104,7 +138,11 @@ internal static class Program
         form.Automate(args.Contains("--demo"), exitAfter, oi >= 0 && oi + 1 < args.Length ? args[oi + 1] : null,
                       si >= 0 && si + 1 < args.Length ? args[si + 1] : null, mode,
                       mi >= 0 && mi + 1 < args.Length ? args[mi + 1] : null, args.Contains("--fg"));
-        Application.Run(form);
-        return 0;
+        try
+        {
+            Application.Run(form);
+            return 0;
+        }
+        finally { StatsLog.Shutdown(); }
     }
 }

@@ -1,0 +1,137 @@
+#version 450
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(std140, binding = 0) uniform FgV2Params {
+    float InW, InH, OutW, OutH;
+    float TileSize, TilesX, TilesY, InterpT;
+    float HistoryValid, Lambda, CensusW, SadW;
+    float OcclThresh, StaticThresh, SceneCutThresh, FrameCount;
+    float JitterX, JitterY, BidirOn, Fallback;
+    float MvGapN, WideSearch, ClassicCand, EdgeSmooth;
+    float AmbiguityGate, TemporalExtrap, History2Valid, BicubicOn;
+    float SharpBlendOn, PadFg2a, PadFg2b, PadFg2c;
+};
+
+layout(std140, binding = 1) uniform FgV2Global {
+    float A00, A01, A02, A10;
+    float A11, A12, AffConf, SnapOn;
+    float HwScale, HwGrid, RansacPx, GmvY;
+    float ConfThresh, ColorGate, VecLenK, SoftOccK;
+};
+
+layout(binding = 2) uniform sampler2D prevL;
+layout(binding = 3) uniform sampler2D currL;
+layout(binding = 4) uniform sampler2D tv4;
+layout(binding = 5, rgba16f) uniform writeonly image2D mv2;
+
+ivec2 ring8(int k) {
+    return ivec2(k < 3 ? k - 1 : (k < 5 ? (k == 3 ? -1 : 1) : k - 6), k < 3 ? -1 : (k < 5 ? 0 : 1));
+}
+
+float loadP(ivec2 p, ivec2 hi) { return texelFetch(prevL, clamp(p, ivec2(0), hi), 0).r; }
+float loadC(ivec2 p, ivec2 hi) { return texelFetch(currL, clamp(p, ivec2(0), hi), 0).r; }
+
+uint censusP(ivec2 p, ivec2 hi) {
+    float c = loadP(p, hi);
+    uint b = 0u;
+    for (int k = 0; k < 8; ++k)
+        if (loadP(p + ring8(k), hi) > c) b |= 1u << k;
+    return b;
+}
+uint censusC(ivec2 p, ivec2 hi) {
+    float c = loadC(p, hi);
+    uint b = 0u;
+    for (int k = 0; k < 8; ++k)
+        if (loadC(p + ring8(k), hi) > c) b |= 1u << k;
+    return b;
+}
+
+float sad3t(ivec2 p, ivec2 d, ivec2 hi) {
+    float s = 0.0;
+    for (int dy = -1; dy <= 1; ++dy)
+        for (int dx = -1; dx <= 1; ++dx) {
+            ivec2 q = p + ivec2(dx, dy);
+            s += abs(loadP(q + d, hi) - loadC(q, hi));
+        }
+    return s;
+}
+
+float matchCost(ivec2 p, vec2 v, ivec2 hi) {
+    ivec2 d = ivec2(round(v));
+    float sad = sad3t(p, d, hi);
+    float ham = float(bitCount(censusP(p + d, hi) ^ censusC(p, hi)));
+    return SadW * sad + CensusW * ham + 0.004 * (abs(v.x) + abs(v.y));
+}
+
+void lkAccum(int k, float cc, float gx, float gy, inout float cv[25], inout vec2 gr[25], inout vec3 a) {
+    float wk = exp(-0.25 * float((k % 5 - 2) * (k % 5 - 2) + (k / 5 - 2) * (k / 5 - 2)));
+    cv[k] = cc;
+    gr[k] = vec2(gx, gy) * wk;
+    a += vec3(gx * gx, gx * gy, gy * gy) * wk;
+}
+
+void lkPrepTex(ivec2 pix, ivec2 hiL, out float cv[25], out vec2 gr[25], out vec3 a) {
+    a = vec3(0.0);
+    for (int k = 0; k < 25; ++k) {
+        ivec2 q = pix + ivec2(k % 5 - 2, k / 5 - 2);
+        float cc = loadC(q, hiL);
+        float gx = 0.5 * (loadC(q + ivec2(1, 0), hiL) - loadC(q - ivec2(1, 0), hiL));
+        float gy = 0.5 * (loadC(q + ivec2(0, 1), hiL) - loadC(q - ivec2(0, 1), hiL));
+        lkAccum(k, cc, gx, gy, cv, gr, a);
+    }
+}
+
+vec2 lkSolve(float cv[25], vec2 gr[25], vec3 a, vec2 uv, vec2 mvUV, vec2 texel, float maxStep, int iters) {
+    float a11 = a.x + 1e-4, a12 = a.y, a22 = a.z + 1e-4;
+    float det = a11 * a22 - a12 * a12;
+    vec2 d = vec2(0.0);
+    for (int itr = 0; itr < 2; ++itr) {
+        if (itr < iters) {
+            float b1 = 0.0, b2 = 0.0;
+            for (int k2 = 0; k2 < 25; ++k2) {
+                vec2 o = vec2(k2 % 5 - 2, k2 / 5 - 2);
+                float e = textureLod(prevL, uv + (o + d) * texel + mvUV, 0.0).r - cv[k2];
+                b1 += gr[k2].x * e;
+                b2 += gr[k2].y * e;
+            }
+            vec2 st = -vec2(a22 * b1 - a12 * b2, a11 * b2 - a12 * b1) / det;
+            d = clamp(d + clamp(st, vec2(-0.75), vec2(0.75)), vec2(-maxStep), vec2(maxStep));
+        }
+    }
+    return mvUV + d * texel;
+}
+
+vec2 camVecPx(vec2 px) {
+    return vec2(A00 * px.x + A01 * px.y + A02, A10 * px.x + A11 * px.y + A12) - px;
+}
+
+vec2 maybeSnap(vec2 vPx, vec2 px) {
+    if (SnapOn < 0.5 || AffConf < 1e-4) return vPx;
+    vec2 fit = camVecPx(px);
+    if (length(vPx - fit) > RansacPx) return fit;
+    return vPx;
+}
+
+void main() {
+    ivec2 id = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 sz = imageSize(mv2);
+    if (id.x >= sz.x || id.y >= sz.y) return;
+    ivec2 lsz = textureSize(currL, 0);
+    ivec2 hiL = lsz - ivec2(1);
+    ivec2 pix = clamp(ivec2((vec2(id) + 0.5) * vec2(lsz) / vec2(sz)), ivec2(0), hiL);
+    vec2 texel = 1.0 / vec2(lsz);
+    vec2 uv = (vec2(pix) + 0.5) * texel;
+    vec2 seedL1 = texelFetch(tv4, id, 0).xy * 2.0;
+    vec2 mvUV = seedL1 * texel;
+    float cv[25];
+    vec2 gr[25];
+    vec3 a;
+    lkPrepTex(pix, hiL, cv, gr, a);
+    mvUV = lkSolve(cv, gr, a, uv, mvUV, texel, 1.5, 1);
+    vec2 vPx = mvUV * vec2(InW, InH);
+    vec2 cPx = (vec2(id) + 0.5) * 8.0;
+    vPx = maybeSnap(vPx, cPx);
+    float cost = matchCost(pix, mvUV / texel, hiL);
+    float conf = clamp(1.0 - cost / max(OcclThresh * 9.0, 1e-3), 0.0, 1.0);
+    imageStore(mv2, id, vec4(vPx, conf, 0.0));
+}

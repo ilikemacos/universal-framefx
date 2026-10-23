@@ -1,0 +1,47 @@
+#version 450
+#ifdef UFX_FP16
+#extension GL_EXT_shader_explicit_arithmetic_types_float16 : require
+#endif
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(push_constant) uniform PC {
+    float sharpness;
+    float sharpK;
+} pc;
+
+layout(binding = 0, rgba32f) uniform readonly image2D src;
+layout(binding = 1, rgba32f) uniform writeonly image2D dst;
+
+float safeRcp(float x) { return x == 0.0 ? 0.0 : 1.0 / x; }
+float max3f(float a, float b, float c) { return max(a, max(b, c)); }
+float min3f(float a, float b, float c) { return min(a, min(b, c)); }
+
+void main() {
+    ivec2 id = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 sz = imageSize(dst);
+    if (id.x >= sz.x || id.y >= sz.y) return;
+    ivec2 hi = sz - ivec2(1);
+    vec3 b = imageLoad(src, clamp(id + ivec2(0, -1), ivec2(0), hi)).rgb;
+    vec3 d = imageLoad(src, clamp(id + ivec2(-1, 0), ivec2(0), hi)).rgb;
+    vec3 e = imageLoad(src, clamp(id, ivec2(0), hi)).rgb;
+    vec3 f = imageLoad(src, clamp(id + ivec2(1, 0), ivec2(0), hi)).rgb;
+    vec3 hh = imageLoad(src, clamp(id + ivec2(0, 1), ivec2(0), hi)).rgb;
+#ifdef UFX_FP16
+    f16vec3 be = f16vec3(e);
+#endif
+    float bL = b.g, dL = d.g, eL = e.g, fL = f.g, hL = hh.g;
+    float nz = 0.25 * (bL + dL + fL + hL) - eL;
+    float range = max(max(max(bL, dL), max(eL, fL)), hL) - min(min(min(bL, dL), min(eL, fL)), hL);
+    nz = clamp(abs(nz) * safeRcp(range), 0.0, 1.0);
+    nz = 1.0 - 0.5 * nz;
+    vec3 mn4 = min(min(b, d), min(f, hh));
+    vec3 mx4 = max(max(b, d), max(f, hh));
+    vec3 hitMin = mn4 / max(4.0 * mx4, vec3(1e-6));
+    vec3 hitMax = (vec3(1.0) - mx4) / min(4.0 * mn4 - 4.0, vec3(-1e-6));
+    vec3 lobeRGB = max(-hitMin, hitMax);
+    const float kLimit = 0.25 - (1.0 / 16.0);
+    float lobe = max(-kLimit, min(max3f(lobeRGB.r, lobeRGB.g, lobeRGB.b), 0.0));
+    lobe *= exp2(-pc.sharpness * max(pc.sharpK, 0.0)) * nz;
+    vec3 o = (lobe * (b + d + f + hh) + e) * safeRcp(4.0 * lobe + 1.0);
+    imageStore(dst, id, vec4(clamp(o, 0.0, 1.0), 1.0));
+}

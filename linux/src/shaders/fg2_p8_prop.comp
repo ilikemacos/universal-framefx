@@ -1,0 +1,88 @@
+#version 450
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(std140, binding = 0) uniform FgV2Params {
+    float InW, InH, OutW, OutH;
+    float TileSize, TilesX, TilesY, InterpT;
+    float HistoryValid, Lambda, CensusW, SadW;
+    float OcclThresh, StaticThresh, SceneCutThresh, FrameCount;
+    float JitterX, JitterY, BidirOn, Fallback;
+    float MvGapN, WideSearch, ClassicCand, EdgeSmooth;
+    float AmbiguityGate, TemporalExtrap, History2Valid, BicubicOn;
+    float SharpBlendOn, PadFg2a, PadFg2b, PadFg2c;
+};
+
+layout(binding = 1) uniform sampler2D prevL;
+layout(binding = 2) uniform sampler2D currL;
+layout(binding = 3) uniform sampler2D tv8;
+layout(binding = 4) uniform sampler2D mvHist;
+layout(binding = 5, rgba16f) uniform writeonly image2D dst;
+
+ivec2 ring8(int k) {
+    return ivec2(k < 3 ? k - 1 : (k < 5 ? (k == 3 ? -1 : 1) : k - 6), k < 3 ? -1 : (k < 5 ? 0 : 1));
+}
+
+float loadP(ivec2 p, ivec2 hi) { return texelFetch(prevL, clamp(p, ivec2(0), hi), 0).r; }
+float loadC(ivec2 p, ivec2 hi) { return texelFetch(currL, clamp(p, ivec2(0), hi), 0).r; }
+
+uint censusP(ivec2 p, ivec2 hi) {
+    float c = loadP(p, hi);
+    uint b = 0u;
+    for (int k = 0; k < 8; ++k)
+        if (loadP(p + ring8(k), hi) > c) b |= 1u << k;
+    return b;
+}
+uint censusC(ivec2 p, ivec2 hi) {
+    float c = loadC(p, hi);
+    uint b = 0u;
+    for (int k = 0; k < 8; ++k)
+        if (loadC(p + ring8(k), hi) > c) b |= 1u << k;
+    return b;
+}
+
+float sad3t(ivec2 p, ivec2 d, ivec2 hi) {
+    float s = 0.0;
+    for (int dy = -1; dy <= 1; ++dy)
+        for (int dx = -1; dx <= 1; ++dx) {
+            ivec2 q = p + ivec2(dx, dy);
+            s += abs(loadP(q + d, hi) - loadC(q, hi));
+        }
+    return s;
+}
+
+void main() {
+    ivec2 id = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 sz = imageSize(dst);
+    if (id.x >= sz.x || id.y >= sz.y) return;
+    ivec2 hi = sz - ivec2(1);
+    ivec2 p = id;
+    vec2 vs[9];
+    float sad[9];
+    float ham[9];
+    for (int k = 0; k < 9; ++k) {
+        ivec2 q = clamp(p + ivec2(k % 3 - 1, k / 3 - 1), ivec2(0), hi);
+        vec4 n = texelFetch(tv8, q, 0);
+        vs[k] = n.xy;
+        ivec2 d = ivec2(round(n.xy));
+        sad[k] = sad3t(p, d, hi);
+        ham[k] = float(bitCount(censusP(p + d, hi) ^ censusC(p, hi)));
+    }
+    vec4 selfv = texelFetch(tv8, p, 0);
+    float lam = Lambda;
+    int bestI = 0;
+    float bestC = 1e20;
+    for (int i = 0; i < 9; ++i) {
+        float sm = 0.0;
+        for (int j = 0; j < 9; ++j) {
+            if (j == i) continue;
+            sm += length(vs[i] - vs[j]);
+        }
+        sm *= 0.125;
+        float cost = sad[i] + CensusW * ham[i] + lam * sm;
+        if (cost < bestC) {
+            bestC = cost;
+            bestI = i;
+        }
+    }
+    imageStore(dst, id, vec4(vs[bestI], selfv.z, selfv.w));
+}

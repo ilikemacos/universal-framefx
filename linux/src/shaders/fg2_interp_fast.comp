@@ -1,0 +1,66 @@
+#version 450
+#ifdef UFX_FP16
+#extension GL_EXT_shader_explicit_arithmetic_types_float16 : require
+#endif
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(push_constant) uniform PC {
+    float outW;
+    float outH;
+    float t;
+    float cutFlag;
+} pc;
+
+layout(binding = 0) uniform sampler2D colorPrev;
+layout(binding = 1) uniform sampler2D colorCurr;
+layout(binding = 2) uniform sampler2D mv2;
+layout(binding = 3) uniform sampler2D hud;
+layout(binding = 4, rgba32f) uniform writeonly image2D dst;
+
+bool inside(vec2 uv) { return all(greaterThanEqual(uv, vec2(0.0))) && all(lessThanEqual(uv, vec2(1.0))); }
+
+void main() {
+    ivec2 id = ivec2(gl_GlobalInvocationID.xy);
+    int ow = int(pc.outW), oh = int(pc.outH);
+    if (id.x >= ow || id.y >= oh) return;
+    vec2 uv = (vec2(id) + 0.5) / vec2(ow, oh);
+    ivec2 inSz = textureSize(colorPrev, 0);
+#ifdef UFX_FP16
+    float16_t th = float16_t(pc.t);
+#endif
+    if (pc.cutFlag > 0.5) {
+        vec3 a0 = textureLod(colorPrev, uv, 0.0).rgb;
+        vec3 b0 = textureLod(colorCurr, uv, 0.0).rgb;
+        imageStore(dst, id, vec4(pc.t < 0.5 ? a0 : b0, 1.0));
+        return;
+    }
+    if (textureLod(hud, uv, 0.0).r > 0.5) {
+        imageStore(dst, id, vec4(textureLod(colorCurr, uv, 0.0).rgb, 1.0));
+        return;
+    }
+    vec4 s0 = textureLod(mv2, uv, 0.0);
+    vec2 vb = s0.xy / vec2(inSz);
+    vec2 pB = uv - (1.0 - pc.t) * vb;
+    vec2 pA = pB + vb;
+    vec3 bB = textureLod(colorCurr, pB, 0.0).rgb;
+    vec3 bA = textureLod(colorPrev, pA, 0.0).rgb;
+#ifdef UFX_FP16
+    f16vec3 mixc = f16vec3(bA) * (float16_t(1.0) - th) + f16vec3(bB) * th;
+    vec3 mixv = vec3(mixc);
+#else
+    vec3 mixv = bA * (1.0 - pc.t) + bB * pc.t;
+#endif
+    bool okA = inside(pA), okB = inside(pB);
+    if (!okA && okB) mixv = bB;
+    else if (!okB && okA) mixv = bA;
+    else if (!okA && !okB) {
+        vec3 a0 = textureLod(colorPrev, uv, 0.0).rgb;
+        vec3 b0 = textureLod(colorCurr, uv, 0.0).rgb;
+#ifdef UFX_FP16
+        mixv = vec3(f16vec3(a0) * (float16_t(1.0) - th) + f16vec3(b0) * th);
+#else
+        mixv = a0 * (1.0 - pc.t) + b0 * pc.t;
+#endif
+    }
+    imageStore(dst, id, vec4(mixv, 1.0));
+}

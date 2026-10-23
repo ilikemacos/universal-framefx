@@ -1,0 +1,31 @@
+#version 450
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(std140, binding = 0) uniform FgV2Params {
+    float InW, InH, OutW, OutH;
+    float TileSize, TilesX, TilesY, InterpT;
+    float HistoryValid, Lambda, CensusW, SadW;
+    float OcclThresh, StaticThresh, SceneCutThresh, FrameCount;
+    float JitterX, JitterY, BidirOn, Fallback;
+    float MvGapN, WideSearch, ClassicCand, EdgeSmooth;
+    float AmbiguityGate, TemporalExtrap, History2Valid, BicubicOn;
+    float SharpBlendOn, PadFg2a, PadFg2b, PadFg2c;
+};
+
+layout(binding = 1) uniform sampler2D mv2;
+layout(binding = 2, rgba16f) uniform writeonly image2D fwd;
+
+void main() {
+    ivec2 id = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 sz = imageSize(fwd);
+    if (id.x >= sz.x || id.y >= sz.y) return;
+    vec2 texel = 1.0 / vec2(sz);
+    vec2 uv = (vec2(id) + 0.5) * texel;
+    vec4 m = textureLod(mv2, uv, 0.0);
+    vec2 f = -m.xy / vec2(InW, InH);
+    for (int i = 0; i < 3; ++i) {
+        m = textureLod(mv2, uv + f, 0.0);
+        f = -m.xy / vec2(InW, InH);
+    }
+    imageStore(fwd, id, vec4(-f * vec2(InW, InH), 0.0, 0.0));
+}

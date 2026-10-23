@@ -1,0 +1,39 @@
+#version 450
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(std140, binding = 0) uniform FgV2Params {
+    float InW, InH, OutW, OutH;
+    float TileSize, TilesX, TilesY, InterpT;
+    float HistoryValid, Lambda, CensusW, SadW;
+    float OcclThresh, StaticThresh, SceneCutThresh, FrameCount;
+    float JitterX, JitterY, BidirOn, Fallback;
+    float MvGapN, WideSearch, ClassicCand, EdgeSmooth;
+    float AmbiguityGate, TemporalExtrap, History2Valid, BicubicOn;
+    float SharpBlendOn, PadFg2a, PadFg2b, PadFg2c;
+};
+
+layout(std140, binding = 1) uniform FgV2Global {
+    float A00, A01, A02, A10;
+    float A11, A12, AffConf, SnapOn;
+    float HwScale, HwGrid, RansacPx, GmvY;
+    float ConfThresh, ColorGate, VecLenK, SoftOccK;
+};
+
+layout(binding = 2) uniform sampler2D mv2;
+layout(binding = 3) uniform sampler2D fwd;
+layout(binding = 4, r8) uniform writeonly image2D occl;
+
+void main() {
+    ivec2 id = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 sz = imageSize(occl);
+    if (id.x >= sz.x || id.y >= sz.y) return;
+    vec2 bwd = texelFetch(mv2, id, 0).xy;
+    vec2 tile = vec2(id) + 0.5;
+    vec2 dest = tile + bwd / 8.0;
+    vec2 uv = dest / vec2(sz);
+    vec2 fw = textureLod(fwd, uv, 0.0).xy;
+    float e = length(fw + bwd);
+    float thr = OcclThresh + SoftOccK * length(bwd);
+    float o = clamp((e - 0.5 * thr) / max(0.5 * thr, 1e-6), 0.0, 1.0);
+    imageStore(occl, id, vec4(o, 0.0, 0.0, 0.0));
+}

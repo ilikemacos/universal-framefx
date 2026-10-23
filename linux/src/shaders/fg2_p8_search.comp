@@ -1,0 +1,211 @@
+#version 450
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(std140, binding = 0) uniform FgV2Params {
+    float InW, InH, OutW, OutH;
+    float TileSize, TilesX, TilesY, InterpT;
+    float HistoryValid, Lambda, CensusW, SadW;
+    float OcclThresh, StaticThresh, SceneCutThresh, FrameCount;
+    float JitterX, JitterY, BidirOn, Fallback;
+    float MvGapN, WideSearch, ClassicCand, EdgeSmooth;
+    float AmbiguityGate, TemporalExtrap, History2Valid, BicubicOn;
+    float SharpBlendOn, PadFg2a, PadFg2b, PadFg2c;
+};
+
+layout(std140, binding = 5) uniform FgV2Global {
+    float A00, A01, A02, A10;
+    float A11, A12, AffConf, SnapOn;
+    float HwScale, HwGrid, RansacPx, GmvY;
+    float ConfThresh, ColorGate, VecLenK, SoftOccK;
+};
+
+layout(binding = 1) uniform sampler2D prevL;
+layout(binding = 2) uniform sampler2D currL;
+layout(binding = 3) uniform sampler2D mvHist;
+layout(binding = 4) uniform sampler2D gmvTex;
+layout(binding = 6, rgba16f) uniform writeonly image2D tv8;
+
+#define FS_R 4
+#define FS_N (8 + 2 * FS_R + 2)
+#define FS_C ((2 * FS_R + 1) * (2 * FS_R + 1))
+shared float gsPrev[FS_N][FS_N];
+shared float gsCurr[10][10];
+shared float gsSad64[64];
+shared float gsBlock[FS_C];
+
+ivec2 ring8(int k) {
+    return ivec2(k < 3 ? k - 1 : (k < 5 ? (k == 3 ? -1 : 1) : k - 6), k < 3 ? -1 : (k < 5 ? 0 : 1));
+}
+
+float loadPrev(ivec2 p, ivec2 hi) {
+    return texelFetch(prevL, clamp(p, ivec2(0), hi), 0).r;
+}
+float loadCurr(ivec2 p, ivec2 hi) {
+    return texelFetch(currL, clamp(p, ivec2(0), hi), 0).r;
+}
+
+uint censusPxP(ivec2 p, ivec2 hi) {
+    float c = loadPrev(p, hi);
+    uint b = 0u;
+    for (int k = 0; k < 8; ++k)
+        if (loadPrev(p + ring8(k), hi) > c) b |= 1u << k;
+    return b;
+}
+uint censusPxC(ivec2 p, ivec2 hi) {
+    float c = loadCurr(p, hi);
+    uint b = 0u;
+    for (int k = 0; k < 8; ++k)
+        if (loadCurr(p + ring8(k), hi) > c) b |= 1u << k;
+    return b;
+}
+
+uint censusGs(ivec2 gc) {
+    float c = gsCurr[gc.y][gc.x];
+    uint b = 0u;
+    for (int k = 0; k < 8; ++k) {
+        ivec2 q = gc + ring8(k);
+        if (gsCurr[q.y][q.x] > c) b |= 1u << k;
+    }
+    return b;
+}
+uint censusGsPrev(ivec2 gp) {
+    float c = gsPrev[gp.y][gp.x];
+    uint b = 0u;
+    for (int k = 0; k < 8; ++k) {
+        ivec2 q = gp + ring8(k);
+        if (gsPrev[q.y][q.x] > c) b |= 1u << k;
+    }
+    return b;
+}
+
+float sad3t(ivec2 p, ivec2 d, ivec2 hi) {
+    float s = 0.0;
+    for (int dy = -1; dy <= 1; ++dy)
+        for (int dx = -1; dx <= 1; ++dx) {
+            ivec2 q = p + ivec2(dx, dy);
+            s += abs(loadPrev(q + d, hi) - loadCurr(q, hi));
+        }
+    return s;
+}
+
+float matchCost(ivec2 p, vec2 v, ivec2 hi) {
+    ivec2 d = ivec2(round(v));
+    float sad = sad3t(p, d, hi);
+    uint ca = censusPxP(p + d, hi);
+    uint cb = censusPxC(p, hi);
+    float ham = float(bitCount(ca ^ cb));
+    return SadW * sad + CensusW * ham + 0.004 * (abs(v.x) + abs(v.y));
+}
+
+void main() {
+    ivec2 id = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 lt = ivec2(gl_LocalInvocationID.xy);
+    ivec2 gid = ivec2(gl_WorkGroupID.xy);
+    ivec2 sz = imageSize(tv8);
+    int W = sz.x, H = sz.y;
+    ivec2 base = gid * 8;
+    ivec2 hi = ivec2(W - 1, H - 1);
+    uint li = uint(lt.y * 8 + lt.x);
+    for (uint k = li; k < uint(FS_N * FS_N); k += 64u) {
+        ivec2 q = clamp(base + ivec2(int(k % uint(FS_N)), int(k / uint(FS_N))) - (FS_R + 1), ivec2(0), hi);
+        gsPrev[k / uint(FS_N)][k % uint(FS_N)] = loadPrev(q, hi);
+    }
+    for (uint k2 = li; k2 < 100u; k2 += 64u) {
+        ivec2 q = clamp(base + ivec2(int(k2 % 10u), int(k2 / 10u)) - 1, ivec2(0), hi);
+        gsCurr[k2 / 10u][k2 % 10u] = loadCurr(q, hi);
+    }
+    barrier();
+    memoryBarrierShared();
+    bool live = id.x < W && id.y < H;
+    float c9[9];
+    for (int j = 0; j < 9; ++j) c9[j] = gsCurr[lt.y + j / 3][lt.x + j % 3];
+    uint cenC = censusGs(ivec2(lt.x + 1, lt.y + 1));
+    float bestCost = 1e20;
+    ivec2 best = ivec2(0);
+    float bestSad = 0.0;
+    float bestCen = 0.0;
+    float perSad[FS_C];
+    for (int ci = 0; ci < FS_C; ++ci) {
+        int dx = ci % (2 * FS_R + 1) - FS_R, dy = ci / (2 * FS_R + 1) - FS_R;
+        float sad = 0.0;
+        for (int j2 = 0; j2 < 9; ++j2)
+            sad += abs(gsPrev[lt.y + FS_R + dy + j2 / 3][lt.x + FS_R + dx + j2 % 3] - c9[j2]);
+        perSad[ci] = live ? sad : 0.0;
+        uint cenP = censusGsPrev(ivec2(lt.x + FS_R + dx + 1, lt.y + FS_R + dy + 1));
+        float ham = float(bitCount(cenP ^ cenC));
+        float cost = SadW * sad + CensusW * ham + 0.004 * float(abs(dx) + abs(dy));
+        if (cost < bestCost) {
+            bestCost = cost;
+            best = ivec2(dx, dy);
+            bestSad = sad;
+            bestCen = ham;
+        }
+    }
+    for (uint cj = 0u; cj < uint(FS_C); ++cj) {
+        gsSad64[li] = perSad[cj];
+        barrier();
+        memoryBarrierShared();
+        if (li == 0u) {
+            float sum = 0.0;
+            for (uint t = 0u; t < 64u; ++t) sum += gsSad64[t];
+            int ddx = int(cj % uint(2 * FS_R + 1)) - FS_R;
+            int ddy = int(cj / uint(2 * FS_R + 1)) - FS_R;
+            gsBlock[cj] = sum + 0.05 * float(abs(ddx) + abs(ddy));
+        }
+        barrier();
+        memoryBarrierShared();
+    }
+    if (!live) return;
+    int bi = 0;
+    float bc = 1e20;
+    for (int cb = 0; cb < FS_C; ++cb)
+        if (gsBlock[cb] < bc) {
+            bc = gsBlock[cb];
+            bi = cb;
+        }
+    ivec2 blockV = ivec2(bi % (2 * FS_R + 1) - FS_R, bi / (2 * FS_R + 1) - FS_R);
+    float cBlock = perSad[bi];
+    if (cBlock <= bestSad + 0.06) {
+        best = blockV;
+        bestSad = cBlock;
+        uint cenP = censusGsPrev(ivec2(lt.x + FS_R + best.x + 1, lt.y + FS_R + best.y + 1));
+        bestCen = float(bitCount(cenP ^ cenC));
+        bestCost = SadW * bestSad + CensusW * bestCen + 0.004 * float(abs(best.x) + abs(best.y));
+    }
+    vec2 uv = (vec2(id) + 0.5) / vec2(W, H);
+    if (HistoryValid > 0.5) {
+        vec2 tv = textureLod(mvHist, uv, 0.0).xy / 8.0;
+        float cost = matchCost(id, tv, hi);
+        if (cost < bestCost) {
+            bestCost = cost;
+            best = ivec2(round(tv));
+            bestSad = sad3t(id, best, hi);
+            bestCen = float(bitCount(censusPxP(id + best, hi) ^ censusPxC(id, hi)));
+        }
+    }
+    {
+        vec2 tv = texelFetch(gmvTex, ivec2(0, 0), 0).xy * vec2(InW, InH) / 8.0;
+        if (dot(tv, tv) > 1e-8) {
+            float cost = matchCost(id, tv, hi);
+            if (cost < bestCost) {
+                bestCost = cost;
+                best = ivec2(round(tv));
+                bestSad = sad3t(id, best, hi);
+                bestCen = float(bitCount(censusPxP(id + best, hi) ^ censusPxC(id, hi)));
+            }
+        }
+    }
+    if (AffConf > 0.3) {
+        vec2 cpx = (vec2(id) + 0.5) * 8.0;
+        vec2 p = vec2(A00 * cpx.x + A01 * cpx.y + A02, A10 * cpx.x + A11 * cpx.y + A12);
+        vec2 tv = (p - cpx) / 8.0;
+        float cost = matchCost(id, tv, hi);
+        if (cost < bestCost) {
+            bestCost = cost;
+            best = ivec2(round(tv));
+            bestSad = sad3t(id, best, hi);
+            bestCen = float(bitCount(censusPxP(id + best, hi) ^ censusPxC(id, hi)));
+        }
+    }
+    imageStore(tv8, id, vec4(vec2(best), bestSad, bestCen));
+}

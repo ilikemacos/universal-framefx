@@ -1,0 +1,4 @@
+build/*
+!build/ssrt/
+build/ssrt/*
+!build/ssrt/*.json

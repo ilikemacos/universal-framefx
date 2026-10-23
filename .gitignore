@@ -3,3 +3,8 @@ obj/
 *.user
 .vs/
 *.swp
+vendor/bin/
+ssgi/build/
+linux/build/
+linux/dist/
+linux/*.AppImage

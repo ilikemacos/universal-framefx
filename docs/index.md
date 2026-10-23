@@ -20,4 +20,4 @@ Universal-FrameFX is a **free real-time upscaler and frame generator for Windows
 Official site and downloads: [chopstickshq.com/universal-framefx](https://chopstickshq.com/universal-framefx/)
 
 ## Open source, with one closed part
-The app (UI, game detection, capture setup, overlay, updater, installer) is MIT-licensed and in this repository. The image-processing engine (upscaling, frame generation, image effects) is proprietary and not in the repository. Building from source gives the app with a placeholder engine.
+The app, image-processing engine, first-party Models/ weights and ONNX files, and the linux/ Vulkan/Wayland port are MIT-licensed in this repository. Optional AMD FidelityFX / Intel XeSS GPU DLLs remain third-party binary redistributables (see NOTICE.md).
