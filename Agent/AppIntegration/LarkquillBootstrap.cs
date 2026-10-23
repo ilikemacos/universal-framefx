@@ -2,6 +2,7 @@
 // Wire it like WrenbyAI was: a "LarkquillAI" button that calls LarkquillBootstrap.Open(this). Nothing to shut down (no local server).
 using UniversalFrameFX.Agent.Cloud;
 using UniversalFrameFX.Agent.UI;
+using UniversalFrameFX.Agent;
 
 namespace UniversalFrameFX.Agent.App;
 

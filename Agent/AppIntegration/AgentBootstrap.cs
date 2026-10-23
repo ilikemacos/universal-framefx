@@ -1,6 +1,7 @@
 // Copy into the app project. Builds everything and opens the chat window.
 using UniversalFrameFX.Agent.Tools;
 using UniversalFrameFX.Agent.UI;
+using UniversalFrameFX.Agent;
 
 namespace UniversalFrameFX.Agent.App;
 
