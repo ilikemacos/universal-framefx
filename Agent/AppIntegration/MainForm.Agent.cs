@@ -4,9 +4,12 @@ using UniversalFrameFX.Agent.App;
 namespace UniversalFrameFX;
 
 // LarkquillAI hooks: small public wrappers the agent's FrameFxHostAdapter calls (always on the UI thread).
+// Wire: LarkquillAI → LarkquillBootstrap.Open(this); LarkquillAI Local → AgentBootstrap.Open(this).
+// Both Open paths ask "Do we have permission to run LarkquillAI locally for FrameFX purposes?" once when unset.
 public sealed partial class MainForm
 {
-    readonly PillButton _agentAssistant = new() { Text = "LarkquillAI Local (experimental)", AutoSize = true, Kind = PillKind.Ghost, Margin = new Padding(0, 6, 0, 0) };
+    readonly PillButton _agentAssistant = new() { Text = "LarkquillAI", AutoSize = true, Kind = PillKind.Ghost, Margin = new Padding(0, 6, 0, 0) };
+    readonly PillButton _agentLocal = new() { Text = "LarkquillAI Local (experimental)", AutoSize = true, Kind = PillKind.Ghost, Margin = new Padding(0, 6, 0, 0) };
 
     public bool AgentIsRunning => _out != null;
     public string AgentGpuName => _gpu?.AdapterName ?? "unknown GPU";
