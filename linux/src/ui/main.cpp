@@ -19,7 +19,9 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <ctime>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -27,10 +29,46 @@
 #include <linux/limits.h>
 #include <libgen.h>
 #include <vector>
+#include <sys/stat.h>
 
 int ufx_run_selftest();
 int ufx_run_offline_fg(int argc, char** argv);
 int ufx_run_offline_upscale(int argc, char** argv);
+
+static std::string ufx_log_path() {
+    const char* home = std::getenv("HOME");
+    std::string base = home ? std::string(home) : "/tmp";
+    std::string dir = base + "/.local/share/universal-framefx";
+    // mkdir -p (two levels under HOME is enough; HOME and .local/share already exist)
+    mkdir((base + "/.local").c_str(), 0755);
+    mkdir((base + "/.local/share").c_str(), 0755);
+    mkdir(dir.c_str(), 0755);
+    return dir + "/last-run.log";
+}
+
+static void ufx_fatal(const std::string& msg, bool sdl_initialized) {
+    std::string path = ufx_log_path();
+    std::ofstream f(path, std::ios::app);
+    if (f) {
+        std::time_t t = std::time(nullptr);
+        char tbuf[64];
+        std::strftime(tbuf, sizeof(tbuf), "%Y-%m-%d %H:%M:%S", std::localtime(&t));
+        f << "[" << tbuf << "] " << UFX_PRODUCT_NAME << " " << UFX_VERSION_STRING
+          << " FATAL: " << msg << "\n";
+        f.close(); // flush before the (blocking) message box
+    }
+    std::fprintf(stderr, "%s\n", msg.c_str());
+    std::string box_msg = msg + "\n\nLog: " + path +
+                          "\nPaste this file's contents when reporting the issue.";
+    if (!sdl_initialized) {
+        // Try a minimal SDL_Init just for the message box; ignore failure.
+        if (SDL_Init(SDL_INIT_VIDEO) == 0) sdl_initialized = true;
+    }
+    if (sdl_initialized) {
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,
+                                 UFX_PRODUCT_NAME " failed to start", box_msg.c_str(), nullptr);
+    }
+}
 
 static std::string load_notice() {
     char self[PATH_MAX];
@@ -175,6 +213,10 @@ static bool csr12_from_view(VkContext* ctx, CsrSpatial* csr, LiveImages* live, V
 }
 
 int main(int argc, char** argv) {
+    {
+        std::ofstream f(ufx_log_path(), std::ios::app);
+        if (f) f << "---- launch " << UFX_PRODUCT_NAME << " " << UFX_VERSION_STRING << " ----\n";
+    }
     bool capture_fail_soft = false;
     for (int i = 1; i < argc; ++i) {
         if (std::strcmp(argv[i], "--version") == 0) {
@@ -208,7 +250,7 @@ int main(int argc, char** argv) {
     }
 
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) != 0) {
-        std::fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
+        ufx_fatal(std::string("SDL_Init failed: ") + SDL_GetError(), false);
         return 1;
     }
     SDL_Vulkan_LoadLibrary(nullptr);
@@ -221,41 +263,41 @@ int main(int argc, char** argv) {
     std::string err;
     VkContext ctx{};
     if (!vk_find_shader_dir(&ctx.shader_dir)) {
-        std::fprintf(stderr, "shaders not found (set UFX_SHADER_DIR)\n");
+        ufx_fatal("Shaders not found. Set UFX_SHADER_DIR or reinstall.", true);
         return 1;
     }
     if (!vk_instance_create(&ctx, inst_exts.data(), n_ext, &err)) {
-        std::fprintf(stderr, "%s\n", err.c_str());
+        ufx_fatal("Vulkan instance: " + err, true);
         return 1;
     }
 
     SdlVkWindow control{};
     if (!vk_window_create(ctx.instance, "Universal-FrameFX", 500, 720, 0, &control)) {
-        std::fprintf(stderr, "control window failed: %s\n", SDL_GetError());
+        ufx_fatal(std::string("Window creation failed: ") + SDL_GetError(), true);
         return 1;
     }
     if (!vk_device_create(&ctx, control.surface, &err)) {
-        std::fprintf(stderr, "%s\n", err.c_str());
+        ufx_fatal("Vulkan device: " + err, true);
         return 1;
     }
     if (!vk_window_init_swapchain(&ctx, &control, false, false)) {
-        std::fprintf(stderr, "control swapchain failed\n");
+        ufx_fatal("Swapchain creation failed (see log for GPU/compositor details).", true);
         return 1;
     }
 
     CsrSpatial csr{};
     if (!csr_spatial_create(&ctx, &csr, &err)) {
-        std::fprintf(stderr, "CSR pipeline: %s\n", err.c_str());
+        ufx_fatal("CSR 1.2 pipeline: " + err, true);
         return 1;
     }
     Csr2Upscale csr2{};
     if (!csr2_upscale_create(&ctx, &csr2, &err)) {
-        std::fprintf(stderr, "CSR2 pipeline: %s\n", err.c_str());
+        ufx_fatal("CSR 2.0 pipeline: " + err, true);
         return 1;
     }
     Fg2Pipeline fg{};
     if (!fg2_pipeline_create(&ctx, &fg, &err)) {
-        std::fprintf(stderr, "FG2 pipeline: %s\n", err.c_str());
+        ufx_fatal("Frame-gen pipeline: " + err, true);
         return 1;
     }
 

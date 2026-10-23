@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-VERSION="${UFX_VERSION:-1.4.1-linux-preview.2}"
+VERSION="${UFX_VERSION:-1.4.1-linux-preview.3}"
 STEM="Universal-FrameFX-${VERSION}-linux-x86_64"
 DIST="$ROOT/dist"
 APPDIR="$DIST/AppDir"
@@ -26,11 +26,19 @@ cp -a "$ROOT/resources/icon.png" "$APPDIR/usr/share/icons/hicolor/256x256/apps/u
 cp -a "$ROOT/resources/icon.png" "$APPDIR/universal-framefx.png"
 
 cat > "$APPDIR/usr/bin/ufx-linux-wrapper" <<'EOF'
-#!/bin/sh
+#!/usr/bin/env bash
 HERE="$(dirname "$(readlink -f "$0")")"
 export UFX_SHADER_DIR="${UFX_SHADER_DIR:-$HERE/../share/ufx-linux/shaders}"
 cd "$HERE/../share/ufx-linux" 2>/dev/null || true
-exec "$HERE/ufx-linux" "$@"
+LOGDIR="${HOME:-/tmp}/.local/share/universal-framefx"
+mkdir -p "$LOGDIR"
+LOG="$LOGDIR/last-run.log"
+if [[ -t 1 ]]; then
+  "$HERE/ufx-linux" "$@" 2>&1 | tee -a "$LOG"
+  exit "${PIPESTATUS[0]}"
+else
+  exec "$HERE/ufx-linux" "$@" >>"$LOG" 2>&1
+fi
 EOF
 chmod +x "$APPDIR/usr/bin/ufx-linux-wrapper"
 
@@ -45,10 +53,21 @@ Categories=Utility;Graphics;
 Terminal=false
 EOF
 rm -f "$APPDIR/AppRun"
-printf '%s\n' '#!/bin/sh' 'HERE="$(dirname "$(readlink -f "$0")")"' \
-  'export UFX_SHADER_DIR="${UFX_SHADER_DIR:-$HERE/usr/share/ufx-linux/shaders}"' \
-  'cd "$HERE/usr/share/ufx-linux" 2>/dev/null || true' \
-  'exec "$HERE/usr/bin/ufx-linux" "$@"' > "$APPDIR/AppRun"
+cat > "$APPDIR/AppRun" <<'EOF'
+#!/usr/bin/env bash
+HERE="$(dirname "$(readlink -f "$0")")"
+export UFX_SHADER_DIR="${UFX_SHADER_DIR:-$HERE/usr/share/ufx-linux/shaders}"
+cd "$HERE/usr/share/ufx-linux" 2>/dev/null || true
+LOGDIR="${HOME:-/tmp}/.local/share/universal-framefx"
+mkdir -p "$LOGDIR"
+LOG="$LOGDIR/last-run.log"
+if [[ -t 1 ]]; then
+  "$HERE/usr/bin/ufx-linux" "$@" 2>&1 | tee -a "$LOG"
+  exit "${PIPESTATUS[0]}"
+else
+  exec "$HERE/usr/bin/ufx-linux" "$@" >>"$LOG" 2>&1
+fi
+EOF
 chmod +x "$APPDIR/AppRun"
 
 # Always ship a runnable zip of ELF + shaders + libs (same stem).
@@ -72,11 +91,19 @@ ldd "$BIN" | awk '/=>/ {print $3}' | while read -r so; do
   cp -a "$so" "$STAGE/lib/" || true
 done
 cat > "$STAGE/run.sh" <<'EOF'
-#!/bin/sh
+#!/usr/bin/env bash
 HERE="$(dirname "$(readlink -f "$0")")"
 export LD_LIBRARY_PATH="$HERE/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 export UFX_SHADER_DIR="$HERE/shaders"
-exec "$HERE/ufx-linux" "$@"
+LOGDIR="${HOME:-/tmp}/.local/share/universal-framefx"
+mkdir -p "$LOGDIR"
+LOG="$LOGDIR/last-run.log"
+if [[ -t 1 ]]; then
+  "$HERE/ufx-linux" "$@" 2>&1 | tee -a "$LOG"
+  exit "${PIPESTATUS[0]}"
+else
+  exec "$HERE/ufx-linux" "$@" >>"$LOG" 2>&1
+fi
 EOF
 chmod +x "$STAGE/run.sh" "$STAGE/ufx-linux"
 ZIP="$DIST/${STEM}.zip"
@@ -84,6 +111,11 @@ ZIP="$DIST/${STEM}.zip"
 echo "zip: $ZIP"
 echo "zip size: $(stat -c %s "$ZIP") bytes"
 echo "zip sha256: $(sha256sum "$ZIP" | awk '{print $1}')"
+TGZ="$DIST/${STEM}.tar.gz"
+tar -C "$STAGE" -czf "$TGZ" .
+echo "tar.gz: $TGZ"
+echo "tar.gz size: $(stat -c %s "$TGZ") bytes"
+echo "tar.gz sha256: $(sha256sum "$TGZ" | awk '{print $1}')"
 
 # Try linuxdeploy / AppImage (optional; zip is the guaranteed artifact).
 LINUXDEPLOY="${LINUXDEPLOY:-}"

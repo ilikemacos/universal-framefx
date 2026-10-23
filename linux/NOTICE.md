@@ -1,6 +1,6 @@
 # Universal-FrameFX for Linux (desktop) — third-party notices and attribution
 
-Universal-FrameFX Linux desktop native preview (`1.4.1-linux-preview.1`).
+Universal-FrameFX Linux desktop native preview (`1.4.1-linux-preview.3`).
 Wayland-first Vulkan (SDL2 + xdg-desktop-portal ScreenCast / PipeWire).
 Steam Deck Desktop Mode is supported. Game Mode / gamescope: experimental path (PipeWire node + portal fallback); hardware-unverified in this preview — see docs/GAMEMODE.md.
 

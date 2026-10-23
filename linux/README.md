@@ -6,7 +6,7 @@ gamescope PipeWire video node, then portal. Present via SDL2 Vulkan.
 Upscalers: **CSR 1.2** (EASU + RCAS) and **CSR 2.0**. Frame generation:
 **CSR 2.0 InterpFast** 2x/3x (4x when refresh/source fps >= 4).
 
-Version: **1.4.1-linux-preview.2**
+Version: **1.4.1-linux-preview.3**
 
 ## Game Mode (experimental)
 
@@ -42,7 +42,7 @@ sudo apt-get install -y libvulkan-dev mesa-vulkan-drivers glslc \
 
 ## CLI
 
-* `--version` — `Universal-FrameFX 1.4.1-linux-preview.2`
+* `--version` — `Universal-FrameFX 1.4.1-linux-preview.3`
 * `--selftest` — headless GPU self-test (Lavapipe OK)
 * `--session-info` — print Desktop vs Game Mode detection
 * `--capture-fail-soft` — if capture fails, continue with null (black) capture
@@ -55,6 +55,18 @@ export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.json
 ./build/ufx-linux --session-info
 UFX_FORCE_GAMEMODE=1 ./build/ufx-linux --session-info
 ```
+
+## Troubleshooting
+
+If the app opens and closes instantly (e.g. CachyOS/Arch + GNOME), check
+`~/.local/share/universal-framefx/last-run.log`. If the AppImage never starts at all,
+install `fuse2` or run it without FUSE:
+
+```bash
+./Universal-FrameFX-*.AppImage --appimage-extract-and-run
+```
+
+See `docs/TROUBLESHOOT.md` for Vulkan driver, portal and PipeWire checks.
 
 ## License
 
