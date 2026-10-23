@@ -4,6 +4,7 @@ using System.Text;
 
 namespace UniversalFrameFX;
 
+/// <summary>Startup timing trace (startup.log) and crash logging (crash.log) under %LOCALAPPDATA%\Universal-FrameFX.</summary>
 public static class Diag
 {
     static readonly Stopwatch _sw = Stopwatch.StartNew();
@@ -14,11 +15,13 @@ public static class Diag
     public static string CrashLog => Path.Combine(Dir, "crash.log");
     public static double ElapsedMs => _sw.Elapsed.TotalMilliseconds;
 
+    /// <summary>Records a named startup step with the time since process start.</summary>
     public static void Mark(string step)
     {
         lock (_lk) _trace.AppendLine($"{_sw.Elapsed.TotalMilliseconds,9:F1} ms  {step}");
     }
 
+    /// <summary>Writes the startup trace (overwriting the previous one).</summary>
     public static void FlushStartup()
     {
         try
@@ -30,6 +33,7 @@ public static class Diag
         catch { }
     }
 
+    /// <summary>Hooks every unhandled-exception path so crashes leave a readable log.</summary>
     public static void InstallCrashHandlers()
     {
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
@@ -59,10 +63,12 @@ public static class Diag
     }
 }
 
+/// <summary>Compiled shader cache: D3DCompile blobs keyed by source + entry + profile, stored on disk so only the
+/// first launch after an install (or shader change) pays for compilation. Compiles run in parallel.</summary>
 public static class ShaderCache
 {
     const string Salt = "ufx-shadercache-v1";
-    public static string? OverrideDir;
+    public static string? OverrideDir;   // --build-shadercache: write blobs here (shipped next to the exe)
     static string CacheDir => OverrideDir ?? Path.Combine(Updater.DataDir, "shadercache");
     public static int Hits, Misses;
 
@@ -77,6 +83,7 @@ public static class ShaderCache
     {
         string key = Key(src, entry, profile, fileName);
         string path = Path.Combine(CacheDir, key + ".cso");
+        // Blobs shipped with the app (generated at publish time; DXBC is driver-independent).
         try
         {
             string shipped = OverrideDir != null ? "" : Path.Combine(AppContext.BaseDirectory, "shadercache", key + ".cso");
@@ -106,6 +113,7 @@ public static class ShaderCache
         return blob;
     }
 
+    /// <summary>Compiles (or loads) many entry points of one source in parallel.</summary>
     public static Dictionary<string, byte[]> GetMany(string src, IEnumerable<(string entry, string profile)> items, string fileName)
     {
         var list = items.ToList();

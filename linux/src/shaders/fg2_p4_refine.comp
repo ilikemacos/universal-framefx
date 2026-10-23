@@ -1,0 +1,79 @@
+#version 450
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(std140, binding = 0) uniform FgV2Params {
+    float InW, InH, OutW, OutH;
+    float TileSize, TilesX, TilesY, InterpT;
+    float HistoryValid, Lambda, CensusW, SadW;
+    float OcclThresh, StaticThresh, SceneCutThresh, FrameCount;
+    float JitterX, JitterY, BidirOn, Fallback;
+    float MvGapN, WideSearch, ClassicCand, EdgeSmooth;
+    float AmbiguityGate, TemporalExtrap, History2Valid, BicubicOn;
+    float SharpBlendOn, PadFg2a, PadFg2b, PadFg2c;
+};
+
+layout(binding = 1) uniform sampler2D prevL;
+layout(binding = 2) uniform sampler2D currL;
+layout(binding = 3) uniform sampler2D tv8;
+layout(binding = 4, rg16f) uniform writeonly image2D dst;
+
+ivec2 ring8(int k) {
+    return ivec2(k < 3 ? k - 1 : (k < 5 ? (k == 3 ? -1 : 1) : k - 6), k < 3 ? -1 : (k < 5 ? 0 : 1));
+}
+
+float loadP(ivec2 p, ivec2 hi) { return texelFetch(prevL, clamp(p, ivec2(0), hi), 0).r; }
+float loadC(ivec2 p, ivec2 hi) { return texelFetch(currL, clamp(p, ivec2(0), hi), 0).r; }
+
+uint censusP(ivec2 p, ivec2 hi) {
+    float c = loadP(p, hi);
+    uint b = 0u;
+    for (int k = 0; k < 8; ++k)
+        if (loadP(p + ring8(k), hi) > c) b |= 1u << k;
+    return b;
+}
+uint censusC(ivec2 p, ivec2 hi) {
+    float c = loadC(p, hi);
+    uint b = 0u;
+    for (int k = 0; k < 8; ++k)
+        if (loadC(p + ring8(k), hi) > c) b |= 1u << k;
+    return b;
+}
+
+float sad3t(ivec2 p, ivec2 d, ivec2 hi) {
+    float s = 0.0;
+    for (int dy = -1; dy <= 1; ++dy)
+        for (int dx = -1; dx <= 1; ++dx) {
+            ivec2 q = p + ivec2(dx, dy);
+            s += abs(loadP(q + d, hi) - loadC(q, hi));
+        }
+    return s;
+}
+
+float matchCost(ivec2 p, vec2 v, ivec2 hi) {
+    ivec2 d = ivec2(round(v));
+    float sad = sad3t(p, d, hi);
+    float ham = float(bitCount(censusP(p + d, hi) ^ censusC(p, hi)));
+    return SadW * sad + CensusW * ham + 0.004 * (abs(v.x) + abs(v.y));
+}
+
+void main() {
+    ivec2 id = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 sz = imageSize(dst);
+    if (id.x >= sz.x || id.y >= sz.y) return;
+    ivec2 lsz = textureSize(currL, 0);
+    ivec2 hi = lsz - ivec2(1);
+    ivec2 p = ivec2((vec2(id) + 0.5) * vec2(lsz) / vec2(sz));
+    vec2 seed = texelFetch(tv8, id, 0).xy * 2.0;
+    float bestC = 1e20;
+    vec2 best = seed;
+    for (int dy = -1; dy <= 1; ++dy)
+        for (int dx = -1; dx <= 1; ++dx) {
+            vec2 v = seed + vec2(dx, dy);
+            float cost = matchCost(p, v, hi);
+            if (cost < bestC) {
+                bestC = cost;
+                best = v;
+            }
+        }
+    imageStore(dst, id, vec4(best, 0.0, 0.0));
+}

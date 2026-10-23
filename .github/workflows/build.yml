@@ -1,4 +1,4 @@
-name: Build app shell
+name: Build
 
 on:
   push:

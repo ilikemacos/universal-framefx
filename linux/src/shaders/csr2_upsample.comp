@@ -1,0 +1,108 @@
+#version 450
+#ifdef UFX_FP16
+#extension GL_EXT_shader_explicit_arithmetic_types_float16 : require
+#endif
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(std140, binding = 0) uniform Csr2Params {
+    vec2 inSize;
+    vec2 outSize;
+    float historyValid;
+    float sharpness;
+    float hasMotion;
+    float hasConf;
+    float cheap;
+    float clampK;
+    float blendK;
+    float sharpK;
+    vec2 jitter;
+    vec2 _pad;
+} u;
+
+layout(binding = 1) uniform sampler2D src;
+layout(binding = 2, rgba32f) uniform writeonly image2D dst;
+
+float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
+float safeRcp(float x) { return x == 0.0 ? 0.0 : 1.0 / x; }
+
+vec3 loadC(ivec2 p) {
+    ivec2 hi = ivec2(u.inSize) - 1;
+    return texelFetch(src, clamp(p, ivec2(0), hi), 0).rgb;
+}
+
+float lanczos2(float x) {
+    x = abs(x);
+    if (x < 1e-5) return 1.0;
+    if (x >= 2.0) return 0.0;
+    float p = 3.14159265 * x;
+    return (sin(p) * sin(p * 0.5)) / (p * p * 0.5);
+}
+
+void main() {
+    ivec2 id = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 sz = imageSize(dst);
+    if (id.x >= sz.x || id.y >= sz.y) return;
+    vec2 srcp = (vec2(id) + 0.5) * u.inSize / u.outSize - u.jitter;
+    vec2 fp = floor(srcp - 0.5);
+    vec2 pp = srcp - 0.5 - fp;
+    ivec2 p = ivec2(fp);
+
+    float l00 = luma(loadC(p + ivec2(0, 0)));
+    float l10 = luma(loadC(p + ivec2(1, 0)));
+    float l20 = luma(loadC(p + ivec2(2, 0)));
+    float l01 = luma(loadC(p + ivec2(0, 1)));
+    float l11 = luma(loadC(p + ivec2(1, 1)));
+    float l21 = luma(loadC(p + ivec2(2, 1)));
+    float l02 = luma(loadC(p + ivec2(0, 2)));
+    float l12 = luma(loadC(p + ivec2(1, 2)));
+    float l22 = luma(loadC(p + ivec2(2, 2)));
+
+    float gx = (l20 + 2.0 * l21 + l22) - (l00 + 2.0 * l01 + l02);
+    float gy = (l02 + 2.0 * l12 + l22) - (l00 + 2.0 * l10 + l20);
+    gx += (l11 - l01) + (l21 - l11);
+    gy += (l11 - l10) + (l12 - l11);
+    float ixx = gx * gx, ixy = gx * gy, iyy = gy * gy;
+    vec2 dir = vec2(ixx - iyy, 2.0 * ixy);
+    float dirR = dot(dir, dir);
+    bool zro = dirR < (1.0 / 32768.0);
+    dir = zro ? vec2(1.0, 0.0) : dir * inversesqrt(dirR);
+    float aniso = clamp(sqrt(ixx + iyy) * 0.35, 0.0, 1.0);
+    vec2 len2 = vec2(1.0 + 0.55 * aniso, 1.0 - 0.4 * aniso);
+
+#ifdef UFX_FP16
+    f16vec3 acc = f16vec3(0.0);
+    float16_t wsum = float16_t(0.0);
+    for (int y = -1; y <= 2; ++y)
+        for (int x = -1; x <= 2; ++x) {
+            vec2 off = vec2(x, y) - pp;
+            vec2 v = vec2(dot(off, dir), dot(off, vec2(-dir.y, dir.x)));
+            v *= len2;
+            float w = lanczos2(v.x) * lanczos2(v.y);
+            acc += f16vec3(loadC(p + ivec2(x, y))) * float16_t(w);
+            wsum += float16_t(w);
+        }
+    vec3 c = vec3(acc) * safeRcp(float(wsum));
+#else
+    vec3 acc = vec3(0.0);
+    float wsum = 0.0;
+    for (int y = -1; y <= 2; ++y)
+        for (int x = -1; x <= 2; ++x) {
+            vec2 off = vec2(x, y) - pp;
+            vec2 v = vec2(dot(off, dir), dot(off, vec2(-dir.y, dir.x)));
+            v *= len2;
+            float w = lanczos2(v.x) * lanczos2(v.y);
+            acc += loadC(p + ivec2(x, y)) * w;
+            wsum += w;
+        }
+    vec3 c = acc * safeRcp(wsum);
+#endif
+    vec3 a = loadC(p);
+    vec3 b = loadC(p + ivec2(1, 0));
+    vec3 d = loadC(p + ivec2(0, 1));
+    vec3 e = loadC(p + ivec2(1, 1));
+    vec3 mn = min(min(a, b), min(d, e));
+    vec3 mx = max(max(a, b), max(d, e));
+    mn = min(mn, min(loadC(p + ivec2(-1, 0)), loadC(p + ivec2(0, -1))));
+    mx = max(mx, max(loadC(p + ivec2(2, 0)), loadC(p + ivec2(0, 2))));
+    imageStore(dst, id, vec4(clamp(c, mn, mx), 1.0));
+}

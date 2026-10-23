@@ -2,26 +2,40 @@ using System.Text.Json;
 
 namespace UniversalFrameFX;
 
+/// <summary>Per-game settings remembered by the app shell (preset, frame generation, SSGI, upscaler, output resolution).
+/// No windowing types: the decisions are pure so they can be unit-tested.</summary>
 public sealed class GameProfile
 {
+    /// <summary>0 Performance, 1 Quality, 2 Competitive.</summary>
     public int Preset { get; set; }
     public bool FrameGen { get; set; }
+    /// <summary>Frame-generation selector (FgSelect: 0 Off / 1 Csr13 / 2 Csr20 / 3 Fsr3 / 4 CsrAi). -1 = not saved by this app version yet.</summary>
     public int FgSelect { get; set; } = -1;
+    /// <summary>2, 3, 4 or 8 (CSR 2.0 also 5, 6, 10, 20). Anything else is stored as 4.</summary>
     public int FgMultiplier { get; set; } = 4;
     public bool Ssgi { get; set; }
+    /// <summary>0 Auto, 1 GTX 1050 Ti, 2 GTX 980 Ti.</summary>
     public int SsgiPreset { get; set; }
+    /// <summary>Steadier lighting while moving, when SSGI is on.</summary>
     public bool SsgiTemporal { get; set; } = global::UniversalFrameFX.Ssgi.TemporalDefault;
+    /// <summary>Experimental lighting. Off unless the user turns it on. Replaces SSGI while it is on.</summary>
     public bool Ssrt { get; set; }
+    /// <summary>0 Auto, 1 GTX 1050 Ti, 2 GTX 980 Ti.</summary>
     public int SsrtPreset { get; set; }
+    /// <summary>Steadier picture while moving, when ray-traced lighting is on. Default comes from the seed table.</summary>
     public bool SsrtTemporal { get; set; } = global::UniversalFrameFX.Ssrt.TemporalDefault;
+    /// <summary><see cref="Backend"/> value.</summary>
     public int Backend { get; set; }
+    /// <summary><see cref="OutputRes"/> value.</summary>
     public int Res { get; set; }
+    /// <summary>Per-game CPU options. Missing on older profiles, which means everything off.</summary>
     public CpuBoostSettings Cpu { get; set; } = new();
     public string? FgV2HudMask { get; set; }
     public int FgV2HudMaskW { get; set; } = 64;
     public int FgV2HudMaskH { get; set; } = 36;
 }
 
+/// <summary>Key normalisation, summary text, and when a saved profile replaces the global settings.</summary>
 public static class GameProfiles
 {
     public static string NormalizeKey(string? exeOrPath)
@@ -36,6 +50,7 @@ public static class GameProfiles
         return s;
     }
 
+    /// <summary>File name as the user sees it (original spelling, no directory).</summary>
     public static string DisplayName(string? exeOrPath)
     {
         if (string.IsNullOrWhiteSpace(exeOrPath)) return "";
@@ -58,6 +73,7 @@ public static class GameProfiles
         return 4;
     }
 
+    /// <summary>Short list line, e.g. "Competitive · FG 8× · SSGI off". Competitive always runs 8× frame generation.</summary>
     public static string Summary(GameProfile p)
     {
         p = Sanitize(p);
@@ -65,7 +81,7 @@ public static class GameProfiles
         string rt = p.Ssrt ? " · RT on" : "";
         string cpu = CpuBoost.AnyEnabled(p.Cpu) ? " · CPU boost" : "";
         if (p.Preset == 2) return $"Competitive · FG 8× · {ssgi}{rt}{cpu}";
-        string fg = p.FrameGen ? (p.FgMultiplier == 0 ? "FG Auto" : $"FG {Mul(p.FgMultiplier, p.FgSelect)}×") : "FG off";
+        string fg = p.FrameGen ? (p.FgMultiplier == 0 ? "FG Auto" : $"FG {Mul(p.FgMultiplier)}×") : "FG off";
         return $"{PresetName(p.Preset)} · {fg} · {ssgi}{rt}{cpu}";
     }
 
@@ -119,6 +135,7 @@ public static class GameProfiles
         return k.Length > 0 && profiles != null && profiles.ContainsKey(k);
     }
 
+    /// <summary>Saved profile for this exe, otherwise a copy of <paramref name="global"/>.</summary>
     public static (GameProfile settings, bool fromProfile) Select(IReadOnlyDictionary<string, GameProfile>? profiles, string? exe, GameProfile global)
     {
         string k = NormalizeKey(exe);
@@ -142,6 +159,8 @@ public static class GameProfiles
 
     public static void ResetAll(Dictionary<string, GameProfile> profiles) => profiles.Clear();
 
+    /// <summary>Explicit user edits are stored. Automatic changes (latency budget, safeguards, compare) and
+    /// test/automation modes pass false.</summary>
     public static bool ShouldRemember(bool userEdit, bool testMode, string? activeExe) =>
         userEdit && !testMode && NormalizeKey(activeExe).Length > 0;
 

@@ -1,13 +1,17 @@
 # Universal-FrameFX — third-party notices and attribution
 
-Universal-FrameFX's own image-processing engine (CSR upscaling and FrameFX frame generation) is proprietary and
-not part of this repository. The release build's engine contains MIT-licensed code portions © Advanced Micro
-Devices, Inc. (sections 1 and 2). The optional upscaler runtimes are © Advanced Micro Devices, Inc. and © Intel
-Corporation, redistributed unmodified in the release zip under the licences reproduced below. Universal-FrameFX
-is **not** an AMD, Intel or NVIDIA product and is not endorsed by them. "AMD", "FidelityFX" and "FSR" are
-trademarks of Advanced Micro Devices, Inc.; "Intel" and "XeSS" are trademarks of Intel Corporation; "NVIDIA" is
-a trademark of NVIDIA Corporation. They are used only to name the optional third-party components and in the
-licence notices below.
+Universal-FrameFX's first-party app, image-processing engine (CSR upscaling, FrameFX / CSR 2.0 frame generation,
+HLSL under `Shaders/`), and first-party `Models/` artifacts (`csr_ai_*.onnx`, `csr_ai_*.weights.json`,
+`csr_ai_fg.weights.json`, and preset-assistant ONNXes) are **MIT** — see [LICENSE](LICENSE). Redistribute freely
+under those terms.
+
+The engine also contains MIT-licensed code portions © Advanced Micro Devices, Inc. (sections 1 and 2). The optional
+upscaler **runtimes** (prebuilt DLLs) are © Advanced Micro Devices, Inc. and © Intel Corporation, redistributed
+unmodified in the Windows release zip under the licences reproduced below — **binary redistributable only**, not
+relicensed as MIT source. Universal-FrameFX is **not** an AMD, Intel or NVIDIA product and is not endorsed by them.
+"AMD", "FidelityFX" and "FSR" are trademarks of Advanced Micro Devices, Inc.; "Intel" and "XeSS" are trademarks of
+Intel Corporation; "NVIDIA" is a trademark of NVIDIA Corporation. They are used only to name the optional
+third-party components and in the licence notices below.
 
 ## 1. MIT-licensed code portions in the CSR engine (© 2022-2023 Advanced Micro Devices, Inc.)
 
@@ -222,7 +226,8 @@ NVIDIA product and is not endorsed by NVIDIA.
 * **Microsoft.Windows.SDK.NET** (C#/WinRT projection used for Windows.Graphics.Capture): Copyright (c) Microsoft
   Corporation, redistributed as part of the .NET SDK under Microsoft's terms.
 
-## 8. Everything else
+## 8. First-party MIT (app, engine, models, Linux port)
 
-The Universal-FrameFX app source in this repository: Copyright (c) 2026 Chopsticks HQ, MIT. See LICENSE.
-The FrameFX image-processing engine is proprietary, isn't in this repository and isn't covered by that licence.
+Universal-FrameFX first-party source in this repository (Windows app + engine C#/HLSL/C++, `Models/` weights and
+ONNX files, `linux/` Vulkan/Wayland port, `ssgi/` sources): Copyright (c) 2026 Chopsticks HQ, MIT. See LICENSE.
+Optional AMD FidelityFX / Intel XeSS prebuilt DLLs remain under sections 3–5 above and are not MIT source.

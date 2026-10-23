@@ -13,7 +13,7 @@ title: FAQ
 
 **Exclusive fullscreen?** FrameFX warns you; use borderless/windowed mode.
 
-**Can I build it myself?** Yes, but the build uses a placeholder engine; the image-processing engine is closed.
+**Can I build it myself?** Yes. The full MIT engine is in this repository. On Windows use `dotnet build -c Release` (optional vendor DLLs under `vendor/bin`). Linux: see `linux/README.md`.
 
 **Which AI does the Assistant use?** It's WrenbyAI, made for FrameFX and trained on a 2021 ROG Zephyrus G14. In the app it runs locally on your GPU; the website version needs an internet connection.
 

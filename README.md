@@ -48,8 +48,9 @@ Or:
 - **Free.** Works with almost any game or app window: no game support needed.
 - **Nothing injected.** It captures the window picture through Windows' own capture API and draws an overlay on top.
 - **No account, no telemetry.** The only network request is the update check (details below).
-- **Open source app.** Everything that touches your PC (networking, updater, installer, capture setup, files and
-  processes) is in this repo under the MIT licence. Only the image-processing engine is closed (see below).
+- **Open source.** The app, image-processing engine (C# / HLSL), first-party `Models/` weights and ONNX files,
+  and the Linux Vulkan/Wayland port are MIT. Optional AMD FidelityFX / Intel XeSS **GPU DLLs** stay third-party
+  binary redistributables (see [NOTICE.md](NOTICE.md)).
 
 ---
 
@@ -105,23 +106,23 @@ Or:
 
 ---
 
-## Open source, with one closed part
+## Open source (MIT)
 
-This repository contains the full source of the Universal-FrameFX **app** under the **MIT licence**: the window
-and settings UI, game detection, window capture setup, the overlay window, the updater, the installer script, and
-every piece of code that touches the network, files, other processes or the desktop. It's public so you can check
-exactly what FrameFX does on your PC, and you're free to use, change and share it under the MIT terms.
+This repository contains the full Universal-FrameFX source under the **MIT licence**:
 
-**The image-processing engine (upscaling, frame generation and image effects) is proprietary and closed source.
-It isn't in this repository and isn't covered by the MIT licence.** The release zip also ships third-party
-runtimes (AMD FidelityFX, Intel XeSS) under their own licences; see [NOTICE.md](NOTICE.md).
-[`Engine/EngineContract.cs`](Engine/EngineContract.cs) shows the boundary: the app hands the engine the captured
-window picture and your settings, and the engine draws the result into FrameFX's own output window.
+- **Windows app + engine** — UI, capture, overlay, updater, installer, and the image-processing engine
+  (`Gpu.cs`, `FramePipeline.cs`, CSR / FSR1 shaders under `Shaders/`, vendor *bindings* in `Vendor*.cs`, etc.)
+- **`Models/`** — first-party CSR AI weights/ONNX and preset-assistant ONNXes (MIT with the app LICENSE)
+- **`linux/`** — desktop Linux Vulkan + Wayland port (portal/PipeWire capture; CSR 1.2 / CSR 2.0 / InterpFast)
 
-Engine-only command-line modes (the installer's `--selftest` GPU check and a build-time cache step) are left out
-of the public `Program.cs`. Building this repository gives you the app with a placeholder engine. The UI,
-settings, game detection and updater all run, but starting an output tells you the engine isn't included.
-Release builds contain the closed engine, so they can't be rebuilt byte-for-byte from this source.
+You're free to use, change and share it under the MIT terms so you can check exactly what FrameFX does on your PC.
+
+**Not MIT source:** optional AMD FidelityFX DX12 and Intel XeSS **prebuilt DLLs** shipped in Windows release zips
+(or placed under `vendor/bin` for local builds). Those stay under AMD / Intel licences in [`licenses/`](licenses/)
+and [`vendor/licenses/`](vendor/licenses/). Do not relicense them as MIT. See [NOTICE.md](NOTICE.md).
+
+Building this repository on Windows (with the .NET 8 SDK and optional vendor DLLs) produces a working engine.
+`--selftest`, `--build-shadercache`, and offline FG/upscale helpers are included in `Program.cs`.
 
 ---
 
@@ -145,7 +146,7 @@ Everything below can be checked in this repository. The file that proves each po
 - Non-HTTPS URLs are refused. The only exception is a developer test override (`UFX_UPDATE_URL` environment
   variable), which can point at a local file or `localhost`.
 - The "Website" and "Buy me a coffee" buttons just open the page in your browser.
-- The closed engine contains no networking code.
+- The image-processing engine contains no networking code.
 
 ### How updates are verified
 
@@ -183,7 +184,7 @@ Everything below can be checked in this repository. The file that proves each po
   a yellow border around a captured window; on Windows 11, FrameFX asks Windows to leave the border off.
 - **Nothing is injected into games.** FrameFX doesn't load code into other processes, hook them, or change their
   memory or files. There is no `WriteProcessMemory`, `ReadProcessMemory`, `CreateRemoteThread`, `SetWindowsHookEx`
-  or DLL injection anywhere in FrameFX, including the closed engine.
+  or DLL injection anywhere in FrameFX, including the image-processing engine.
 - **Optional CPU section** ([`CpuBoost.cs`](CpuBoost.cs), [`CpuBoostWin.cs`](CpuBoostWin.cs)), off by default.
   While a game is running it can set that game's priority to High (never Realtime) and listed background apps to
   Below Normal, place them on chosen CPU sets (processor affinity when CPU sets aren't available), ask Windows
@@ -243,14 +244,15 @@ The code is in [`Diag.cs`](Diag.cs), [`Updater.cs`](Updater.cs) and
 - Your browser (website, Buy me a coffee) and File Explorer ("Open logs folder"), only when you click them.
 - `powercfg.exe`, and `cmd.exe` only if a CPU power option needs the one administrator prompt above. Nothing else is started for the CPU section.
 
-### What the closed engine loads
+### What the engine loads at runtime
 
-The engine uses Direct3D 11/12 on your GPU. It loads only these:
+The engine uses Direct3D 11/12 on your GPU. Besides its own MIT code and `Models/` files it may load:
 
-- the AMD FidelityFX and Intel XeSS runtimes (shipped unmodified in the zip, see [`NOTICE.md`](NOTICE.md)), from
+- the AMD FidelityFX and Intel XeSS runtimes (optional; shipped unmodified in the Windows zip, see [`NOTICE.md`](NOTICE.md)), from
   the program folder;
-- `ssgi.dll` from the program folder (the experimental SSGI option);
-- NVIDIA's optical-flow component, which ships with the NVIDIA driver, if it's present.
+- `ssgi.dll` from the program folder when you build the experimental SSGI native project under `ssgi/`;
+- NVIDIA's optical-flow component, which ships with the NVIDIA driver, if it's present;
+- ONNX Runtime DirectML (NuGet) when CSR AI / preset models run.
 
 It has no network, registry or process code. The only file it writes is the GPU program cache listed above.
 
@@ -300,7 +302,12 @@ dotnet build -c Release
 | `Diag.cs` | Startup and crash logs, GPU program cache |
 | `Native.cs`, `Beta2.cs`, `Program.cs` | Windows API declarations, version and hints, entry point |
 | `CpuBoost.cs`, `CpuBoostWin.cs` | Optional CPU section: settings, what it changes, and how it is restored |
-| `Engine/` | Boundary to the closed engine, plus the placeholder used in public builds |
+| `Gpu.cs`, `FramePipeline.cs`, `Vendor*.cs`, `FgV2*.cs`, `Csr*.cs`, … | MIT image-processing engine |
+| `Shaders/` | Embedded HLSL (CSR, FSR1 headers, FG) |
+| `Models/`, `PresetAi/Models/` | MIT first-party weights and ONNX models |
+| `linux/` | Desktop Linux Vulkan/Wayland port (CSR 1.2 / 2.0 / InterpFast) |
+| `ssgi/` | Optional experimental SSGI native sources |
+| `vendor/licenses/` | AMD / Intel licence texts (DLLs go in `vendor/bin` locally, gitignored) |
 | `installer/install.ps1` | The one-line installer and uninstaller |
 | `licenses/`, `NOTICE.md` | Third-party licences and notices |
 
@@ -335,5 +342,6 @@ Security issues: please report them privately, see [SECURITY.md](SECURITY.md).
 
 ## License
 
-The app source in this repository is MIT. See [LICENSE](LICENSE). The closed FrameFX engine isn't covered by
-it. Third-party components keep their own licences: see [NOTICE.md](NOTICE.md) and [`licenses/`](licenses/).
+All first-party source in this repository (app, engine, `Models/`, `linux/`, `ssgi/` sources) is MIT.
+See [LICENSE](LICENSE). Third-party AMD FidelityFX / Intel XeSS **binaries** keep their own licences:
+see [NOTICE.md](NOTICE.md) and [`licenses/`](licenses/).

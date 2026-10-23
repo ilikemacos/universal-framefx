@@ -1,0 +1,67 @@
+#version 450
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(std140, binding = 0) uniform FgV2Params {
+    float InW, InH, OutW, OutH;
+    float TileSize, TilesX, TilesY, InterpT;
+    float HistoryValid, Lambda, CensusW, SadW;
+    float OcclThresh, StaticThresh, SceneCutThresh, FrameCount;
+    float JitterX, JitterY, BidirOn, Fallback;
+    float MvGapN, WideSearch, ClassicCand, EdgeSmooth;
+    float AmbiguityGate, TemporalExtrap, History2Valid, BicubicOn;
+    float SharpBlendOn, PadFg2a, PadFg2b, PadFg2c;
+};
+
+layout(binding = 1) uniform sampler2D color;
+layout(binding = 2, r32f) uniform image2D chgPrev;
+layout(binding = 3, r32f) uniform image2D chgOut;
+
+shared float gsChg[256];
+shared float gsCut[256];
+shared uint gsHa[32];
+shared uint gsHb[32];
+
+void main() {
+    uvec2 lt = gl_LocalInvocationID.xy;
+    float n = 0.0, nc = 0.0;
+    uint i = lt.y * 16u + lt.x;
+    if (i < 32u) {
+        gsHa[i] = 0u;
+        gsHb[i] = 0u;
+    }
+    barrier();
+    memoryBarrierShared();
+    for (uint j = 0u; j < 16u; ++j) {
+        uvec2 q = lt * 4u + uvec2(j & 3u, j >> 2u);
+        vec2 uv = (vec2(q) + 0.5) / 64.0;
+        float l = dot(textureLod(color, uv, 0.0).rgb, vec3(0.2126, 0.7152, 0.0722));
+        float prev = imageLoad(chgPrev, ivec2(q)).r;
+        float dl = abs(l - prev);
+        if (HistoryValid < 0.5 || dl > StaticThresh) n += 1.0;
+        if (HistoryValid > 0.5 && dl > 0.15) nc += 1.0;
+        atomicAdd(gsHa[min(uint(clamp(prev, 0.0, 1.0) * 32.0), 31u)], 1u);
+        atomicAdd(gsHb[min(uint(clamp(l, 0.0, 1.0) * 32.0), 31u)], 1u);
+        imageStore(chgPrev, ivec2(q), vec4(l, 0.0, 0.0, 0.0));
+    }
+    gsChg[i] = n;
+    gsCut[i] = nc;
+    barrier();
+    memoryBarrierShared();
+    float hd = 0.0;
+    if (i == 0u) {
+        for (uint b = 0u; b < 32u; ++b) hd += abs(float(gsHa[b]) - float(gsHb[b]));
+        hd *= 0.5 / 4096.0;
+    }
+    for (uint s = 128u; s > 0u; s >>= 1u) {
+        if (i < s) {
+            gsChg[i] += gsChg[i + s];
+            gsCut[i] += gsCut[i + s];
+        }
+        barrier();
+        memoryBarrierShared();
+    }
+    if (i == 0u) {
+        imageStore(chgOut, ivec2(0, 0), vec4(gsChg[0], 0.0, 0.0, 0.0));
+        imageStore(chgOut, ivec2(1, 0), vec4(hd > 0.35 ? gsCut[0] : 0.0, 0.0, 0.0, 0.0));
+    }
+}
