@@ -1,5 +1,6 @@
 #include "vk_context.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -29,7 +30,11 @@ bool vk_find_shader_dir(std::string* out) {
         char buf[PATH_MAX];
         std::strncpy(buf, self, sizeof(buf));
         std::string dir = dirname(buf);
-        const char* cands[] = {"/shaders", "/../shaders", "/../src/shaders"};
+        const char* cands[] = {
+            "/shaders", "/../shaders", "/../src/shaders",
+            "/../share/ufx-linux/shaders",       // AppDir usr/bin -> usr/share/ufx-linux/shaders
+            "/../../share/ufx-linux/shaders",    // extra nesting safety
+        };
         for (const char* c : cands) {
             std::string p = dir + c;
             if (file_exists(p + "/easu.spv")) {
@@ -96,37 +101,62 @@ bool vk_device_create(VkContext* ctx, VkSurfaceKHR present_surface, std::string*
     }
     std::vector<VkPhysicalDevice> physs(nphys);
     vkEnumeratePhysicalDevices(ctx->instance, &nphys, physs.data());
-    ctx->phys = physs[0];
-    vkGetPhysicalDeviceProperties(ctx->phys, &ctx->props);
-    ctx->device_name = ctx->props.deviceName;
 
-    uint32_t nq = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(ctx->phys, &nq, nullptr);
-    std::vector<VkQueueFamilyProperties> qf(nq);
-    vkGetPhysicalDeviceQueueFamilyProperties(ctx->phys, &nq, qf.data());
-    ctx->queue_family = 0;
-    bool found = false;
-    for (uint32_t i = 0; i < nq; ++i) {
-        const bool compute = (qf[i].queueFlags & VK_QUEUE_COMPUTE_BIT) != 0;
-        const bool graphics = (qf[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0;
-        VkBool32 present = VK_TRUE;
-        if (present_surface) {
-            vkGetPhysicalDeviceSurfaceSupportKHR(ctx->phys, i, present_surface, &present);
-        }
-        if (compute && present && (!present_surface || graphics)) {
-            ctx->queue_family = i;
-            found = true;
-            break;
-        }
-    }
-    if (!found) {
+    struct Candidate {
+        VkPhysicalDevice phys;
+        uint32_t queue_family;
+        VkPhysicalDeviceProperties props;
+    };
+    std::vector<Candidate> candidates;
+
+    for (auto p : physs) {
+        uint32_t nq = 0;
+        vkGetPhysicalDeviceQueueFamilyProperties(p, &nq, nullptr);
+        std::vector<VkQueueFamilyProperties> qf(nq);
+        vkGetPhysicalDeviceQueueFamilyProperties(p, &nq, qf.data());
         for (uint32_t i = 0; i < nq; ++i) {
-            if (qf[i].queueFlags & VK_QUEUE_COMPUTE_BIT) {
-                ctx->queue_family = i;
-                break;
+            const bool compute = (qf[i].queueFlags & VK_QUEUE_COMPUTE_BIT) != 0;
+            const bool graphics = (qf[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0;
+            VkBool32 present = VK_TRUE;
+            if (present_surface) {
+                vkGetPhysicalDeviceSurfaceSupportKHR(p, i, present_surface, &present);
+            }
+            if (compute && graphics && present) {
+                VkPhysicalDeviceProperties props{};
+                vkGetPhysicalDeviceProperties(p, &props);
+                candidates.push_back({p, i, props});
+                break; // first qualifying family on this device is enough
             }
         }
     }
+
+    if (candidates.empty()) {
+        if (err) *err = present_surface
+            ? "No Vulkan device exposes a graphics+compute queue that can present "
+              "to this window (checked all physical devices)."
+            : "No Vulkan device exposes a graphics+compute queue.";
+        return false;
+    }
+
+    // Prefer DISCRETE_GPU, then INTEGRATED_GPU, then whatever's left; first
+    // match in enumeration order within a tier wins (stable, no "random" pick).
+    auto tier = [](VkPhysicalDeviceType t) {
+        switch (t) {
+            case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU: return 0;
+            case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU: return 1;
+            case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU: return 2;
+            case VK_PHYSICAL_DEVICE_TYPE_CPU: return 3;
+            default: return 4;
+        }
+    };
+    std::stable_sort(candidates.begin(), candidates.end(), [&](const Candidate& a, const Candidate& b) {
+        return tier(a.props.deviceType) < tier(b.props.deviceType);
+    });
+
+    ctx->phys = candidates.front().phys;
+    ctx->queue_family = candidates.front().queue_family;
+    ctx->props = candidates.front().props;
+    ctx->device_name = ctx->props.deviceName;
 
     uint32_t next = 0;
     vkEnumerateDeviceExtensionProperties(ctx->phys, nullptr, &next, nullptr);

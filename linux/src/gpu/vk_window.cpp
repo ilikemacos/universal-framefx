@@ -96,10 +96,22 @@ bool vk_window_init_swapchain(VkContext* ctx, SdlVkWindow* win, bool present_src
     sci.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | (present_src ? VK_IMAGE_USAGE_TRANSFER_DST_BIT : 0);
     sci.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
     sci.preTransform = caps.currentTransform;
-    sci.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
     sci.presentMode = pm;
     sci.clipped = VK_TRUE;
-    if (vkCreateSwapchainKHR(ctx->device, &sci, nullptr, &win->swapchain) != VK_SUCCESS) return false;
+    VkCompositeAlphaFlagBitsKHR alpha_order[] = {
+        VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+        VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR,
+        VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR,
+        VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR,
+    };
+    VkResult create_result = VK_ERROR_INITIALIZATION_FAILED;
+    for (auto alpha : alpha_order) {
+        if (!(caps.supportedCompositeAlpha & alpha)) continue;
+        sci.compositeAlpha = alpha;
+        create_result = vkCreateSwapchainKHR(ctx->device, &sci, nullptr, &win->swapchain);
+        if (create_result == VK_SUCCESS) break;
+    }
+    if (create_result != VK_SUCCESS) return false;
 
     uint32_t ni = 0;
     vkGetSwapchainImagesKHR(ctx->device, win->swapchain, &ni, nullptr);
