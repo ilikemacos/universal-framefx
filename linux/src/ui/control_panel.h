@@ -14,11 +14,15 @@ struct ControlState {
     float added_latency_ms = 0.0f;
     float refresh_hz = 60.0f;
     float source_fps = 0.0f;
-    std::string status = "Desktop Mode preview. Click Start to pick a screen or window.";
+    std::string status = "Click Start to pick a screen or window.";
     bool start_clicked = false;
     bool stop_clicked = false;
     bool show_about = false;
     std::string notice;
+    bool game_mode = false;
+    std::string session_label = "Desktop";
+    std::string capture_backend = "None";
+    bool capture_fail_soft = false;
 };
 
 void control_panel_draw(ControlState* st);

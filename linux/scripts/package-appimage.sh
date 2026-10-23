@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-VERSION="${UFX_VERSION:-1.4.1-linux-preview.1}"
+VERSION="${UFX_VERSION:-1.4.1-linux-preview.2}"
 STEM="Universal-FrameFX-${VERSION}-linux-x86_64"
 DIST="$ROOT/dist"
 APPDIR="$DIST/AppDir"
@@ -17,6 +17,11 @@ cp -a "$BIN" "$APPDIR/usr/bin/ufx-linux"
 cp -a "$ROOT/build/shaders" "$APPDIR/usr/share/ufx-linux/shaders"
 cp -a "$ROOT/NOTICE.md" "$APPDIR/usr/share/ufx-linux/NOTICE.md"
 cp -a "$ROOT/LICENSE" "$APPDIR/usr/share/ufx-linux/LICENSE"
+cp -a "$ROOT/README.md" "$APPDIR/usr/share/ufx-linux/README.md"
+mkdir -p "$APPDIR/usr/share/ufx-linux/docs" "$APPDIR/usr/share/ufx-linux/scripts"
+cp -a "$ROOT/docs/." "$APPDIR/usr/share/ufx-linux/docs/"
+cp -a "$ROOT/scripts/ufx-gamescope-launch.sh" "$APPDIR/usr/share/ufx-linux/scripts/"
+cp -a "$ROOT/scripts/ufx-gamescope-launch.sh" "$APPDIR/usr/bin/ufx-gamescope-launch"
 cp -a "$ROOT/resources/icon.png" "$APPDIR/usr/share/icons/hicolor/256x256/apps/universal-framefx.png"
 cp -a "$ROOT/resources/icon.png" "$APPDIR/universal-framefx.png"
 
@@ -33,7 +38,7 @@ cat > "$APPDIR/universal-framefx.desktop" <<EOF
 [Desktop Entry]
 Type=Application
 Name=Universal-FrameFX
-Comment=Linux desktop Vulkan/Wayland upscaler and CSR 2.0 frame generation (preview)
+Comment=Vulkan/Wayland upscaler + CSR 2.0 FG; Game Mode experimental
 Exec=ufx-linux-wrapper
 Icon=universal-framefx
 Categories=Utility;Graphics;
@@ -52,7 +57,11 @@ rm -rf "$STAGE"
 mkdir -p "$STAGE/shaders" "$STAGE/lib"
 cp -a "$BIN" "$STAGE/ufx-linux"
 cp -a "$ROOT/build/shaders/." "$STAGE/shaders/"
-cp -a "$ROOT/NOTICE.md" "$ROOT/LICENSE" "$ROOT/resources/icon.png" "$STAGE/"
+cp -a "$ROOT/NOTICE.md" "$ROOT/LICENSE" "$ROOT/README.md" "$ROOT/resources/icon.png" "$STAGE/"
+mkdir -p "$STAGE/docs" "$STAGE/scripts"
+cp -a "$ROOT/docs/." "$STAGE/docs/"
+cp -a "$ROOT/scripts/ufx-gamescope-launch.sh" "$STAGE/scripts/"
+chmod +x "$STAGE/scripts/ufx-gamescope-launch.sh"
 # Bundle non-Vulkan runtime deps next to the ELF.
 ldd "$BIN" | awk '/=>/ {print $3}' | while read -r so; do
   [[ -z "$so" || ! -f "$so" ]] && continue

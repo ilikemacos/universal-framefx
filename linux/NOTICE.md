@@ -2,7 +2,7 @@
 
 Universal-FrameFX Linux desktop native preview (`1.4.1-linux-preview.1`).
 Wayland-first Vulkan (SDL2 + xdg-desktop-portal ScreenCast / PipeWire).
-Steam Deck Desktop Mode is a supported host. Not Game Mode / gamescope.
+Steam Deck Desktop Mode is supported. Game Mode / gamescope: experimental path (PipeWire node + portal fallback); hardware-unverified in this preview — see docs/GAMEMODE.md.
 
 and are not endorsed by AMD. "AMD", "FidelityFX" and "FSR" are trademarks of
 Advanced Micro Devices, Inc., used here only in the licence notices.

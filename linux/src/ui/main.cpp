@@ -2,6 +2,7 @@
 #include "output_window.h"
 
 #include "capture/capture.h"
+#include "platform/session_detect.h"
 #include "fg2_pacing.h"
 #include "gpu/csr2_upscale.h"
 #include "gpu/csr_spatial.h"
@@ -174,6 +175,7 @@ static bool csr12_from_view(VkContext* ctx, CsrSpatial* csr, LiveImages* live, V
 }
 
 int main(int argc, char** argv) {
+    bool capture_fail_soft = false;
     for (int i = 1; i < argc; ++i) {
         if (std::strcmp(argv[i], "--version") == 0) {
             std::printf("%s %s\n", UFX_PRODUCT_NAME, UFX_VERSION_STRING);
@@ -188,8 +190,19 @@ int main(int argc, char** argv) {
         if (std::strcmp(argv[i], "--offline-upscale") == 0) {
             return ufx_run_offline_upscale(argc, argv);
         }
+        if (std::strcmp(argv[i], "--session-info") == 0) {
+            ufx_session_kind sk = ufx_detect_session();
+            std::printf("session=%s gamescope=%s\n", ufx_session_name(sk),
+                        ufx_is_gamescope_session() ? "yes" : "no");
+            return 0;
+        }
+        if (std::strcmp(argv[i], "--capture-fail-soft") == 0) {
+            capture_fail_soft = true;
+            continue;
+        }
         if (std::strcmp(argv[i], "--help") == 0) {
-            std::printf("Usage: ufx-linux [--version] [--selftest] [--offline-fg IN OUT] [--offline-upscale IN OUT]\n");
+            std::printf("Usage: ufx-linux [--version] [--selftest] [--session-info] [--capture-fail-soft]\n"
+                        "                 [--offline-fg IN OUT] [--offline-upscale IN OUT]\n");
             return 0;
         }
     }
@@ -289,6 +302,17 @@ int main(int argc, char** argv) {
 
     ControlState st;
     st.notice = load_notice();
+    {
+        ufx_session_kind sk = ufx_detect_session();
+        st.game_mode = ufx_is_gamescope_session() != 0;
+        st.session_label = ufx_session_name(sk);
+        st.capture_fail_soft = capture_fail_soft;
+        if (st.game_mode) {
+            st.status = "Game Mode detected (experimental). Start tries gamescope PipeWire, then portal.";
+        } else {
+            st.status = "Desktop Mode. Click Start to pick a screen or window.";
+        }
+    }
 
     ufx_capture* cap = nullptr;
     SdlVkWindow output{};
@@ -332,14 +356,19 @@ int main(int argc, char** argv) {
 
         if (st.start_clicked) {
             st.start_clicked = false;
-            char cap_err[256] = {};
-            if (ufx_capture_open(&cap, cap_err, sizeof(cap_err)) != 0) {
-                st.status = cap_err[0] ? cap_err : "Could not start capture.";
+            char cap_err[512] = {};
+            ufx_capture_backend used = UFX_CAPTURE_BACKEND_NONE;
+            const int prefer_pw = st.game_mode ? 1 : 0;
+            if (ufx_capture_open_auto(&cap, cap_err, sizeof(cap_err), prefer_pw, st.capture_fail_soft ? 1 : 0,
+                                     &used) != 0) {
+                st.status = cap_err[0] ? cap_err : "Could not start capture. See docs/GAMEMODE.md";
+                st.capture_backend = ufx_capture_backend_name(UFX_CAPTURE_BACKEND_NONE);
                 if (cap) {
                     ufx_capture_close(cap);
                     cap = nullptr;
                 }
             } else {
+                st.capture_backend = ufx_capture_backend_name(used);
                 if (!output.window) {
                     vk_window_create(ctx.instance, "Universal-FrameFX output", 1280, 800,
                                      SDL_WINDOW_BORDERLESS, &output);
@@ -347,7 +376,13 @@ int main(int argc, char** argv) {
                     if (present_pass_create(&ctx, output.render_pass, &present, &err)) output_ready = true;
                 }
                 st.running = true;
-                st.status = "Capturing. Esc stops.";
+                if (used == UFX_CAPTURE_BACKEND_NULL) {
+                    st.status = "Null capture (fail-soft). Esc stops. See docs/GAMEMODE.md";
+                } else if (used == UFX_CAPTURE_BACKEND_GAMESCOPE_PW) {
+                    st.status = "Capturing gamescope PipeWire. Esc stops.";
+                } else {
+                    st.status = "Capturing (portal). Esc stops.";
+                }
             }
         }
         if (st.stop_clicked) {
@@ -364,6 +399,7 @@ int main(int argc, char** argv) {
             have_last_gen = false;
             have_presentable = false;
             st.status = "Stopped.";
+            st.capture_backend = "None";
         }
 
         if (st.fg_mode != last_fg_mode || st.upscaler_mode != last_upscaler) {

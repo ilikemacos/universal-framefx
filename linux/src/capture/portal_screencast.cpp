@@ -1,5 +1,7 @@
 #include "capture.h"
 
+#include <algorithm>
+#include <cctype>
 #include <cerrno>
 #include <cstdio>
 #include <cstdlib>
@@ -12,6 +14,7 @@
 
 #include <systemd/sd-bus.h>
 #include <pipewire/pipewire.h>
+#include <pipewire/keys.h>
 #include <spa/param/video/format-utils.h>
 #include <spa/param/video/type-info.h>
 #include <spa/debug/types.h>
@@ -118,12 +121,15 @@ struct ufx_capture {
     std::string session_path;
     int pw_fd = -1;
     uint32_t node_id = 0;
+    ufx_capture_backend backend = UFX_CAPTURE_BACKEND_NONE;
 
     struct pw_thread_loop* loop = nullptr;
     struct pw_context* ctx = nullptr;
     struct pw_core* core = nullptr;
     struct pw_stream* stream = nullptr;
     spa_hook stream_listener{};
+    spa_hook registry_listener{};
+    struct pw_registry* registry = nullptr;
 
     std::mutex mu;
     bool have_frame = false;
@@ -134,6 +140,10 @@ struct ufx_capture {
     uint32_t width = 0;
     uint32_t height = 0;
     uint32_t stride = 0;
+
+    /* null backend */
+    bool null_mode = false;
+    std::vector<uint8_t> null_pixels;
 };
 
 static void on_stream_process(void* data);
@@ -415,12 +425,29 @@ int ufx_capture_open(ufx_capture** out, char* err, size_t errlen) {
         return r;
     }
     pw_thread_loop_start(cap->loop);
+    cap->backend = UFX_CAPTURE_BACKEND_PORTAL;
     *out = cap;
     return 0;
 }
 
 int ufx_capture_poll_frame(ufx_capture* cap, ufx_capture_frame* frame, int timeout_ms) {
     if (!cap || !frame) return -EINVAL;
+    if (cap->null_mode) {
+        const uint32_t w = 64, h = 64, stride = w * 4;
+        if (cap->null_pixels.size() != stride * h) {
+            cap->null_pixels.assign(static_cast<size_t>(stride) * h, 0);
+        }
+        *frame = {};
+        frame->kind = UFX_CAPTURE_KIND_MEMFD;
+        frame->fd = -1;
+        frame->width = w;
+        frame->height = h;
+        frame->stride = stride;
+        frame->mapped = cap->null_pixels.data();
+        frame->mapped_size = cap->null_pixels.size();
+        if (timeout_ms > 0) usleep(static_cast<useconds_t>(std::min(timeout_ms, 16) * 1000));
+        return 0;
+    }
     const int slice = 10;
     int waited = 0;
     while (waited <= timeout_ms) {
@@ -451,6 +478,10 @@ void ufx_capture_close(ufx_capture* cap) {
         pw_stream_destroy(cap->stream);
         cap->stream = nullptr;
     }
+    if (cap->registry) {
+        pw_proxy_destroy(reinterpret_cast<pw_proxy*>(cap->registry));
+        cap->registry = nullptr;
+    }
     if (cap->core) {
         pw_core_disconnect(cap->core);
         cap->core = nullptr;
@@ -473,4 +504,252 @@ void ufx_capture_close(ufx_capture* cap) {
         sd_bus_unref(cap->bus);
     }
     delete cap;
+}
+
+
+namespace {
+
+bool contains_ci(const char* hay, const char* needle) {
+    if (!hay || !needle || !*needle) return false;
+    const size_t nlen = std::strlen(needle);
+    for (const char* p = hay; *p; ++p) {
+        size_t i = 0;
+        while (i < nlen && p[i] &&
+               std::tolower(static_cast<unsigned char>(p[i])) ==
+                   std::tolower(static_cast<unsigned char>(needle[i])))
+            ++i;
+        if (i == nlen) return true;
+    }
+    return false;
+}
+
+int score_gamescope_node(const spa_dict* props) {
+    if (!props) return -1;
+    const char* klass = spa_dict_lookup(props, PW_KEY_MEDIA_CLASS);
+    const char* name = spa_dict_lookup(props, PW_KEY_NODE_NAME);
+    const char* nick = spa_dict_lookup(props, PW_KEY_NODE_NICK);
+    const char* media = spa_dict_lookup(props, PW_KEY_MEDIA_NAME);
+    const char* desc = spa_dict_lookup(props, PW_KEY_NODE_DESCRIPTION);
+    bool video = false;
+    if (klass && (contains_ci(klass, "Video/Source") || contains_ci(klass, "Stream/Output/Video") ||
+                  contains_ci(klass, "Video")))
+        video = true;
+    int score = -1;
+    auto bump = [&](const char* s, int exact, int partial) {
+        if (!s) return;
+        if (std::strcmp(s, "gamescope") == 0 || std::strcmp(s, "gamescope:out_0") == 0)
+            score = std::max(score, exact);
+        else if (contains_ci(s, "gamescope"))
+            score = std::max(score, partial);
+    };
+    bump(name, video ? 100 : 80, video ? 70 : 50);
+    bump(nick, video ? 95 : 75, video ? 65 : 45);
+    bump(media, video ? 90 : 70, video ? 60 : 40);
+    bump(desc, video ? 85 : 65, video ? 55 : 35);
+    return score;
+}
+
+struct NodeFind {
+    uint32_t best_id = 0;
+    int best_score = -1;
+    int seq = 0;
+    bool done = false;
+};
+
+void on_registry_global(void* data, uint32_t id, uint32_t /*perms*/, const char* type, uint32_t /*version*/,
+                        const struct spa_dict* props) {
+    auto* f = static_cast<NodeFind*>(data);
+    if (!type || std::strcmp(type, PW_TYPE_INTERFACE_Node) != 0) return;
+    int sc = score_gamescope_node(props);
+    if (sc > f->best_score) {
+        f->best_score = sc;
+        f->best_id = id;
+    }
+}
+
+void on_core_done(void* data, uint32_t /*id*/, int /*seq*/) {
+    auto* f = static_cast<NodeFind*>(data);
+    f->done = true;
+}
+
+int pw_connect_stream_to_node(ufx_capture* cap, uint32_t node_id, char* err, size_t errlen) {
+    cap->stream = pw_stream_new(cap->core, "Universal-FrameFX",
+                                pw_properties_new(PW_KEY_MEDIA_TYPE, "Video", PW_KEY_MEDIA_CATEGORY, "Capture",
+                                                  PW_KEY_MEDIA_ROLE, "Screen", nullptr));
+    if (!cap->stream) {
+        set_err(err, errlen, "PipeWire stream create failed");
+        return -EIO;
+    }
+    static const pw_stream_events stream_events = make_stream_events();
+    pw_stream_add_listener(cap->stream, &cap->stream_listener, &stream_events, cap);
+
+    uint8_t buffer[1024];
+    struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+    const struct spa_pod* params[1];
+    spa_rectangle def_sz = SPA_RECTANGLE(1280, 800);
+    spa_rectangle min_sz = SPA_RECTANGLE(1, 1);
+    spa_rectangle max_sz = SPA_RECTANGLE(4096, 4096);
+    spa_fraction def_fr = SPA_FRACTION(0, 1);
+    spa_fraction min_fr = SPA_FRACTION(0, 1);
+    spa_fraction max_fr = SPA_FRACTION(240, 1);
+    params[0] = static_cast<struct spa_pod*>(spa_pod_builder_add_object(
+        &b, SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat, SPA_FORMAT_mediaType, SPA_POD_Id(SPA_MEDIA_TYPE_video),
+        SPA_FORMAT_mediaSubtype, SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw), SPA_FORMAT_VIDEO_format,
+        SPA_POD_CHOICE_ENUM_Id(4, SPA_VIDEO_FORMAT_BGRA, SPA_VIDEO_FORMAT_BGRA, SPA_VIDEO_FORMAT_RGBA,
+                               SPA_VIDEO_FORMAT_BGRx),
+        SPA_FORMAT_VIDEO_size, SPA_POD_CHOICE_RANGE_Rectangle(&def_sz, &min_sz, &max_sz), SPA_FORMAT_VIDEO_framerate,
+        SPA_POD_CHOICE_RANGE_Fraction(&def_fr, &min_fr, &max_fr)));
+
+    int r = pw_stream_connect(cap->stream, PW_DIRECTION_INPUT, node_id,
+                              static_cast<pw_stream_flags>(PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_MAP_BUFFERS),
+                              params, 1);
+    if (r < 0) {
+        set_err(err, errlen, "PipeWire stream connect failed");
+        return r;
+    }
+    return 0;
+}
+
+}  // namespace
+
+extern "C" const char* ufx_capture_backend_name(ufx_capture_backend b) {
+    switch (b) {
+        case UFX_CAPTURE_BACKEND_PORTAL: return "PipeWire/portal";
+        case UFX_CAPTURE_BACKEND_GAMESCOPE_PW: return "PipeWire/gamescope";
+        case UFX_CAPTURE_BACKEND_NULL: return "Null (--capture-fail-soft)";
+        default: return "None";
+    }
+}
+
+ufx_capture_backend ufx_capture_get_backend(const ufx_capture* cap) {
+    return cap ? cap->backend : UFX_CAPTURE_BACKEND_NONE;
+}
+
+int ufx_capture_open_null(ufx_capture** out, char* err, size_t errlen) {
+    if (!out) return -EINVAL;
+    auto* cap = new ufx_capture();
+    cap->null_mode = true;
+    cap->backend = UFX_CAPTURE_BACKEND_NULL;
+    cap->latest.fd = -1;
+    *out = cap;
+    set_err(err, errlen, "Null capture (no screen source)");
+    return 0;
+}
+
+int ufx_capture_open_gamescope_pw(ufx_capture** out, char* err, size_t errlen) {
+    if (!out) return -EINVAL;
+    *out = nullptr;
+
+    pw_init(nullptr, nullptr);
+    auto* cap = new ufx_capture();
+    cap->latest.fd = -1;
+    cap->loop = pw_thread_loop_new("ufx-gamescope", nullptr);
+    if (!cap->loop) {
+        set_err(err, errlen, "PipeWire loop failed");
+        ufx_capture_close(cap);
+        return -EIO;
+    }
+    pw_thread_loop_lock(cap->loop);
+    cap->ctx = pw_context_new(pw_thread_loop_get_loop(cap->loop), nullptr, 0);
+    cap->core = pw_context_connect(cap->ctx, nullptr, 0);
+    if (!cap->core) {
+        pw_thread_loop_unlock(cap->loop);
+        set_err(err, errlen, "PipeWire default connect failed (is PipeWire running?)");
+        ufx_capture_close(cap);
+        return -EIO;
+    }
+
+    NodeFind find{};
+    static pw_registry_events reg_events{};
+    static pw_core_events core_events{};
+    static bool ev_init = false;
+    if (!ev_init) {
+        reg_events.version = PW_VERSION_REGISTRY_EVENTS;
+        reg_events.global = on_registry_global;
+        core_events.version = PW_VERSION_CORE_EVENTS;
+        core_events.done = on_core_done;
+        ev_init = true;
+    }
+    spa_hook core_listener{};
+    pw_core_add_listener(cap->core, &core_listener, &core_events, &find);
+    cap->registry = pw_core_get_registry(cap->core, PW_VERSION_REGISTRY, 0);
+    pw_registry_add_listener(cap->registry, &cap->registry_listener, &reg_events, &find);
+    find.seq = pw_core_sync(cap->core, PW_ID_CORE, 0);
+
+    pw_thread_loop_unlock(cap->loop);
+    pw_thread_loop_start(cap->loop);
+
+    const uint64_t deadline_ms = 3000;
+    uint64_t waited = 0;
+    while (!find.done && waited < deadline_ms) {
+        usleep(20 * 1000);
+        waited += 20;
+    }
+    if (find.best_score < 0) {
+        usleep(200 * 1000);
+    }
+
+    pw_thread_loop_lock(cap->loop);
+    spa_hook_remove(&core_listener);
+    if (find.best_score < 0 || find.best_id == 0) {
+        pw_thread_loop_unlock(cap->loop);
+        set_err(err, errlen,
+                "No gamescope PipeWire video node (expected name containing 'gamescope'). "
+                "See docs/GAMEMODE.md");
+        ufx_capture_close(cap);
+        return -ENOENT;
+    }
+
+    cap->node_id = find.best_id;
+    int r = pw_connect_stream_to_node(cap, cap->node_id, err, errlen);
+    pw_thread_loop_unlock(cap->loop);
+    if (r < 0) {
+        ufx_capture_close(cap);
+        return r;
+    }
+    cap->backend = UFX_CAPTURE_BACKEND_GAMESCOPE_PW;
+    *out = cap;
+    return 0;
+}
+
+int ufx_capture_open_auto(ufx_capture** out, char* err, size_t errlen, int prefer_gamescope_pw, int fail_soft,
+                          ufx_capture_backend* used_out) {
+    if (!out) return -EINVAL;
+    *out = nullptr;
+    if (used_out) *used_out = UFX_CAPTURE_BACKEND_NONE;
+
+    char err_pw[256] = {};
+    char err_portal[256] = {};
+    const int try_pw_first = prefer_gamescope_pw;
+
+    auto try_pw = [&]() -> int {
+        int r = ufx_capture_open_gamescope_pw(out, err_pw, sizeof(err_pw));
+        if (r == 0 && used_out) *used_out = UFX_CAPTURE_BACKEND_GAMESCOPE_PW;
+        return r;
+    };
+    auto try_portal = [&]() -> int {
+        int r = ufx_capture_open(out, err_portal, sizeof(err_portal));
+        if (r == 0 && used_out) *used_out = UFX_CAPTURE_BACKEND_PORTAL;
+        return r;
+    };
+
+    int r = -EIO;
+    if (try_pw_first) {
+        r = try_pw();
+        if (r != 0) r = try_portal();
+    } else {
+        r = try_portal();
+        if (r != 0 && prefer_gamescope_pw) r = try_pw();
+    }
+
+    if (r == 0) return 0;
+
+    std::snprintf(err, errlen, "%s%s%s", err_pw[0] ? err_pw : "",
+                  (err_pw[0] && err_portal[0]) ? " | " : "", err_portal[0] ? err_portal : (err_pw[0] ? "" : "capture failed"));
+    if (fail_soft) {
+        int nr = ufx_capture_open_null(out, err, errlen);
+        if (nr == 0 && used_out) *used_out = UFX_CAPTURE_BACKEND_NULL;
+        return nr;
+    }
+    return r;
 }
