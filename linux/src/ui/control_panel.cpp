@@ -32,17 +32,28 @@ void control_panel_draw(ControlState* st) {
                  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus);
 
     ImGui::TextUnformatted("Universal-FrameFX  " UFX_VERSION_STRING);
-    ImGui::TextDisabled("Linux desktop preview — Wayland / Vulkan");
+    if (st->game_mode) {
+        ImGui::TextColored(ImVec4(1.f, 0.85f, 0.2f, 1.f), "Game Mode (experimental, hardware-unverified)");
+    } else {
+        ImGui::TextDisabled("Linux desktop — Wayland / Vulkan");
+    }
+    ImGui::TextDisabled("Session: %s   Capture: %s", st->session_label.c_str(), st->capture_backend.c_str());
     ImGui::Separator();
 
     ImGui::TextUnformatted("Source");
-    ImGui::BulletText("Uses the system screen/window picker (portal).");
-    ImGui::BulletText("No custom source list — pick when you press Start.");
+    if (st->game_mode) {
+        ImGui::BulletText("Prefers gamescope PipeWire node, then portal.");
+        ImGui::BulletText("See docs/GAMEMODE.md — Deck QA still needed.");
+    } else {
+        ImGui::BulletText("Uses the system screen/window picker (portal).");
+        ImGui::BulletText("No custom source list — pick when you press Start.");
+    }
 
     ImGui::Separator();
     ImGui::TextUnformatted("Upscaler");
     const char* ups[] = {"CSR 1.2", "CSR 2.0"};
     ImGui::Combo("Upscaler", &st->upscaler_mode, ups, 2);
+    ImGui::TextDisabled("CSR AI / FSR2+ / XeSS: not on Linux yet (docs/BLOCKERS.md).");
 
     const char* qualities[] = {"Quality 1.5x", "Balanced 1.7x", "Performance 2.0x", "Ultra Performance 3.0x"};
     ImGui::Combo("Quality", &st->quality, qualities, 4);
@@ -81,8 +92,12 @@ void control_panel_draw(ControlState* st) {
 
     ImGui::Separator();
     if (ImGui::CollapsingHeader("About")) {
-        ImGui::TextWrapped("Frame generation (CSR 2.0): Desktop Mode only. Adds ~1 source frame of latency.");
-        ImGui::TextWrapped("Game Mode (gamescope) is not supported.");
+        ImGui::TextWrapped("Frame generation (CSR 2.0 InterpFast) adds ~1 source frame of latency.");
+        if (st->game_mode) {
+            ImGui::TextWrapped("Game Mode: experimental. Capture via gamescope PipeWire (preferred) or portal. Not hardware-verified on this preview.");
+        } else {
+            ImGui::TextWrapped("Desktop Mode: portal ScreenCast. Nested Game Mode: scripts/ufx-gamescope-launch.sh.");
+        }
         ImGui::TextWrapped("Capture-only: no process injection, no anti-cheat interaction.");
         ImGui::TextWrapped("DMA-BUF zero-copy import is best-effort. Otherwise memfd/CPU upload.");
         ImGui::TextWrapped("Numerically verified on Lavapipe. Live FG on Deck RADV still needs hardware testing.");

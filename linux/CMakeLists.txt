@@ -102,7 +102,8 @@ set(UFX_COMMON
   src/gpu/fg2_affine.cpp
   src/gpu/fg2_pipeline.cpp
   src/gpu/csr2_upscale.cpp
-  src/capture/portal_screencast.cpp)
+  src/capture/portal_screencast.cpp
+  src/platform/session_detect.cpp)
 
 add_library(ufx_core STATIC ${UFX_COMMON})
 target_include_directories(ufx_core PUBLIC
