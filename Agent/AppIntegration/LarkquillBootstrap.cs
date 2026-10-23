@@ -1,4 +1,4 @@
-// Copy into the app project (1.4.1-beta.10). Opens the LarkquillAI panel. Needs the beta.8+ app (Preset Assistant + anti-cheat APIs).
+// Copy into the app project (1.4.1-beta.11). Opens the LarkquillAI panel. Needs the beta.8+ app (Preset Assistant + anti-cheat APIs).
 // Wire it like WrenbyAI was: a "LarkquillAI" button that calls LarkquillBootstrap.Open(this). Nothing to shut down (no local server).
 using UniversalFrameFX.Agent.Cloud;
 using UniversalFrameFX.Agent.UI;
@@ -11,6 +11,7 @@ public static class LarkquillBootstrap
 
     public static void Open(MainForm form)
     {
+        if (!LarkquillPermission.EnsureAllowed(form)) return;
         if (_open is { IsDisposed: false }) { _open.Activate(); return; }
         var keys = new DpapiKeyStore();
         var paths = AgentPaths.Default();

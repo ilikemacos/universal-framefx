@@ -159,7 +159,7 @@ public sealed class LarkquillClient : IChatBackend
         using var req = new HttpRequestMessage(HttpMethod.Post, "chat/completions")
         { Content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json") };
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _key);
-        req.Headers.UserAgent.ParseAdd("Universal-FrameFX/1.4.1-beta.10");
+        req.Headers.UserAgent.ParseAdd("Universal-FrameFX/1.4.1-beta.11");
         using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
         if (!resp.IsSuccessStatusCode)
             throw LarkquillApiException.FromResponse((int)resp.StatusCode, await resp.Content.ReadAsStringAsync(ct));

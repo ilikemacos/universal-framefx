@@ -12,6 +12,7 @@ public static class AgentBootstrap
 
     public static void Open(MainForm form)
     {
+        if (!LarkquillPermission.EnsureAllowed(form)) return;
         var paths = AgentPaths.Default();
         if (!paths.Installed)
         {

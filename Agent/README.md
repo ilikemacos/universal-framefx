@@ -1,10 +1,12 @@
 # LarkquillAI in FrameFX
 
+**LarkquillAI panel (1.4.1 Beta11).** Opening LarkquillAI (cloud or Local) asks once: "Do we have permission to run LarkquillAI locally for FrameFX purposes?" Yes keeps today's behavior; No makes LarkquillAI unavailable (answer stored in `%LOCALAPPDATA%\FrameFX\agent\larkquill-local-permission.json`).
+
 **LarkquillAI panel (1.4.1 Beta10).** Chat about FrameFX in the app and let LarkquillAI build, apply and change presets. It uses the LarkquillAI API (`https://larkquillai.vercel.app/v1`, OpenAI-compatible) with your own API key, which is stored encrypted with Windows DPAPI for your account. Hobby (free) gets Quill Wren (fast) and Quill Scribe (the default), Pro ($7.99 one-time) adds Quill Sage, and Max ($12.99 one-time) unlocks every model including Quill Sovereign. Model ids from earlier betas still work. A locked model shows an Upgrade link. Every change goes through FrameFX's own checks (Sanitize + anti-cheat) and a Confirm. With no key or no connection, the panel falls back to the offline preset model.
 
 - `FrameFX.Agent/Cloud/`: `LarkquillClient` (streaming API client), model/plan table, `LarkquillSession` (cloud turn + offline fallback).
 - `FrameFX.Agent.UI/LarkquillPanel.cs`, `DpapiKeyStore.cs`: the panel and key storage.
-- `AppIntegration/LarkquillBootstrap.cs`, `MainForm.Larkquill.cs`: copy into the app; add the `_larkquill` button to the layout and call `WireLarkquill()`.
+- `AppIntegration/LarkquillBootstrap.cs`, `LarkquillPermission.cs`, `MainForm.Larkquill.cs`: copy into the app; add the `_larkquill` button to the layout and call `WireLarkquill()`. Both Open paths call `LarkquillPermission.EnsureAllowed`.
 
 ## LarkquillAI Local (experimental)
 
