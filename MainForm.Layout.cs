@@ -55,10 +55,10 @@ public sealed partial class MainForm
         var side = new TableLayoutPanel
         {
             Dock = DockStyle.Left,
-            Width = 200,
+            Width = 224,
             ColumnCount = 1,
-            BackColor = Theme.Bg,
-            Padding = new Padding(Theme.Space.L, Theme.Space.Xl, Theme.Space.L, Theme.Space.L),
+            BackColor = Theme.Side,
+            Padding = new Padding(Theme.Space.M, Theme.Space.Xxl, Theme.Space.M, Theme.Space.L),
             TabIndex = 0,
         };
         side.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
@@ -70,11 +70,11 @@ public sealed partial class MainForm
         var name = new Label
         {
             Text = "Universal-FrameFX",
-            Font = Theme.Semibold(11f),
+            Font = Theme.Semibold(11.5f),
             AutoSize = true,
             ForeColor = Theme.Text,
             TabStop = false,
-            Margin = new Padding(0),
+            Margin = new Padding(Theme.Space.M, 0, 0, 0),
         };
         var sub = new Label
         {
@@ -83,17 +83,17 @@ public sealed partial class MainForm
             ForeColor = Theme.TextMuted,
             Font = Theme.Small(),
             TabStop = false,
-            Margin = new Padding(0, Theme.Space.Xs, 0, Theme.Space.M),
+            Margin = new Padding(Theme.Space.M, Theme.Space.Xs, 0, Theme.Space.L),
         };
-        var sideRule = new Rule { Margin = new Padding(0, 0, 0, Theme.Space.M) };
+        var sideRule = new Rule { Quiet = true, Margin = new Padding(0, 0, 0, Theme.Space.S) };
         _nav.Dock = DockStyle.Fill;
-        _nav.Items.Add(new NavList.Item("home", "Home"));
-        _nav.Items.Add(new NavList.Item("upscaling", "Upscaling"));
-        _nav.Items.Add(new NavList.Item("frame-generation", "Frame generation"));
-        _nav.Items.Add(new NavList.Item("games", "Games"));
-        _nav.Items.Add(new NavList.Item("cpu", "CPU"));
-        _nav.Items.Add(new NavList.Item("advanced", "Advanced"));
-        _nav.Items.Add(new NavList.Item("about", "About"));
+        _nav.Add(new NavList.Item("home", "Home"));
+        _nav.Add(new NavList.Item("upscaling", "Upscaling"));
+        _nav.Add(new NavList.Item("frame-generation", "Frame generation"));
+        _nav.Add(new NavList.Item("games", "Games"));
+        _nav.Add(new NavList.Item("cpu", "CPU"));
+        _nav.Add(new NavList.Item("advanced", "Advanced"));
+        _nav.Add(new NavList.Item("about", "About"));
         _nav.SelectedChanged += (_, _) =>
         {
             if (_nav.SelectedIndex >= 0 && _nav.SelectedIndex < _nav.Items.Count)
@@ -104,11 +104,6 @@ public sealed partial class MainForm
         side.Controls.Add(sub, 0, 1);
         side.Controls.Add(sideRule, 0, 2);
         side.Controls.Add(_nav, 0, 3);
-        side.Paint += (_, e) =>
-        {
-            using var p = new Pen(Theme.Rule);
-            e.Graphics.DrawLine(p, side.Width - 1, 0, side.Width - 1, side.Height);
-        };
 
         var content = new Panel { Dock = DockStyle.Fill, BackColor = Theme.Bg, TabIndex = 1 };
         _updBar.Dock = DockStyle.Top;
@@ -129,7 +124,7 @@ public sealed partial class MainForm
         _bar.Dock = DockStyle.Bottom;
         _bar.AutoSize = true;
         _bar.ColumnCount = 1;
-        _bar.Padding = new Padding(20, 12, 20, 14);
+        _bar.Padding = new Padding(Theme.Space.Xxl, Theme.Space.M + 2, Theme.Space.Xxl, Theme.Space.L);
         _bar.BackColor = Theme.Bg;
         _bar.TabIndex = 2;
         _bar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));

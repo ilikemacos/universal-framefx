@@ -11,6 +11,8 @@ public static class Theme
 {
     public static readonly bool IsLight;
     public static readonly Color Bg;
+    public static readonly Color Side;
+    public static readonly Color AccentSoft;
     public static readonly Color Card;
     public static readonly Color CardBorder;
     public static readonly Color Border;
@@ -37,38 +39,48 @@ public static class Theme
         else if (string.Equals(env, "dark", StringComparison.OrdinalIgnoreCase)) IsLight = false;
         else IsLight = AppsUseLightTheme();
 
+        // Soft warm neutrals with a single periwinkle accent. Cards sit one step off the page colour,
+        // the sidebar one step the other way, so structure reads without heavy borders.
         if (IsLight)
         {
-            Bg = Color.FromArgb(0xfa, 0xfa, 0xfa);
-            Card = Bg;
-            CardBorder = Border = Rule = Color.FromArgb(0xdd, 0xdd, 0xdd);
+            Bg = Color.FromArgb(0xf6, 0xf5, 0xf2);
+            Side = Color.FromArgb(0xef, 0xed, 0xe8);
+            Card = Color.White;
+            CardBorder = Color.FromArgb(0xe7, 0xe4, 0xde);
+            Border = Color.FromArgb(0xdc, 0xd8, 0xd0);
+            Rule = Color.FromArgb(0xe8, 0xe5, 0xdf);
             Input = Color.White;
-            InputHover = Color.FromArgb(0xf0, 0xf0, 0xf0);
-            Muted = Color.FromArgb(0xef, 0xef, 0xef);
-            Text = Color.FromArgb(0x16, 0x16, 0x16);
-            TextMuted = Color.FromArgb(0x5f, 0x5f, 0x5f);
-            TextDim = Color.FromArgb(0xa8, 0xa8, 0xa8);
-            Accent = Primary = Focus = Color.FromArgb(0xff, 0x6a, 0x2b);
-            PrimaryHover = Color.FromArgb(0xf2, 0x5f, 0x20);
-            PrimaryText = Color.FromArgb(0x11, 0x11, 0x11);
+            InputHover = Color.FromArgb(0xf3, 0xf1, 0xec);
+            Muted = Color.FromArgb(0xe9, 0xe6, 0xe0);
+            Text = Color.FromArgb(0x1d, 0x1c, 0x1a);
+            TextMuted = Color.FromArgb(0x6b, 0x68, 0x62);
+            TextDim = Color.FromArgb(0xa9, 0xa5, 0x9d);
+            Accent = Primary = Focus = Color.FromArgb(0x5b, 0x5b, 0xd6);
+            AccentSoft = Color.FromArgb(0xe6, 0xe6, 0xfa);
+            PrimaryHover = Color.FromArgb(0x4d, 0x4d, 0xc6);
+            PrimaryText = Color.White;
             Green = Color.FromArgb(0x2e, 0x6b, 0x3a);
             Amber = Color.FromArgb(0x8a, 0x53, 0x00);
             Red = Color.FromArgb(0xb4, 0x23, 0x18);
         }
         else
         {
-            Bg = Color.FromArgb(0x11, 0x11, 0x11);
-            Card = Bg;
-            CardBorder = Border = Rule = Color.FromArgb(0x2a, 0x2a, 0x2a);
-            Input = Color.FromArgb(0x18, 0x18, 0x18);
-            InputHover = Color.FromArgb(0x20, 0x20, 0x20);
-            Muted = Color.FromArgb(0x1c, 0x1c, 0x1c);
-            Text = Color.FromArgb(0xec, 0xec, 0xec);
-            TextMuted = Color.FromArgb(0x9a, 0x9a, 0x9a);
-            TextDim = Color.FromArgb(0x5a, 0x5a, 0x5a);
-            Accent = Primary = Focus = Color.FromArgb(0xff, 0x6a, 0x2b);
-            PrimaryHover = Color.FromArgb(0xff, 0x7d, 0x45);
-            PrimaryText = Color.FromArgb(0x11, 0x11, 0x11);
+            Bg = Color.FromArgb(0x13, 0x13, 0x12);
+            Side = Color.FromArgb(0x18, 0x18, 0x17);
+            Card = Color.FromArgb(0x1c, 0x1c, 0x1b);
+            CardBorder = Color.FromArgb(0x27, 0x26, 0x24);
+            Border = Color.FromArgb(0x33, 0x32, 0x2f);
+            Rule = Color.FromArgb(0x26, 0x25, 0x23);
+            Input = Color.FromArgb(0x22, 0x21, 0x20);
+            InputHover = Color.FromArgb(0x29, 0x28, 0x26);
+            Muted = Color.FromArgb(0x25, 0x24, 0x22);
+            Text = Color.FromArgb(0xed, 0xeb, 0xe7);
+            TextMuted = Color.FromArgb(0x9e, 0x9a, 0x93);
+            TextDim = Color.FromArgb(0x5c, 0x59, 0x54);
+            Accent = Primary = Focus = Color.FromArgb(0x8b, 0x8d, 0xf2);
+            AccentSoft = Color.FromArgb(0x26, 0x26, 0x3a);
+            PrimaryHover = Color.FromArgb(0x9e, 0xa0, 0xf5);
+            PrimaryText = Color.FromArgb(0x13, 0x13, 0x12);
             Green = Color.FromArgb(0x8f, 0xbf, 0x98);
             Amber = Color.FromArgb(0xe0, 0xa6, 0x4a);
             Red = Color.FromArgb(0xe5, 0x67, 0x5a);
@@ -93,6 +105,11 @@ public static class Theme
         public const int Xs = 4, S = 8, M = 12, L = 16, Xl = 24, Xxl = 32;
     }
 
+    public static class Radius
+    {
+        public const float Control = 8, Card = 14;
+    }
+
     static bool Has(string name)
     {
         try { using var f = new FontFamily(name); return string.Equals(f.Name, name, StringComparison.OrdinalIgnoreCase); }
@@ -103,7 +120,7 @@ public static class Theme
     public static string DisplayFamily => _display ??= Has("Segoe UI Variable Display") ? "Segoe UI Variable Display" : Family;
     public static Font Body(float pt = 10f, FontStyle st = FontStyle.Regular) => new(Family, pt, st);
     public static Font Semibold(float pt) => new(Family == "Segoe UI" ? "Segoe UI Semibold" : Family, pt, Family == "Segoe UI" ? FontStyle.Regular : FontStyle.Bold);
-    public static Font Title() => Semibold(16f);
+    public static Font Title() => Semibold(18f);
     public static Font Small() => Body(9f);
     public static Font Caps() => Semibold(8.5f);
 
@@ -126,7 +143,7 @@ public static class Theme
     {
         var inset = RectangleF.Inflate(r, -1f * s, -1f * s);
         if (inset.Width < 2 || inset.Height < 2) return;
-        using var path = Round(inset, 4 * s);
+        using var path = Round(inset, Radius.Control * s);
         using var p = new Pen(Accent, 2f * s);
         g.DrawPath(p, path);
     }
@@ -228,7 +245,7 @@ public class PillButton : Button
                 drawBorder = true;
                 break;
         }
-        using (var path = Theme.Round(r, 4 * s))
+        using (var path = Theme.Round(r, r.Height / 2))
         {
             using var b = new SolidBrush(fill); g.FillPath(b, path);
             if (_kind != PillKind.Primary && ring)
@@ -372,12 +389,16 @@ public class FlatSlider : Control
 public class ToggleSwitch : CheckBox
 {
     bool _hover;
+    readonly Glide _knob;
     const TextFormatFlags TextFlags = TextFormatFlags.WordBreak | TextFormatFlags.Left | TextFormatFlags.NoPrefix;
     public ToggleSwitch()
     {
         SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
         AutoSize = false; Cursor = Cursors.Hand; Font = Theme.Body();
+        _knob = new Glide(this, 0f);
     }
+    protected override void OnCheckedChanged(EventArgs e) { _knob.To(Checked ? 1f : 0f, Created && Visible); base.OnCheckedChanged(e); }
+    protected override void Dispose(bool disposing) { if (disposing) _knob.Dispose(); base.Dispose(disposing); }
     int TextX
     {
         get { float s = Theme.Scale(this); return (int)(32 * s + 8 * s); }
@@ -430,13 +451,16 @@ public class ToggleSwitch : CheckBox
         float w = 32 * s, h = 18 * s, x = 2 * s;
         float y = top + (Font.Height - h) / 2f;
         var track = new RectangleF(x, y, w, h);
-        using (var p = Theme.Round(track, 4 * s))
+        float k = _knob.Value;
+        var off = _hover ? Theme.InputHover : Theme.Input;
+        using (var p = Theme.Round(track, h / 2))
         {
-            using var b = new SolidBrush(Checked ? Theme.Text : (_hover ? Theme.InputHover : Theme.Input)); g.FillPath(b, p);
-            if (!Checked) { using var bp = new Pen(Theme.TextDim, 1f * s); g.DrawPath(bp, p); }
+            using var b = new SolidBrush(Enabled ? Glide.Mix(off, Theme.Accent, k) : off); g.FillPath(b, p);
+            if (k < 0.99f) { using var bp = new Pen(Glide.Mix(Theme.Border, Theme.Accent, k), 1f * s); g.DrawPath(bp, p); }
         }
-        float d = 12 * s, kx = Checked ? track.Right - d - 3 * s : track.X + 3 * s, ky = y + (h - d) / 2;
-        using (var b = new SolidBrush(Checked ? Theme.Bg : (Enabled ? Theme.Text : Theme.TextDim))) g.FillEllipse(b, kx, ky, d, d);
+        float d = 12 * s, x0 = track.X + 3 * s, x1 = track.Right - d - 3 * s, kx = x0 + (x1 - x0) * k, ky = y + (h - d) / 2;
+        var knob = Enabled ? Glide.Mix(Theme.TextMuted, Theme.PrimaryText, k) : Theme.TextDim;
+        using (var b = new SolidBrush(knob)) g.FillEllipse(b, kx, ky, d, d);
         TextRenderer.DrawText(g, Text, Font, new Rectangle(tx, top, textW, textH), Enabled ? Theme.Text : Theme.TextDim, TextFlags);
         if (Focused && ShowFocusCues) Theme.DrawFocus(g, new RectangleF(0.5f, 0.5f, Width - 1.5f, Height - 1.5f), s);
     }
@@ -518,7 +542,7 @@ public class DarkCombo : ComboBox
         g.SmoothingMode = SmoothingMode.AntiAlias;
         float s = Theme.Scale(this);
         var r = new RectangleF(0.5f, 0.5f, Width - 1.5f, Height - 1.5f);
-        using (var p = Theme.Round(r, 4 * s))
+        using (var p = Theme.Round(r, Theme.Radius.Control * s))
         {
             using var b = new SolidBrush(_hover ? Theme.InputHover : Theme.Input); g.FillPath(b, p);
             Color bc = Focused || DroppedDown ? Theme.Text : Theme.Rule;
