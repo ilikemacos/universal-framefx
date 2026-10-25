@@ -11,6 +11,7 @@ public sealed class NavList : Control
     int _selected, _hot = -1;
     Font? _selFont;
     bool _keyboardFocus;
+    readonly Glide _pill;
 
     public IReadOnlyList<Item> Items => _items;
 
@@ -32,6 +33,7 @@ public sealed class NavList : Control
             int v = Math.Clamp(value, 0, _items.Count - 1);
             if (v == _selected) return;
             _selected = v;
+            _pill.To(v, Created && Visible);
             SelectedChanged?.Invoke(this, EventArgs.Empty);
             Invalidate();
             AccessibilityNotifyClients(AccessibleEvents.Selection, v);
@@ -43,13 +45,20 @@ public sealed class NavList : Control
         SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw | ControlStyles.Selectable, true);
         TabStop = true;
         Font = Theme.Body();
-        BackColor = Theme.Bg;
+        BackColor = Theme.Side;
         ForeColor = Theme.Text;
         AccessibleRole = AccessibleRole.PageTabList;
         AccessibleName = "Pages";
+        _pill = new Glide(this, 0f);
     }
 
-    int RowH => Math.Max(1, (int)(Font.Height * 2.6f));
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing) { _pill.Dispose(); _selFont?.Dispose(); }
+        base.Dispose(disposing);
+    }
+
+    int RowH => Math.Max(1, (int)(Font.Height * 2.5f));
     Font SelFont => _selFont ??= Theme.Semibold(Font.SizeInPoints);
 
     protected override void OnFontChanged(EventArgs e)
@@ -123,29 +132,36 @@ public sealed class NavList : Control
         g.SmoothingMode = SmoothingMode.AntiAlias;
         float s = Theme.Scale(this);
         int rh = RowH;
+        float inset = 2 * s, radius = Theme.Radius.Control * s;
+        RectangleF Pill(float y) => new(inset, y + inset, Width - 2 * inset, rh - 2 * inset);
+
+        if (_hot >= 0 && _hot != _selected)
+        {
+            using var hp = Theme.Round(Pill(_hot * rh), radius);
+            using var hb = new SolidBrush(Glide.Mix(BackColor, Theme.Muted, 0.6f));
+            g.FillPath(hb, hp);
+        }
+        if (_items.Count > 0)
+        {
+            // The selection pill slides between rows instead of jumping.
+            var sel = Pill(_pill.Value * rh);
+            using (var sp = Theme.Round(sel, radius))
+            using (var sb = new SolidBrush(Theme.Card))
+                g.FillPath(sb, sp);
+            float dot = 6 * s;
+            using var db = new SolidBrush(Theme.Accent);
+            g.FillEllipse(db, sel.X + 12 * s, sel.Y + (sel.Height - dot) / 2, dot, dot);
+        }
         for (int i = 0; i < _items.Count; i++)
         {
             var row = new Rectangle(0, i * rh, Width, rh);
-            if (i == _hot && i != _selected)
-            {
-                using var hb = new SolidBrush(Theme.Muted);
-                g.FillRectangle(hb, row);
-            }
-            if (i == _selected)
-            {
-                using var bar = new SolidBrush(Theme.Accent);
-                g.FillRectangle(bar, 0, row.Y + (int)(8 * s), (int)Math.Max(2, 3 * s), rh - (int)(16 * s));
-            }
-            var font = i == _selected ? SelFont : Font;
-            var fg = i == _selected ? Theme.Text : Theme.TextMuted;
-            TextRenderer.DrawText(g, _items[i].Text, font, new Rectangle(row.X + (int)(12 * s), row.Y, row.Width - (int)(16 * s), row.Height), fg, TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.EndEllipsis);
-            if (Focused && _keyboardFocus && ShowFocusCues && i == _selected)
-            {
-                g.SmoothingMode = SmoothingMode.None;
-                using var op = new Pen(Theme.Text, 1f);
-                g.DrawRectangle(op, row.X, row.Y, Math.Max(0, row.Width - 1), Math.Max(0, row.Height - 1));
-                g.SmoothingMode = SmoothingMode.AntiAlias;
-            }
+            bool on = i == _selected;
+            var fg = on ? Theme.Text : i == _hot ? Theme.Text : Theme.TextMuted;
+            int tx = (int)(28 * s);
+            TextRenderer.DrawText(g, _items[i].Text, on ? SelFont : Font, new Rectangle(tx, row.Y, row.Width - tx - (int)(8 * s), row.Height), fg,
+                TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
+            if (Focused && _keyboardFocus && ShowFocusCues && on)
+                Theme.DrawFocus(g, Pill(row.Y), s);
         }
     }
 
@@ -187,6 +203,102 @@ public sealed class NavList : Control
     }
 }
 
+/// <summary>Eases one float toward a target and repaints its owner while it moves. The timer only runs during a
+/// transition (about 160 ms), so idle controls cost nothing.</summary>
+public sealed class Glide : IDisposable
+{
+    readonly Control _owner;
+    readonly System.Windows.Forms.Timer _timer = new() { Interval = 15 };
+    float _from, _to;
+    long _start;
+    const float DurationMs = 160f;
+
+    public float Value { get; private set; }
+
+    public Glide(Control owner, float initial)
+    {
+        _owner = owner;
+        Value = _from = _to = initial;
+        _timer.Tick += (_, _) => Step();
+    }
+
+    public void To(float target, bool animate = true)
+    {
+        if (target == _to && (_timer.Enabled || Value == target)) return;
+        _to = target;
+        if (!animate) { _timer.Stop(); Value = _from = target; _owner.Invalidate(); return; }
+        _from = Value;
+        _start = Environment.TickCount64;
+        _timer.Start();
+    }
+
+    void Step()
+    {
+        float t = Math.Clamp((Environment.TickCount64 - _start) / DurationMs, 0f, 1f);
+        float e = 1f - (1f - t) * (1f - t) * (1f - t); // ease-out cubic
+        Value = _from + (_to - _from) * e;
+        if (t >= 1f) { Value = _to; _timer.Stop(); }
+        _owner.Invalidate();
+    }
+
+    public static Color Mix(Color a, Color b, float t)
+    {
+        t = Math.Clamp(t, 0f, 1f);
+        return Color.FromArgb(
+            (int)(a.A + (b.A - a.A) * t), (int)(a.R + (b.R - a.R) * t),
+            (int)(a.G + (b.G - a.G) * t), (int)(a.B + (b.B - a.B) * t));
+    }
+
+    public void Dispose() => _timer.Dispose();
+}
+
+/// <summary>Rounded surface for a settings group. Children that were given the page colour are switched to the
+/// card colour once, when the card is attached.</summary>
+public sealed class RoundCard : TableLayoutPanel
+{
+    public RoundCard()
+    {
+        SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
+        BackColor = Theme.Card;
+        ColumnCount = 1;
+        ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        AutoSize = true;
+        AutoSizeMode = AutoSizeMode.GrowAndShrink;
+        Anchor = AnchorStyles.Left | AnchorStyles.Right;
+        Padding = new Padding(Theme.Space.Xl, Theme.Space.L + 2, Theme.Space.Xl, Theme.Space.Xs);
+        Margin = new Padding(0);
+        TabStop = false;
+    }
+
+    protected override void OnControlAdded(ControlEventArgs e)
+    {
+        Adopt(e.Control);
+        base.OnControlAdded(e);
+    }
+
+    static void Adopt(Control? c)
+    {
+        if (c == null) return;
+        if (c.BackColor == Theme.Bg) c.BackColor = Theme.Card;
+        foreach (Control ch in c.Controls) Adopt(ch);
+        c.ControlAdded -= OnChildAdded;
+        c.ControlAdded += OnChildAdded;
+    }
+    static void OnChildAdded(object? sender, ControlEventArgs e) => Adopt(e.Control);
+
+    protected override void OnPaintBackground(PaintEventArgs e)
+    {
+        var g = e.Graphics;
+        g.Clear(Parent?.BackColor ?? Theme.Bg);
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        float s = Theme.Scale(this);
+        var r = new RectangleF(0.5f, 0.5f, Width - 1.5f, Height - 1.5f);
+        using var path = Theme.Round(r, Theme.Radius.Card * s);
+        using (var b = new SolidBrush(Theme.Card)) g.FillPath(b, path);
+        using (var p = new Pen(Theme.CardBorder, 1f)) g.DrawPath(p, path);
+    }
+}
+
 public sealed class GroupLabel : Label
 {
     public GroupLabel(string text)
@@ -223,10 +335,12 @@ public sealed class Rule : Control
         Margin = new Padding(0);
         Fit();
     }
+    /// <summary>Keeps the spacing but draws nothing; used between card groups where a line would be noise.</summary>
+    public bool Quiet { get; init; }
     void Fit() => Height = Math.Max(1, (int)Math.Round(Theme.Scale(this)));
     protected override void OnFontChanged(EventArgs e) { base.OnFontChanged(e); Fit(); }
     protected override void OnDpiChangedAfterParent(EventArgs e) { base.OnDpiChangedAfterParent(e); Fit(); }
-    protected override void OnPaint(PaintEventArgs e) => e.Graphics.Clear(Theme.Rule);
+    protected override void OnPaint(PaintEventArgs e) => e.Graphics.Clear(Quiet ? Parent?.BackColor ?? Theme.Bg : Theme.Rule);
 }
 
 public sealed class FieldLabel : Label
@@ -431,7 +545,7 @@ public sealed class PageView : TableLayoutPanel
         Margin = new Padding(0);
         BackColor = Theme.Bg;
         TabStop = false;
-        Padding = new Padding(Theme.Space.Xxl, Theme.Space.Xl, Theme.Space.Xxl, Theme.Space.Xxl);
+        Padding = new Padding(Theme.Space.Xxl + Theme.Space.S, Theme.Space.Xxl, Theme.Space.Xxl + Theme.Space.S, Theme.Space.Xxl + Theme.Space.L);
         ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         var t = new Label
         {
@@ -463,7 +577,7 @@ public sealed class PageView : TableLayoutPanel
         }
     }
 
-    internal static Rule GroupRule() => new() { Margin = new Padding(0, Theme.Space.Xl, 0, Theme.Space.L) };
+    internal static Rule GroupRule() => new() { Quiet = true, Margin = new Padding(0, Theme.Space.Xl, 0, Theme.Space.L) };
 
     static int TrailingBottom(Control c)
     {
@@ -509,18 +623,8 @@ public sealed class PageView : TableLayoutPanel
     {
         if (Controls.Count > _headerCount)
             Controls.Add(GroupRule());
-        Controls.Add(new GroupLabel(caps));
-        var body = new TableLayoutPanel
-        {
-            ColumnCount = 1,
-            AutoSize = true,
-            AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            Anchor = AnchorStyles.Left | AnchorStyles.Right,
-            Margin = new Padding(0),
-            BackColor = Theme.Bg,
-            TabStop = false,
-        };
-        body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        Controls.Add(new GroupLabel(caps) { Margin = new Padding(Theme.Space.Xs, 0, 0, Theme.Space.S) });
+        var body = new RoundCard();
         Controls.Add(body);
         return body;
     }
