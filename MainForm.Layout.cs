@@ -87,13 +87,13 @@ public sealed partial class MainForm
         };
         var sideRule = new Rule { Margin = new Padding(0, 0, 0, Theme.Space.M) };
         _nav.Dock = DockStyle.Fill;
-        _nav.Items.Add(new NavList.Item("home", "Home"));
-        _nav.Items.Add(new NavList.Item("upscaling", "Upscaling"));
-        _nav.Items.Add(new NavList.Item("frame-generation", "Frame generation"));
-        _nav.Items.Add(new NavList.Item("games", "Games"));
-        _nav.Items.Add(new NavList.Item("cpu", "CPU"));
-        _nav.Items.Add(new NavList.Item("advanced", "Advanced"));
-        _nav.Items.Add(new NavList.Item("about", "About"));
+        _nav.Add(new NavList.Item("home", "Home"));
+        _nav.Add(new NavList.Item("upscaling", "Upscaling"));
+        _nav.Add(new NavList.Item("frame-generation", "Frame generation"));
+        _nav.Add(new NavList.Item("games", "Games"));
+        _nav.Add(new NavList.Item("cpu", "CPU"));
+        _nav.Add(new NavList.Item("advanced", "Advanced"));
+        _nav.Add(new NavList.Item("about", "About"));
         _nav.SelectedChanged += (_, _) =>
         {
             if (_nav.SelectedIndex >= 0 && _nav.SelectedIndex < _nav.Items.Count)

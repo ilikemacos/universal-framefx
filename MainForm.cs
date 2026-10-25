@@ -498,6 +498,21 @@ public sealed partial class MainForm : Form
     }
 
 
+    /// <summary>Tells the update helper this version came up. The continuation is posted to the UI thread as a normal
+    /// message rather than WM_TIMER (which the queue only delivers when nothing else is pending), so a busy UI can delay
+    /// it but never swallow it, and a failure to write is logged instead of silently triggering a rollback.</summary>
+    async Task ConfirmStartedAsync(string marker)
+    {
+        await Task.Delay(2000);
+        try
+        {
+            File.WriteAllText(marker, Version);
+            Diag.Mark("update marker written");
+        }
+        catch (Exception ex) { Diag.WriteCrash("update marker", ex); }
+        Diag.FlushStartup();
+    }
+
     protected override void OnShown(EventArgs e)
     {
         base.OnShown(e);
@@ -505,16 +520,11 @@ public sealed partial class MainForm : Form
         BeginInvoke(new Action(() => { Diag.Mark("form: first idle after show"); Diag.FlushStartup(); }));
         if (UpdatedFrom != null) ShowUpdBanner($"Updated to {DisplayVersion} (from {UpdatedFrom}).", false);
         if (UpdateFailed != null) { ShowUpdBanner($"The update to {UpdateFailed} did not start correctly, so version {Version} was restored.", false); _ui.FailedUpdate = UpdateFailed; SaveUi(); }
-        if (UpdateMarker != null)
-        {
-            var t = new System.Windows.Forms.Timer { Interval = 2000 };
-            t.Tick += (_, _) => { t.Stop(); try { File.WriteAllText(UpdateMarker, Version); } catch { } };
-            t.Start();
-        }
+        if (UpdateMarker != null) _ = ConfirmStartedAsync(UpdateMarker);
         if (_ui.AutoCheckUpdates && !QuietShot && Environment.GetEnvironmentVariable("UFX_UITEST") is not { Length: > 0 })
         {
             var t2 = new System.Windows.Forms.Timer { Interval = 4000 };
-            t2.Tick += (_, _) => { t2.Stop(); _ = CheckForUpdateAsync(false); };
+            t2.Tick += (_, _) => { t2.Stop(); t2.Dispose(); _ = CheckForUpdateAsync(false); };
             t2.Start();
         }
 
@@ -2004,7 +2014,11 @@ public sealed class UiState
         try
         {
             Directory.CreateDirectory(System.IO.Path.GetDirectoryName(PathOf)!);
-            File.WriteAllText(PathOf, JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true }));
+            // Write then swap, so a crash or power loss mid-save can't leave a truncated ui.json that Load() would
+            // silently replace with defaults.
+            string tmp = PathOf + ".tmp";
+            File.WriteAllText(tmp, JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true }));
+            File.Move(tmp, PathOf, true);
         }
         catch { }
     }

@@ -8,6 +8,7 @@ namespace UniversalFrameFX.Agent.App;
 public static class AgentBootstrap
 {
     static LlamaServerHost? _host; // one server per app run; disposed in MainForm.OnFormClosed
+    static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(20) }; // shared: one per chat leaked sockets
 
     public static void Shutdown() { _host?.Dispose(); _host = null; }
 
@@ -30,7 +31,7 @@ public static class AgentBootstrap
             long reserve = form.AgentIsRunning ? ContextSizer.GamingReserveBytes : ContextSizer.DefaultReserveBytes;
             var plan = _host.Plan ?? await _host.StartAsync(vram, reserveBytes: reserve);
             var prompts = new WinFormsPrompts(chat!);
-            var http = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+            var http = _http;
             var settings = AgentSettings.Load(paths.SettingsFile);
             var tools = DefaultTools.Build(prompts, prompts, new FrameFxHostAdapter(form), new PresetAiEngine(),
                 DefaultTools.Search(http, settings.SearchProvider, settings.SearxngUrl, settings.SearchApiKey),
@@ -48,6 +49,15 @@ public sealed class AgentSettings
     public string? SearxngUrl { get; set; }
     public string? SearchApiKey { get; set; }  // stored per-user in %LOCALAPPDATA%; consider DPAPI (ProtectedData) before shipping
     public long SessionTokenLimit { get; set; } = 262_144;
-    public static AgentSettings Load(string file) =>
-        File.Exists(file) ? System.Text.Json.JsonSerializer.Deserialize<AgentSettings>(File.ReadAllText(file)) ?? new() : new();
+    public static AgentSettings Load(string file)
+    {
+        // A hand-edited or half-written settings file must not take the chat window down with it.
+        try
+        {
+            if (File.Exists(file))
+                return System.Text.Json.JsonSerializer.Deserialize<AgentSettings>(File.ReadAllText(file)) ?? new();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException) { }
+        return new();
+    }
 }

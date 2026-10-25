@@ -42,7 +42,10 @@ public sealed class WindowCapture : IDisposable
 
     public static bool IsSupported()
     {
-        try { return GraphicsCaptureSession.IsSupported(); } catch (TypeLoadException) { return false; }
+        // Throws COMException (e.g. 0x80070424, service not installed) on stripped or broken WinRT installs;
+        // that used to escape RefreshSources and kill the MainForm constructor.
+        try { return GraphicsCaptureSession.IsSupported(); }
+        catch (Exception ex) when (ex is TypeLoadException or COMException or InvalidCastException) { return false; }
     }
 
     public WindowCapture(ID3D11Device device, IntPtr hwnd, Action<Direct3D11CaptureFrame> onFrame, bool captureCursor = true)

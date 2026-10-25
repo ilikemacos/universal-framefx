@@ -12,7 +12,14 @@ public sealed class NavList : Control
     Font? _selFont;
     bool _keyboardFocus;
 
-    public IList<Item> Items => _items;
+    public IReadOnlyList<Item> Items => _items;
+
+    public void Add(Item item)
+    {
+        _items.Add(item);
+        Fit();
+        Invalidate();
+    }
     public event EventHandler? SelectedChanged;
     public event EventHandler? EnterPressed;
 
@@ -52,7 +59,13 @@ public sealed class NavList : Control
         Fit();
     }
     protected override void OnDpiChangedAfterParent(EventArgs e) { base.OnDpiChangedAfterParent(e); Fit(); }
-    void Fit() { Height = Math.Max(RowH, _items.Count * RowH); Invalidate(); }
+    // Only touch Height when it actually changes. ResizeRedraw repaints on a real resize, so no Invalidate here:
+    // this used to run from OnPaint and invalidate unconditionally, which repainted forever and starved WM_TIMER.
+    void Fit()
+    {
+        int h = Math.Max(RowH, _items.Count * RowH);
+        if (Height != h) Height = h;
+    }
 
     protected override AccessibleObject CreateAccessibilityInstance() => new NavAccessible(this);
 
@@ -105,7 +118,6 @@ public sealed class NavList : Control
     protected override void OnLostFocus(EventArgs e) { Invalidate(); base.OnLostFocus(e); }
     protected override void OnPaint(PaintEventArgs e)
     {
-        Fit();
         var g = e.Graphics;
         g.Clear(BackColor);
         g.SmoothingMode = SmoothingMode.AntiAlias;
