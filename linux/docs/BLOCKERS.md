@@ -29,8 +29,8 @@ Evidence recorded 2026-10-23 on the build box.
 
 ## LarkquillAI
 
-* Windows has a local-permission gate + panel. Linux has **no** Larkquill UI.
-* **Decision:** omit (do not fake a chat panel).
+* Windows has a local-permission gate + panel. Linux now has the same gate: a LarkquillAI button asks the same Yes/No question once, saves the answer to `larkquill-local-permission.json` under `$FRAMEFX_AGENT_DIR` or `~/.local/share/FrameFX/agent`, and shows "LarkquillAI is unavailable." after a No.
+* **Decision:** no native chat panel yet. After a Yes the button opens LarkquillAI in the browser instead of faking a panel.
 
 ## DLSS
 

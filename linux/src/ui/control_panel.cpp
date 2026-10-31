@@ -1,6 +1,7 @@
 #include "control_panel.h"
 
 #include "imgui.h"
+#include "platform/larkquill_permission.h"
 #include "ufx_version.h"
 
 #include <algorithm>
@@ -23,6 +24,52 @@ int fg_max_multiplier(float refresh_hz, float source_fps) {
     if (m > 4) m = 4;
     if (r < 4.f && m >= 4) m = 3;
     return m;
+}
+
+static void larkquill_open(ControlState* st) {
+    if (larkquill::open_web()) st->status = "Opened LarkquillAI in your browser.";
+    else st->status = std::string("Could not open a browser. LarkquillAI is at ") + larkquill::kUrl;
+}
+
+static void larkquill_draw(ControlState* st) {
+    if (st->larkquill_clicked) {
+        st->larkquill_clicked = false;
+        std::string root = larkquill::agent_root();
+        larkquill::Answer a = larkquill::load(root);
+        if (a == larkquill::Answer::Yes) larkquill_open(st);
+        else if (a == larkquill::Answer::No) ImGui::OpenPopup("LarkquillAI##off");
+        else ImGui::OpenPopup("LarkquillAI##ask");
+    }
+
+    bool ask_no = false;
+    ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    if (ImGui::BeginPopupModal("LarkquillAI##ask", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::TextUnformatted(larkquill::kQuestion);
+        ImGui::Spacing();
+        if (ImGui::Button("Yes", ImVec2(90, 0))) {
+            larkquill::save(larkquill::agent_root(), larkquill::Answer::Yes);
+            ImGui::CloseCurrentPopup();
+            larkquill_open(st);
+        }
+        ImGui::SameLine();
+        if (ImGui::IsWindowAppearing()) ImGui::SetKeyboardFocusHere();
+        if (ImGui::Button("No", ImVec2(90, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+            larkquill::save(larkquill::agent_root(), larkquill::Answer::No);
+            ImGui::CloseCurrentPopup();
+            ask_no = true;
+        }
+        ImGui::EndPopup();
+    }
+    if (ask_no) ImGui::OpenPopup("LarkquillAI##off");
+
+    ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    if (ImGui::BeginPopupModal("LarkquillAI##off", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::TextUnformatted(larkquill::kUnavailable);
+        ImGui::Spacing();
+        if (ImGui::IsWindowAppearing()) ImGui::SetKeyboardFocusHere();
+        if (ImGui::Button("OK", ImVec2(90, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+    }
 }
 
 void control_panel_draw(ControlState* st) {
@@ -86,6 +133,12 @@ void control_panel_draw(ControlState* st) {
     if (st->fg_mode != 0) {
         ImGui::Text("latency +%.1fms (1 source frame)", st->added_latency_ms);
     }
+
+    ImGui::Separator();
+    if (ImGui::Button("LarkquillAI", ImVec2(120, 0))) st->larkquill_clicked = true;
+    ImGui::SameLine();
+    ImGui::TextDisabled("Asks first, then opens in your browser.");
+    larkquill_draw(st);
 
     ImGui::Separator();
     ImGui::TextWrapped("%s", st->status.c_str());
