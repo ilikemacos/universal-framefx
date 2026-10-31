@@ -6,7 +6,7 @@ gamescope PipeWire video node, then portal. Present via SDL2 Vulkan.
 Upscalers: **CSR 1.2** (EASU + RCAS) and **CSR 2.0**. Frame generation:
 **CSR 2.0 InterpFast** 2x/3x (4x when refresh/source fps >= 4).
 
-Version: **1.4.1-linux-preview.3**
+Version: **1.4.1-linux-preview.4**
 
 ## Game Mode (experimental)
 
@@ -42,7 +42,7 @@ sudo apt-get install -y libvulkan-dev mesa-vulkan-drivers glslc \
 
 ## CLI
 
-* `--version` — `Universal-FrameFX 1.4.1-linux-preview.3`
+* `--version` — `Universal-FrameFX 1.4.1-linux-preview.4`
 * `--selftest` — headless GPU self-test (Lavapipe OK)
 * `--session-info` — print Desktop vs Game Mode detection
 * `--capture-fail-soft` — if capture fails, continue with null (black) capture
