@@ -17,6 +17,7 @@ struct ControlState {
     std::string status = "Click Start to pick a screen or window.";
     bool start_clicked = false;
     bool stop_clicked = false;
+    bool larkquill_clicked = false;
     bool show_about = false;
     std::string notice;
     bool game_mode = false;

@@ -18,7 +18,7 @@ Version: **1.4.1-linux-preview.4**
 
 ## Honest limits
 
-* CSR AI / FSR2+ / XeSS / LarkquillAI / DLSS: **not** on Linux yet — see `docs/BLOCKERS.md`.
+* CSR AI / FSR2+ / XeSS / DLSS: **not** on Linux yet. LarkquillAI has the Windows permission prompt and opens in the browser — see `docs/BLOCKERS.md`.
 * Capture-only: no process injection, no anti-cheat interaction.
 * Frame generation adds ~1 source frame of latency (`HoldDelay`).
 * DMA-BUF zero-copy is best-effort; else memfd/CPU upload.

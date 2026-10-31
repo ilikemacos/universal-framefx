@@ -102,7 +102,8 @@ set(UFX_COMMON
   src/gpu/fg2_pipeline.cpp
   src/gpu/csr2_upscale.cpp
   src/capture/portal_screencast.cpp
-  src/platform/session_detect.cpp)
+  src/platform/session_detect.cpp
+  src/platform/larkquill_permission.cpp)
 
 add_library(ufx_core STATIC ${UFX_COMMON})
 target_include_directories(ufx_core PUBLIC
@@ -159,6 +160,9 @@ target_link_libraries(gen_synthetic PRIVATE m)
 add_executable(csr2_numeric_test tests/csr2_numeric_test.cpp)
 add_dependencies(csr2_numeric_test ufx_shaders)
 target_link_libraries(csr2_numeric_test PRIVATE ufx_core)
+
+add_executable(larkquill_permission_test tests/larkquill_permission_test.cpp src/platform/larkquill_permission.cpp)
+target_include_directories(larkquill_permission_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 install(TARGETS ufx-linux RUNTIME DESTINATION bin)
 install(DIRECTORY ${SHADER_OUT_DIR}/ DESTINATION share/ufx-linux/shaders)
