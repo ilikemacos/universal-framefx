@@ -92,7 +92,6 @@ add_library(imgui STATIC
   ${IMGUI_DIR}/backends/imgui_impl_sdl2.cpp
   ${IMGUI_DIR}/backends/imgui_impl_vulkan.cpp)
 target_include_directories(imgui PUBLIC ${IMGUI_DIR} ${IMGUI_DIR}/backends ${SDL2_INCLUDE_DIRS})
-target_compile_definitions(imgui PUBLIC IMGUI_IMPL_VULKAN_NO_PROTOTYPES=0)
 target_link_libraries(imgui PUBLIC ${SDL2_LIBRARIES} ${VULKAN_LIBRARIES})
 
 set(UFX_COMMON

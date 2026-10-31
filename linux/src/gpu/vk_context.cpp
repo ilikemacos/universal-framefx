@@ -108,8 +108,22 @@ bool vk_device_create(VkContext* ctx, VkSurfaceKHR present_surface, std::string*
         VkPhysicalDeviceProperties props;
     };
     std::vector<Candidate> candidates;
+    std::string rejected;
 
     for (auto p : physs) {
+        VkPhysicalDeviceProperties dev{};
+        vkGetPhysicalDeviceProperties(p, &dev);
+        uint32_t nde = 0;
+        vkEnumerateDeviceExtensionProperties(p, nullptr, &nde, nullptr);
+        std::vector<VkExtensionProperties> dexts(nde);
+        vkEnumerateDeviceExtensionProperties(p, nullptr, &nde, dexts.data());
+        std::string missing;
+        if (dev.apiVersion < VK_API_VERSION_1_2) missing += " Vulkan 1.2";
+        if (present_surface && !has_ext(dexts, VK_KHR_SWAPCHAIN_EXTENSION_NAME)) missing += " " VK_KHR_SWAPCHAIN_EXTENSION_NAME;
+        if (!missing.empty()) {
+            rejected += std::string("\n") + dev.deviceName + " lacks" + missing;
+            continue;
+        }
         uint32_t nq = 0;
         vkGetPhysicalDeviceQueueFamilyProperties(p, &nq, nullptr);
         std::vector<VkQueueFamilyProperties> qf(nq);
@@ -133,8 +147,8 @@ bool vk_device_create(VkContext* ctx, VkSurfaceKHR present_surface, std::string*
     if (candidates.empty()) {
         if (err) *err = present_surface
             ? "No Vulkan device exposes a graphics+compute queue that can present "
-              "to this window (checked all physical devices)."
-            : "No Vulkan device exposes a graphics+compute queue.";
+              "to this window (checked all physical devices)." + rejected
+            : "No Vulkan device exposes a graphics+compute queue." + rejected;
         return false;
     }
 
