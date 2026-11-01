@@ -128,9 +128,13 @@ void control_panel_draw(ControlState* st) {
 
     ImGui::Separator();
     ImGui::TextUnformatted("Upscaler");
-    const char* ups[] = {"CSR 1.2", "CSR 2.0"};
-    ImGui::Combo("Upscaler", &st->upscaler_mode, ups, 2);
-    ImGui::TextDisabled("CSR AI / FSR2+ / XeSS: not on Linux yet (docs/BLOCKERS.md).");
+    const char* ups[] = {"CSR 1.2", "CSR 2.0", "CSR AI"};
+    ImGui::Combo("Upscaler", &st->upscaler_mode, ups, 3);
+    if (st->upscaler_mode == 2 && !st->csr_ai_available) {
+        st->upscaler_mode = 1;
+        st->status = st->csr_ai_notice;
+    }
+    ImGui::TextDisabled("CSR AI needs Models/csr_ai_x2.weights.json. FSR2+ / XeSS: not on Linux yet.");
 
     const char* qualities[] = {"Quality 1.5x", "Balanced 1.7x", "Performance 2.0x", "Ultra Performance 3.0x"};
     ImGui::Combo("Quality", &st->quality, qualities, 4);

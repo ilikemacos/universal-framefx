@@ -1,0 +1,21 @@
+#version 450
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(push_constant) uniform CsrAiParams {
+    float srcW, srcH, dstW, dstH;
+    float sharpness, inC, outC, actLeaky;
+    float weightOff, biasOff, lumaR, lumaG;
+    float lumaB, texW, texH, dilation;
+    float outChOff, accumulate, actRelu;
+} pc;
+
+layout(binding = 1) uniform sampler2D tColor;
+layout(binding = 4, rgba32f) uniform writeonly image2D uOut;
+
+void main() {
+    ivec2 id = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 sz = ivec2(int(pc.dstW), int(pc.dstH));
+    if (id.x >= sz.x || id.y >= sz.y) return;
+    vec2 uv = (vec2(id) + 0.5) / vec2(pc.dstW, pc.dstH);
+    imageStore(uOut, id, texture(tColor, uv));
+}

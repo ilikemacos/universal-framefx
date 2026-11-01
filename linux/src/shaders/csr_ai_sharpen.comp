@@ -1,0 +1,42 @@
+#version 450
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(push_constant) uniform CsrAiParams {
+    float srcW, srcH, dstW, dstH;
+    float sharpness, inC, outC, actLeaky;
+    float weightOff, biasOff, lumaR, lumaG;
+    float lumaB, texW, texH, dilation;
+    float outChOff, accumulate, actRelu;
+} pc;
+
+layout(binding = 1) uniform sampler2D tColor;
+layout(binding = 4, rgba32f) uniform writeonly image2D uOut;
+
+float safeRcp(float x) { return x == 0.0 ? 0.0 : 1.0 / x; }
+
+void main() {
+    ivec2 id = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 sz = ivec2(int(pc.dstW), int(pc.dstH));
+    if (id.x >= sz.x || id.y >= sz.y) return;
+    ivec2 hi = sz - 1;
+    vec3 e = texelFetch(tColor, id, 0).rgb;
+    vec3 b = texelFetch(tColor, clamp(id + ivec2(0, -1), ivec2(0), hi), 0).rgb;
+    vec3 d = texelFetch(tColor, clamp(id + ivec2(-1, 0), ivec2(0), hi), 0).rgb;
+    vec3 f = texelFetch(tColor, clamp(id + ivec2(1, 0), ivec2(0), hi), 0).rgb;
+    vec3 hh = texelFetch(tColor, clamp(id + ivec2(0, 1), ivec2(0), hi), 0).rgb;
+    float bL = b.g, dL = d.g, eL = e.g, fL = f.g, hL = hh.g;
+    float nz = 0.25 * (bL + dL + fL + hL) - eL;
+    float range = max(max(max(bL, dL), max(eL, fL)), hL) - min(min(min(bL, dL), min(eL, fL)), hL);
+    nz = clamp(abs(nz) * safeRcp(range), 0.0, 1.0);
+    nz = 1.0 - 0.5 * nz;
+    vec3 mn4 = min(min(b, d), min(f, hh));
+    vec3 mx4 = max(max(b, d), max(f, hh));
+    vec3 hitMin = mn4 / max(4.0 * mx4, vec3(1e-6));
+    vec3 hitMax = (1.0 - mx4) / min(4.0 * mn4 - 4.0, vec3(-1e-6));
+    vec3 lobeRGB = max(-hitMin, hitMax);
+    const float kLimit = 0.25 - (1.0 / 16.0);
+    float lobe = max(-kLimit, min(max(max(lobeRGB.r, lobeRGB.g), lobeRGB.b), 0.0));
+    lobe *= exp2(-pc.sharpness) * nz;
+    vec3 o = (lobe * (b + d + f + hh) + e) * safeRcp(4.0 * lobe + 1.0);
+    imageStore(uOut, id, vec4(clamp(o, 0.0, 1.0), 1.0));
+}

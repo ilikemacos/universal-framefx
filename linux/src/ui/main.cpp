@@ -5,6 +5,7 @@
 #include "platform/session_detect.h"
 #include "fg2_pacing.h"
 #include "gpu/csr2_upscale.h"
+#include "gpu/csr_ai_upscale.h"
 #include "gpu/csr_spatial.h"
 #include "gpu/fg2_pipeline.h"
 #include "gpu/vk_context.h"
@@ -295,6 +296,13 @@ int main(int argc, char** argv) {
         ufx_fatal("CSR 2.0 pipeline: " + err, true);
         return 1;
     }
+    CsrAiUpscale csr_ai{};
+    std::string csr_ai_notice;
+    bool csr_ai_ok = csr_ai_upscale_create(&ctx, &csr_ai, &err);
+    if (!csr_ai_ok) {
+        csr_ai_notice = "CSR AI unavailable: " + err + " Using CSR 2.0.";
+        err.clear();
+    }
     Fg2Pipeline fg{};
     if (!fg2_pipeline_create(&ctx, &fg, &err)) {
         ufx_fatal("Frame-gen pipeline: " + err, true);
@@ -344,6 +352,9 @@ int main(int argc, char** argv) {
 
     ControlState st;
     st.notice = load_notice();
+    st.csr_ai_available = csr_ai_ok;
+    st.csr_ai_notice = csr_ai_notice;
+    if (!csr_ai_ok) st.notice += "\n\n" + csr_ai_notice;
     {
         ufx_session_kind sk = ufx_detect_session();
         st.game_mode = ufx_is_gamescope_session() != 0;
@@ -373,6 +384,7 @@ int main(int argc, char** argv) {
     bool have_src = false;
     bool have_presentable = false;
     bool csr2_shader_read = false;
+    bool csr_ai_shader_read = false;
     int last_fg_mode = -1;
     int last_upscaler = -1;
     auto t_origin = std::chrono::steady_clock::now();
@@ -450,6 +462,14 @@ int main(int argc, char** argv) {
             last_fg_mode = st.fg_mode;
             last_upscaler = st.upscaler_mode;
             csr2_shader_read = false;
+            if (csr_ai_shader_read && csr_ai.dst.image) {
+                VkCommandBuffer bcmd = vk_begin_once(&ctx);
+                img_barrier(bcmd, csr_ai.dst.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                            VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT,
+                            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+                vk_submit_once(&ctx, bcmd);
+                csr_ai_shader_read = false;
+            }
         }
 
         if (st.running && cap) {
@@ -468,6 +488,7 @@ int main(int argc, char** argv) {
                         fg.has_history = false;
                         have_presentable = false;
                         csr2_shader_read = false;
+                        csr_ai_shader_read = false;
                     }
                     if (fr.mapped) {
                         vk_upload_rgba8_staging(&ctx, fr.mapped, fr.width, fr.height, fr.stride, true, live.src);
@@ -536,7 +557,26 @@ int main(int argc, char** argv) {
             VkImageView present_view = live.dst_view;
             uint32_t pw = live.out_w, ph = live.out_h;
             if (need_upscale) {
-                if (st.upscaler_mode == 1) {
+                if (st.upscaler_mode == 2 && csr_ai_ok) {
+                    if (csr_ai_shader_read) {
+                        VkCommandBuffer bcmd = vk_begin_once(&ctx);
+                        img_barrier(bcmd, csr_ai.dst.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                    VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT,
+                                    VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+                        vk_submit_once(&ctx, bcmd);
+                        csr_ai_shader_read = false;
+                    }
+                    csr_ai_upscale_from_image(&csr_ai, src_img, live.in_w, live.in_h, live.out_w, live.out_h,
+                                              st.sharpness, &err);
+                    VkCommandBuffer bcmd = vk_begin_once(&ctx);
+                    img_barrier(bcmd, csr_ai.dst.image, VK_IMAGE_LAYOUT_GENERAL,
+                                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_SHADER_WRITE_BIT,
+                                VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+                    vk_submit_once(&ctx, bcmd);
+                    csr_ai_shader_read = true;
+                    present_view = csr_ai.dst.view;
+                } else if (st.upscaler_mode == 1 || st.upscaler_mode == 2) {
                     if (csr2_shader_read) {
                         VkCommandBuffer bcmd = vk_begin_once(&ctx);
                         img_barrier(bcmd, csr2.dst.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
@@ -561,7 +601,9 @@ int main(int argc, char** argv) {
                 }
                 have_presentable = true;
             } else {
-                present_view = st.upscaler_mode == 1 ? csr2.dst.view : live.dst_view;
+                if (st.upscaler_mode == 2 && csr_ai_ok) present_view = csr_ai.dst.view;
+                else if (st.upscaler_mode == 1 || st.upscaler_mode == 2) present_view = csr2.dst.view;
+                else present_view = live.dst_view;
             }
             present_submit(&ctx, &output, &present, present_view, pw, ph);
             auto t1 = std::chrono::steady_clock::now();
@@ -615,6 +657,7 @@ int main(int argc, char** argv) {
     vkDestroyDescriptorPool(ctx.device, imgui_pool, nullptr);
     csr_spatial_destroy(&csr);
     csr2_upscale_destroy(&csr2);
+    csr_ai_upscale_destroy(&csr_ai);
     fg2_pipeline_destroy(&fg);
     vk_window_destroy_swapchain(&ctx, &control);
     vk_window_destroy(ctx.instance, &control);

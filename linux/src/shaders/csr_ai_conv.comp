@@ -1,0 +1,41 @@
+#version 450
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(push_constant) uniform CsrAiParams {
+    float srcW, srcH, dstW, dstH;
+    float sharpness, inC, outC, actLeaky;
+    float weightOff, biasOff, lumaR, lumaG;
+    float lumaB, texW, texH, dilation;
+    float outChOff, accumulate, actRelu;
+} pc;
+
+layout(std430, binding = 0) readonly buffer Weights {
+    float tW[];
+};
+
+layout(binding = 2, r32f) uniform readonly image2DArray tFeat;
+layout(binding = 3, r32f) uniform writeonly image2DArray uFeat;
+
+void main() {
+    ivec2 id = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 sz = ivec2(int(pc.srcW), int(pc.srcH));
+    if (id.x >= sz.x || id.y >= sz.y) return;
+    int inC = int(pc.inC);
+    int outC = int(pc.outC);
+    int wBase = int(pc.weightOff);
+    int bBase = int(pc.biasOff);
+    for (int oc = 0; oc < outC; oc++) {
+        float acc = tW[bBase + oc];
+        for (int ic = 0; ic < inC; ic++) {
+            int k = wBase + (oc * inC + ic) * 9;
+            for (int ky = 0; ky < 3; ky++) {
+                for (int kx = 0; kx < 3; kx++) {
+                    ivec2 p = clamp(id + ivec2(kx - 1, ky - 1), ivec2(0), sz - 1);
+                    acc += tW[k + ky * 3 + kx] * imageLoad(tFeat, ivec3(p, ic)).x;
+                }
+            }
+        }
+        if (pc.actLeaky > 0.5) acc = acc >= 0.0 ? acc : 0.1 * acc;
+        imageStore(uFeat, ivec3(id, oc), vec4(acc, 0.0, 0.0, 0.0));
+    }
+}

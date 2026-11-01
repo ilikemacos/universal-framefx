@@ -1,6 +1,7 @@
 #include "offline_upscale.h"
 #include "csr2_cpu_ref.h"
 #include "gpu/csr2_upscale.h"
+#include "gpu/csr_ai_upscale.h"
 #include "gpu/csr_spatial.h"
 #include "gpu/vk_context.h"
 #include "png_io.h"
@@ -66,7 +67,7 @@ static void bilinear_up(const float* src, int iw, int ih, float* dst, int ow, in
 
 int ufx_run_offline_upscale(int argc, char** argv) {
     if (argc < 4) {
-        std::fprintf(stderr, "Usage: ufx-linux --offline-upscale <in_dir> <out_dir> [--mode csr1|csr2|bilinear] [--temporal] [--sharpness S]\n");
+        std::fprintf(stderr, "Usage: ufx-linux --offline-upscale <in_dir> <out_dir> [--mode csr1|csr2|csr_ai|bilinear] [--temporal] [--sharpness S]\n");
         return 2;
     }
     std::string in_dir = argv[2], out_dir = argv[3], mode = "csr2";
@@ -104,9 +105,18 @@ int ufx_run_offline_upscale(int argc, char** argv) {
     }
 
     Csr2Upscale csr2{};
+    CsrAiUpscale csr_ai{};
     CsrSpatial csr1{};
+    bool need_ai = mode == "csr_ai";
     bool need2 = mode == "csr2";
     bool need1 = mode == "csr1";
+    if (need_ai && !csr_ai_upscale_create(&ctx, &csr_ai, &err)) {
+        std::fprintf(stderr, "offline-upscale: CSR AI unavailable: %s\n", err.c_str());
+        std::fprintf(stderr, "offline-upscale: falling back to CSR 2.0\n");
+        need_ai = false;
+        need2 = true;
+        mode = "csr2";
+    }
     if (need2 && !csr2_upscale_create(&ctx, &csr2, &err)) {
         std::fprintf(stderr, "offline-upscale csr2: %s\n", err.c_str());
         return 1;
@@ -135,6 +145,11 @@ int ufx_run_offline_upscale(int argc, char** argv) {
         } else if (mode == "csr1") {
             if (!csr_spatial_execute(&csr1, low.data(), lw, lh, w, h, sharp, outf.data(), &err)) {
                 std::fprintf(stderr, "offline-upscale csr1 exec: %s\n", err.c_str());
+                return 1;
+            }
+        } else if (mode == "csr_ai") {
+            if (!csr_ai_upscale_encode(&csr_ai, low.data(), lw, lh, w, h, sharp, outf.data(), &err)) {
+                std::fprintf(stderr, "offline-upscale csr_ai exec: %s\n", err.c_str());
                 return 1;
             }
         } else {
@@ -172,6 +187,7 @@ int ufx_run_offline_upscale(int argc, char** argv) {
     if (hist_checked) sum << "history_invariant=" << (hist0 == hist1 ? 1 : 0) << "\n";
     sum.close();
     std::printf("offline-upscale mean_psnr=%.4f\n", mean);
+    if (need_ai) csr_ai_upscale_destroy(&csr_ai);
     if (need2) csr2_upscale_destroy(&csr2);
     if (need1) csr_spatial_destroy(&csr1);
     vk_context_shutdown(&ctx);

@@ -57,6 +57,11 @@ ufx_shader(csr2_upsample.comp csr2_upsample_fp16.spv DEFINES UFX_FP16)
 ufx_shader(csr2_accum.comp csr2_accum.spv)
 ufx_shader(csr2_cas.comp csr2_cas.spv)
 ufx_shader(csr2_cas.comp csr2_cas_fp16.spv DEFINES UFX_FP16)
+ufx_shader(csr_ai_luma.comp csr_ai_luma.spv)
+ufx_shader(csr_ai_conv.comp csr_ai_conv.spv)
+ufx_shader(csr_ai_shuffle.comp csr_ai_shuffle.spv)
+ufx_shader(csr_ai_resample.comp csr_ai_resample.spv)
+ufx_shader(csr_ai_sharpen.comp csr_ai_sharpen.spv)
 
 add_custom_target(ufx_shaders ALL DEPENDS
   ${SHADER_OUT_DIR}/easu.spv
@@ -81,7 +86,22 @@ add_custom_target(ufx_shaders ALL DEPENDS
   ${SHADER_OUT_DIR}/csr2_upsample_fp16.spv
   ${SHADER_OUT_DIR}/csr2_accum.spv
   ${SHADER_OUT_DIR}/csr2_cas.spv
-  ${SHADER_OUT_DIR}/csr2_cas_fp16.spv)
+  ${SHADER_OUT_DIR}/csr2_cas_fp16.spv
+  ${SHADER_OUT_DIR}/csr_ai_luma.spv
+  ${SHADER_OUT_DIR}/csr_ai_conv.spv
+  ${SHADER_OUT_DIR}/csr_ai_shuffle.spv
+  ${SHADER_OUT_DIR}/csr_ai_resample.spv
+  ${SHADER_OUT_DIR}/csr_ai_sharpen.spv)
+
+set(UFX_MODEL_SRC ${CMAKE_CURRENT_SOURCE_DIR}/../Models/csr_ai_x2.weights.json)
+set(UFX_MODEL_OUT ${CMAKE_BINARY_DIR}/models/csr_ai_x2.weights.json)
+add_custom_command(
+  OUTPUT ${UFX_MODEL_OUT}
+  COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/models
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different ${UFX_MODEL_SRC} ${UFX_MODEL_OUT}
+  DEPENDS ${UFX_MODEL_SRC}
+  COMMENT "copying csr_ai_x2.weights.json")
+add_custom_target(ufx_models ALL DEPENDS ${UFX_MODEL_OUT})
 
 set(IMGUI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/imgui)
 add_library(imgui STATIC
@@ -101,6 +121,7 @@ set(UFX_COMMON
   src/gpu/fg2_affine.cpp
   src/gpu/fg2_pipeline.cpp
   src/gpu/csr2_upscale.cpp
+  src/gpu/csr_ai_upscale.cpp
   src/capture/portal_screencast.cpp
   src/platform/session_detect.cpp
   src/platform/larkquill_permission.cpp)
@@ -127,7 +148,7 @@ add_executable(ufx-linux
   src/selftest.cpp
   src/offline_fg.cpp
   src/offline_upscale.cpp)
-add_dependencies(ufx-linux ufx_shaders)
+add_dependencies(ufx-linux ufx_shaders ufx_models)
 target_link_libraries(ufx-linux PRIVATE ufx_core imgui ${SDL2_LIBRARIES})
 target_include_directories(ufx-linux PRIVATE ${SDL2_INCLUDE_DIRS})
 set_target_properties(ufx-linux PROPERTIES
@@ -161,8 +182,13 @@ add_executable(csr2_numeric_test tests/csr2_numeric_test.cpp)
 add_dependencies(csr2_numeric_test ufx_shaders)
 target_link_libraries(csr2_numeric_test PRIVATE ufx_core)
 
+add_executable(csr_ai_numeric_test tests/csr_ai_numeric_test.cpp)
+add_dependencies(csr_ai_numeric_test ufx_shaders ufx_models)
+target_link_libraries(csr_ai_numeric_test PRIVATE ufx_core)
+
 add_executable(larkquill_permission_test tests/larkquill_permission_test.cpp src/platform/larkquill_permission.cpp)
 target_include_directories(larkquill_permission_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 install(TARGETS ufx-linux RUNTIME DESTINATION bin)
 install(DIRECTORY ${SHADER_OUT_DIR}/ DESTINATION share/ufx-linux/shaders)
+install(FILES ${UFX_MODEL_SRC} DESTINATION share/ufx-linux/models)

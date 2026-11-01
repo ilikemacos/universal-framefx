@@ -28,6 +28,8 @@ struct ControlState {
     std::string session_label = "Desktop";
     std::string capture_backend = "None";
     bool capture_fail_soft = false;
+    bool csr_ai_available = false;
+    std::string csr_ai_notice;
 };
 
 void control_panel_draw(ControlState* st);
