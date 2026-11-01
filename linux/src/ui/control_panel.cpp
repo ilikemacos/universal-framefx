@@ -32,6 +32,11 @@ static void larkquill_open(ControlState* st) {
 }
 
 static void larkquill_draw(ControlState* st) {
+    if (!st->larkquill_loaded) {
+        st->larkquill_answer = larkquill::load(larkquill::agent_root());
+        st->larkquill_loaded = true;
+    }
+
     if (st->larkquill_clicked) {
         st->larkquill_clicked = false;
         std::string root = larkquill::agent_root();
@@ -48,6 +53,7 @@ static void larkquill_draw(ControlState* st) {
         ImGui::Spacing();
         if (ImGui::Button("Yes", ImVec2(90, 0))) {
             larkquill::save(larkquill::agent_root(), larkquill::Answer::Yes);
+            st->larkquill_answer = larkquill::Answer::Yes;
             ImGui::CloseCurrentPopup();
             larkquill_open(st);
         }
@@ -55,6 +61,7 @@ static void larkquill_draw(ControlState* st) {
         if (ImGui::IsWindowAppearing()) ImGui::SetKeyboardFocusHere();
         if (ImGui::Button("No", ImVec2(90, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
             larkquill::save(larkquill::agent_root(), larkquill::Answer::No);
+            st->larkquill_answer = larkquill::Answer::No;
             ImGui::CloseCurrentPopup();
             ask_no = true;
         }
@@ -70,6 +77,29 @@ static void larkquill_draw(ControlState* st) {
         if (ImGui::Button("OK", ImVec2(90, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) ImGui::CloseCurrentPopup();
         ImGui::EndPopup();
     }
+}
+
+static const char* larkquill_answer_label(larkquill::Answer a) {
+    switch (a) {
+        case larkquill::Answer::Yes: return "Yes";
+        case larkquill::Answer::No: return "No";
+        default: return "Unset";
+    }
+}
+
+static void larkquill_panel(ControlState* st) {
+    ImGui::Text("Saved permission: %s", larkquill_answer_label(st->larkquill_answer));
+    bool allowed = st->larkquill_answer == larkquill::Answer::Yes;
+    if (!allowed) ImGui::BeginDisabled();
+    if (ImGui::Button("Open LarkquillAI", ImVec2(150, 0))) larkquill_open(st);
+    if (!allowed) ImGui::EndDisabled();
+    ImGui::SameLine();
+    if (ImGui::Button("Reset permission", ImVec2(150, 0))) {
+        larkquill::clear(larkquill::agent_root());
+        st->larkquill_answer = larkquill::Answer::Unset;
+        st->status = "LarkquillAI permission reset. It will ask again next launch.";
+    }
+    ImGui::TextDisabled("Open needs Yes. Reset clears the saved answer.");
 }
 
 void control_panel_draw(ControlState* st) {
@@ -139,6 +169,8 @@ void control_panel_draw(ControlState* st) {
     ImGui::SameLine();
     ImGui::TextDisabled("Asks first, then opens in your browser.");
     larkquill_draw(st);
+
+    if (ImGui::CollapsingHeader("LarkquillAI panel")) larkquill_panel(st);
 
     ImGui::Separator();
     ImGui::TextWrapped("%s", st->status.c_str());

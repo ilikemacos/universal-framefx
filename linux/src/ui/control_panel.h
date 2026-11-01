@@ -1,5 +1,7 @@
 #pragma once
 
+#include "platform/larkquill_permission.h"
+
 #include <string>
 
 struct ControlState {
@@ -18,6 +20,8 @@ struct ControlState {
     bool start_clicked = false;
     bool stop_clicked = false;
     bool larkquill_clicked = false;
+    bool larkquill_loaded = false;
+    larkquill::Answer larkquill_answer = larkquill::Answer::Unset;
     bool show_about = false;
     std::string notice;
     bool game_mode = false;
