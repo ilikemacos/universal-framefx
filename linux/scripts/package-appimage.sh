@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-VERSION="${UFX_VERSION:-1.4.1-linux-preview.3}"
+VERSION="${UFX_VERSION:-1.4.1-linux-beta11}"
 STEM="Universal-FrameFX-${VERSION}-linux-x86_64"
 DIST="$ROOT/dist"
 APPDIR="$DIST/AppDir"
