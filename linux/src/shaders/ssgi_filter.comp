@@ -1,0 +1,44 @@
+#version 450
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(push_constant) uniform SsgiParams {
+    float srcW, srcH, lightW, lightH;
+    float invSrcW, invSrcH, invLightW, invLightH;
+    float marchSteps, raysPerTexel, frameIndex, stepCells;
+    float strength, aoStrength, emitLo, emitHi;
+    float falloff, rangeK, heightScale, stepGrowth;
+    float horizonBias, aoRadius, aoGame, pad;
+} pc;
+
+layout(binding = 2, rgba32f) uniform readonly image2D gLightIn;
+layout(binding = 3, r32f) uniform readonly image2D gOccIn;
+layout(binding = 4, rgba32f) uniform writeonly image2D gLightOut;
+layout(binding = 5, r32f) uniform writeonly image2D gOccOut;
+
+void main() {
+    ivec2 id = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 hi = ivec2(int(pc.lightW), int(pc.lightH)) - 1;
+    if (id.x > hi.x || id.y > hi.y) return;
+
+    vec4 c = imageLoad(gLightIn, id);
+    float cg = c.a;
+    vec3 acc = vec3(0.0);
+    float occAcc = 0.0;
+    float ws = 0.0;
+    for (int k = 0; k < 9; ++k) {
+        ivec2 o = ivec2(k % 3 - 1, k / 3 - 1);
+        ivec2 sp = clamp(id + o, ivec2(0), hi);
+        vec4 s = imageLoad(gLightIn, sp);
+        float dl = s.a - cg;
+        float w = float((2 - abs(o.x)) * (2 - abs(o.y))) * exp(-pc.rangeK * dl * dl);
+        vec3 q = s.rgb * s.rgb;
+        acc += w * q;
+        occAcc += w * imageLoad(gOccIn, sp).x;
+        ws += w;
+    }
+    vec3 cur = acc / ws;
+    float occ = occAcc / ws;
+    imageStore(gLightOut, id, vec4(sqrt(cur), cg));
+    imageStore(gOccOut, id, vec4(occ, 0.0, 0.0, 0.0));
+}

@@ -3,6 +3,7 @@
 #include "gpu/csr2_upscale.h"
 #include "gpu/csr_ai_upscale.h"
 #include "gpu/csr_spatial.h"
+#include "gpu/ssgi.h"
 #include "gpu/vk_context.h"
 #include "png_io.h"
 #include "ufx_version.h"
@@ -67,16 +68,19 @@ static void bilinear_up(const float* src, int iw, int ih, float* dst, int ow, in
 
 int ufx_run_offline_upscale(int argc, char** argv) {
     if (argc < 4) {
-        std::fprintf(stderr, "Usage: ufx-linux --offline-upscale <in_dir> <out_dir> [--mode csr1|csr2|csr_ai|bilinear] [--temporal] [--sharpness S]\n");
+        std::fprintf(stderr, "Usage: ufx-linux --offline-upscale <in_dir> <out_dir> [--mode csr1|csr2|csr_ai|bilinear] [--temporal] [--sharpness S] [--ssgi]\n");
         return 2;
     }
     std::string in_dir = argv[2], out_dir = argv[3], mode = "csr2";
     bool temporal = false;
+    bool ssgi_on = false;
     float sharp = 0.25f;
     for (int i = 4; i < argc; i++) {
         if (std::strcmp(argv[i], "--mode") == 0 && i + 1 < argc) mode = argv[++i];
         else if (std::strcmp(argv[i], "--temporal") == 0)
             temporal = true;
+        else if (std::strcmp(argv[i], "--ssgi") == 0)
+            ssgi_on = true;
         else if (std::strcmp(argv[i], "--sharpness") == 0 && i + 1 < argc)
             sharp = std::strtof(argv[++i], nullptr);
     }
@@ -97,8 +101,8 @@ int ufx_run_offline_upscale(int argc, char** argv) {
         std::fprintf(stderr, "offline-upscale: %s\n", err.c_str());
         return 1;
     }
-    std::printf("offline-upscale in=%s out=%s mode=%s temporal=%d frames=%zu\n", in_dir.c_str(), out_dir.c_str(),
-                mode.c_str(), temporal ? 1 : 0, files.size());
+    std::printf("offline-upscale in=%s out=%s mode=%s temporal=%d ssgi=%d frames=%zu\n", in_dir.c_str(), out_dir.c_str(),
+                mode.c_str(), temporal ? 1 : 0, ssgi_on ? 1 : 0, files.size());
     std::printf("gpu: %s\n", ctx.device_name.c_str());
     if (ctx.device_name.find("llvmpipe") != std::string::npos || ctx.device_name.find("lavapipe") != std::string::npos) {
         std::printf("NOTE: timings below are CPU-emulated, not representative of a real GPU (Lavapipe/CPU path)\n");
@@ -107,6 +111,7 @@ int ufx_run_offline_upscale(int argc, char** argv) {
     Csr2Upscale csr2{};
     CsrAiUpscale csr_ai{};
     CsrSpatial csr1{};
+    Ssgi ssgi{};
     bool need_ai = mode == "csr_ai";
     bool need2 = mode == "csr2";
     bool need1 = mode == "csr1";
@@ -125,6 +130,11 @@ int ufx_run_offline_upscale(int argc, char** argv) {
         std::fprintf(stderr, "offline-upscale csr1: %s\n", err.c_str());
         return 1;
     }
+    bool need_ssgi = ssgi_on;
+    if (need_ssgi && !ssgi_create(&ctx, &ssgi, &err)) {
+        std::fprintf(stderr, "offline-upscale ssgi: %s\n", err.c_str());
+        return 1;
+    }
 
     std::ofstream csv(out_dir + "/timing.csv");
     csv << "index,gpu_ms,psnr,filename\n";
@@ -139,23 +149,33 @@ int ufx_run_offline_upscale(int argc, char** argv) {
         ufx_rgba8_to_f32(rgba.data(), w * h, &native);
         int lw = 0, lh = 0;
         box_down2(native.data(), w, h, &low, &lw, &lh);
+        std::vector<float> ssgi_out;
+        const float* up_in = low.data();
+        if (need_ssgi) {
+            ssgi_out.resize(low.size());
+            if (!ssgi_apply_encode(&ssgi, low.data(), lw, lh, 1.5f, ssgi_out.data(), &err)) {
+                std::fprintf(stderr, "offline-upscale ssgi exec: %s\n", err.c_str());
+                return 1;
+            }
+            up_in = ssgi_out.data();
+        }
         outf.resize(static_cast<size_t>(w) * h * 4);
         if (mode == "bilinear") {
-            bilinear_up(low.data(), lw, lh, outf.data(), w, h);
+            bilinear_up(up_in, lw, lh, outf.data(), w, h);
         } else if (mode == "csr1") {
-            if (!csr_spatial_execute(&csr1, low.data(), lw, lh, w, h, sharp, outf.data(), &err)) {
+            if (!csr_spatial_execute(&csr1, up_in, lw, lh, w, h, sharp, outf.data(), &err)) {
                 std::fprintf(stderr, "offline-upscale csr1 exec: %s\n", err.c_str());
                 return 1;
             }
         } else if (mode == "csr_ai") {
-            if (!csr_ai_upscale_encode(&csr_ai, low.data(), lw, lh, w, h, sharp, outf.data(), &err)) {
+            if (!csr_ai_upscale_encode(&csr_ai, up_in, lw, lh, w, h, sharp, outf.data(), &err)) {
                 std::fprintf(stderr, "offline-upscale csr_ai exec: %s\n", err.c_str());
                 return 1;
             }
         } else {
             bool feed = true;
             if (temporal && i > 0 && (i % 2) == 1) feed = false;
-            if (!csr2_upscale_encode(&csr2, low.data(), lw, lh, w, h, sharp, temporal, feed, nullptr, 0, 0, outf.data(),
+            if (!csr2_upscale_encode(&csr2, up_in, lw, lh, w, h, sharp, temporal, feed, nullptr, 0, 0, outf.data(),
                                      &err)) {
                 std::fprintf(stderr, "offline-upscale csr2 exec: %s\n", err.c_str());
                 return 1;
@@ -184,9 +204,11 @@ int ufx_run_offline_upscale(int argc, char** argv) {
     sum << "mode=" << mode << "\n";
     sum << "frames=" << files.size() << "\n";
     sum << "mean_psnr=" << mean << "\n";
+    sum << "ssgi=" << (need_ssgi ? 1 : 0) << "\n";
     if (hist_checked) sum << "history_invariant=" << (hist0 == hist1 ? 1 : 0) << "\n";
     sum.close();
     std::printf("offline-upscale mean_psnr=%.4f\n", mean);
+    if (need_ssgi) ssgi_destroy(&ssgi);
     if (need_ai) csr_ai_upscale_destroy(&csr_ai);
     if (need2) csr2_upscale_destroy(&csr2);
     if (need1) csr_spatial_destroy(&csr1);

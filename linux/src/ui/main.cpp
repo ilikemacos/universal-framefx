@@ -7,6 +7,7 @@
 #include "gpu/csr2_upscale.h"
 #include "gpu/csr_ai_upscale.h"
 #include "gpu/csr_spatial.h"
+#include "gpu/ssgi.h"
 #include "gpu/fg2_pipeline.h"
 #include "gpu/vk_context.h"
 #include "gpu/vk_dmabuf_import.h"
@@ -303,6 +304,11 @@ int main(int argc, char** argv) {
         csr_ai_notice = "CSR AI unavailable: " + err + " Using CSR 2.0.";
         err.clear();
     }
+    Ssgi ssgi{};
+    if (!ssgi_create(&ctx, &ssgi, &err)) {
+        ufx_fatal("SSGI pipeline: " + err, true);
+        return 1;
+    }
     Fg2Pipeline fg{};
     if (!fg2_pipeline_create(&ctx, &fg, &err)) {
         ufx_fatal("Frame-gen pipeline: " + err, true);
@@ -385,6 +391,7 @@ int main(int argc, char** argv) {
     bool have_presentable = false;
     bool csr2_shader_read = false;
     bool csr_ai_shader_read = false;
+    bool ssgi_active = false;
     int last_fg_mode = -1;
     int last_upscaler = -1;
     auto t_origin = std::chrono::steady_clock::now();
@@ -452,6 +459,7 @@ int main(int argc, char** argv) {
             have_prev_cap = false;
             have_last_gen = false;
             have_presentable = false;
+            ssgi_active = false;
             st.status = "Stopped.";
             st.capture_backend = "None";
         }
@@ -509,8 +517,16 @@ int main(int argc, char** argv) {
                     prev_cap = have_prev_cap ? curr_cap : tcap;
                     curr_cap = tcap;
                     have_prev_cap = true;
+                    ssgi_active = false;
+                    if (st.ssgi && have_src) {
+                        if (ssgi_apply_from_image(&ssgi, live.src, live.in_w, live.in_h, st.ssgi_strength, &err))
+                            ssgi_active = true;
+                        else
+                            st.status = "SSGI failed: " + err;
+                    }
+                    VkImage fg_src = ssgi_active ? ssgi.dst.image : live.src;
                     if (st.fg_mode && have_src) {
-                        fg2_process_real_image(&fg, live.src, live.in_w, live.in_h, &err);
+                        fg2_process_real_image(&fg, fg_src, live.in_w, live.in_h, &err);
                     }
                     double src_iv = st.source_fps > 1.f ? 1.0 / static_cast<double>(st.source_fps) : 1.0 / 60.0;
                     st.added_latency_ms = static_cast<float>(fg2_pacing::hold_delay(src_iv, 0.004) * 1000.0);
@@ -535,14 +551,15 @@ int main(int argc, char** argv) {
                 t = fg2_pacing::interp_t(pb, prev_cap, curr_cap, &show_curr);
                 do_gen = !show_curr && fg2_pacing::should_generate(now_s, last_gen_at, have_last_gen, src_iv, capn);
             }
-            VkImage src_img = live.src;
-            VkImageView src_view = live.src_view;
+            bool use_ssgi = st.ssgi && ssgi_active;
+            VkImage src_img = use_ssgi ? ssgi.dst.image : live.src;
+            VkImageView src_view = use_ssgi ? ssgi.dst.view : live.src_view;
             bool feeds_history = st.fg_mode != 0;
             bool need_upscale = true;
             if (st.fg_mode && fg.has_history) {
                 if (show_curr) {
-                    src_img = live.src;
-                    src_view = live.src_view;
+                    src_img = use_ssgi ? ssgi.dst.image : live.src;
+                    src_view = use_ssgi ? ssgi.dst.view : live.src_view;
                     feeds_history = true;
                 } else if (do_gen && fg2_generate_fast_gpu(&fg, t, &err)) {
                     last_gen_at = now_s;
@@ -658,6 +675,7 @@ int main(int argc, char** argv) {
     csr_spatial_destroy(&csr);
     csr2_upscale_destroy(&csr2);
     csr_ai_upscale_destroy(&csr_ai);
+    ssgi_destroy(&ssgi);
     fg2_pipeline_destroy(&fg);
     vk_window_destroy_swapchain(&ctx, &control);
     vk_window_destroy(ctx.instance, &control);

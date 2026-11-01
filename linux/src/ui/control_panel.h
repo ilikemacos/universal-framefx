@@ -8,6 +8,8 @@ struct ControlState {
     bool running = false;
     int quality = 1;
     float sharpness = 0.25f;
+    bool ssgi = false;
+    float ssgi_strength = 1.5f;
     float gpu_ms = 0.0f;
     float out_fps = 0.0f;
     int fg_mode = 0;

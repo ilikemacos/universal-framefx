@@ -62,6 +62,10 @@ ufx_shader(csr_ai_conv.comp csr_ai_conv.spv)
 ufx_shader(csr_ai_shuffle.comp csr_ai_shuffle.spv)
 ufx_shader(csr_ai_resample.comp csr_ai_resample.spv)
 ufx_shader(csr_ai_sharpen.comp csr_ai_sharpen.spv)
+ufx_shader(ssgi_downsample.comp ssgi_downsample.spv)
+ufx_shader(ssgi_march.comp ssgi_march.spv)
+ufx_shader(ssgi_filter.comp ssgi_filter.spv)
+ufx_shader(ssgi_composite.comp ssgi_composite.spv)
 
 add_custom_target(ufx_shaders ALL DEPENDS
   ${SHADER_OUT_DIR}/easu.spv
@@ -91,7 +95,11 @@ add_custom_target(ufx_shaders ALL DEPENDS
   ${SHADER_OUT_DIR}/csr_ai_conv.spv
   ${SHADER_OUT_DIR}/csr_ai_shuffle.spv
   ${SHADER_OUT_DIR}/csr_ai_resample.spv
-  ${SHADER_OUT_DIR}/csr_ai_sharpen.spv)
+  ${SHADER_OUT_DIR}/csr_ai_sharpen.spv
+  ${SHADER_OUT_DIR}/ssgi_downsample.spv
+  ${SHADER_OUT_DIR}/ssgi_march.spv
+  ${SHADER_OUT_DIR}/ssgi_filter.spv
+  ${SHADER_OUT_DIR}/ssgi_composite.spv)
 
 set(UFX_MODEL_SRC ${CMAKE_CURRENT_SOURCE_DIR}/../Models/csr_ai_x2.weights.json)
 set(UFX_MODEL_OUT ${CMAKE_BINARY_DIR}/models/csr_ai_x2.weights.json)
@@ -122,6 +130,7 @@ set(UFX_COMMON
   src/gpu/fg2_pipeline.cpp
   src/gpu/csr2_upscale.cpp
   src/gpu/csr_ai_upscale.cpp
+  src/gpu/ssgi.cpp
   src/capture/portal_screencast.cpp
   src/platform/session_detect.cpp
   src/platform/larkquill_permission.cpp)
@@ -185,6 +194,10 @@ target_link_libraries(csr2_numeric_test PRIVATE ufx_core)
 add_executable(csr_ai_numeric_test tests/csr_ai_numeric_test.cpp)
 add_dependencies(csr_ai_numeric_test ufx_shaders ufx_models)
 target_link_libraries(csr_ai_numeric_test PRIVATE ufx_core)
+
+add_executable(ssgi_numeric_test tests/ssgi_numeric_test.cpp)
+add_dependencies(ssgi_numeric_test ufx_shaders)
+target_link_libraries(ssgi_numeric_test PRIVATE ufx_core)
 
 add_executable(larkquill_permission_test tests/larkquill_permission_test.cpp src/platform/larkquill_permission.cpp)
 target_include_directories(larkquill_permission_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)

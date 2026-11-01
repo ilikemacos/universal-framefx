@@ -1,0 +1,100 @@
+#version 450
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(push_constant) uniform SsgiParams {
+    float srcW, srcH, lightW, lightH;
+    float invSrcW, invSrcH, invLightW, invLightH;
+    float marchSteps, raysPerTexel, frameIndex, stepCells;
+    float strength, aoStrength, emitLo, emitHi;
+    float falloff, rangeK, heightScale, stepGrowth;
+    float horizonBias, aoRadius, aoGame, pad;
+} pc;
+
+layout(std430, binding = 1) readonly buffer Grid {
+    vec4 cells[];
+} grid;
+
+layout(binding = 2, rgba32f) uniform writeonly image2D gLightOut;
+layout(binding = 3, r32f) uniform writeonly image2D gOccOut;
+
+float saturatef(float x) { return clamp(x, 0.0, 1.0); }
+float fracf(float x) { return fract(x); }
+
+float interleave3(int x, int y) {
+    return float((x % 3) + 3 * (y % 3)) * (1.0 / 9.0);
+}
+
+float ign(vec2 px, uint frame) {
+    px += 5.588238 * float(frame & 63u);
+    return fract(52.9829189 * fract(dot(px, vec2(0.06711056, 0.00583715))));
+}
+
+vec4 gridAt(ivec2 c) {
+    c = clamp(c, ivec2(0), ivec2(127));
+    return grid.cells[uint(c.y * 128 + c.x)];
+}
+
+void main() {
+    ivec2 id = ivec2(gl_GlobalInvocationID.xy);
+    int lw = int(pc.lightW);
+    int lh = int(pc.lightH);
+    if (id.x >= lw || id.y >= lh) return;
+
+    vec2 uv = (vec2(id) + 0.5) * vec2(pc.invLightW, pc.invLightH);
+    vec2 cc = uv * 128.0;
+    vec4 centre = gridAt(ivec2(cc));
+    float lc = centre.a;
+
+    float aspect = pc.srcW / pc.srcH;
+    float rot = fract(float(uint(pc.frameIndex) & 7u) * 0.38196601);
+    float n0 = fract(interleave3(id.x, id.y) + rot);
+    float jit = fract(interleave3(id.y + 1, id.x + 1) * 0.875 + 0.0625 + rot * 0.5);
+    int rays = clamp(int(pc.raysPerTexel), 1, 8);
+    int steps = clamp(int(pc.marchSteps), 8, 32);
+    float hc = pc.heightScale * lc;
+    vec3 bounce = vec3(0.0);
+    float aoAcc = 0.0;
+
+    for (int r = 0; r < rays; ++r) {
+        float aj = (ign(vec2(id) + 17.0 * float(r), uint(pc.frameIndex)) - 0.5) * (1.0 / 9.0);
+        float jr = fract(jit + 0.61803399 * float(r));
+        float ang = 6.2831853 * (n0 + aj + float(r) / float(rays));
+        vec2 dir = vec2(cos(ang), sin(ang) * aspect);
+        float sinH = -pc.horizonBias;
+        float sinA = 0.0;
+        float d = 0.0;
+        float len = pc.stepCells;
+        vec3 rayB = vec3(0.0);
+        for (int s = 0; s < steps; ++s) {
+            d += len * (s == 0 ? (0.5 + jr) : 1.0);
+            len *= pc.stepGrowth;
+            vec2 p = cc + dir * d;
+            if (any(lessThan(p, vec2(0.0))) || any(greaterThanEqual(p, vec2(128.0)))) break;
+            vec4 q = gridAt(ivec2(p));
+            float l = q.a;
+            float dz = pc.heightScale * l - hc;
+            float dc = d * pc.stepCells;
+            float sinS = dz * inversesqrt(dz * dz + dc * dc);
+            float dzA = min(dz, 0.25 * pc.heightScale);
+            float sinO = dzA * inversesqrt(dzA * dzA + dc * dc) * (1.0 - smoothstep(pc.emitLo, pc.emitHi, l));
+            sinA = max(sinA, sinO * saturatef(1.0 - dc / pc.aoRadius));
+            if (sinS > sinH) {
+                vec3 col = q.rgb * q.rgb;
+                rayB += (sinS - sinH) * smoothstep(pc.emitLo, pc.emitHi, l) * col / (1.0 + pc.falloff * dc * dc);
+                sinH = sinS;
+            }
+        }
+        bounce += rayB;
+        aoAcc += sinA;
+    }
+
+    bounce *= 1.0 / (float(rays) * (1.0 + pc.horizonBias));
+    bounce *= 1.0 - smoothstep(pc.emitLo, pc.emitHi, lc);
+    float occ = saturatef(aoAcc / float(rays));
+    occ *= 1.0 - smoothstep(pc.emitLo, pc.emitHi, lc);
+    float ao = 1.0 - pc.aoStrength * occ;
+    vec3 light = sqrt(clamp(bounce * ao, 0.0, 1.0));
+    imageStore(gLightOut, id, vec4(light, lc));
+    imageStore(gOccOut, id, vec4(occ, 0.0, 0.0, 0.0));
+}

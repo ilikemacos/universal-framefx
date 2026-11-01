@@ -1,0 +1,58 @@
+#version 450
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(push_constant) uniform SsgiParams {
+    float srcW, srcH, lightW, lightH;
+    float invSrcW, invSrcH, invLightW, invLightH;
+    float marchSteps, raysPerTexel, frameIndex, stepCells;
+    float strength, aoStrength, emitLo, emitHi;
+    float falloff, rangeK, heightScale, stepGrowth;
+    float horizonBias, aoRadius, aoGame, pad;
+} pc;
+
+layout(binding = 0) uniform sampler2D gGame;
+layout(binding = 2, rgba32f) uniform readonly image2D gLight;
+layout(binding = 3, r32f) uniform readonly image2D gOcc;
+layout(binding = 4, rgba32f) uniform writeonly image2D gDst;
+
+float luma(vec3 c) {
+    return dot(c, vec3(0.2126, 0.7152, 0.0722));
+}
+
+float saturatef(float x) { return clamp(x, 0.0, 1.0); }
+
+void main() {
+    ivec2 pix = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 sz = ivec2(int(pc.srcW), int(pc.srcH));
+    if (pix.x >= sz.x || pix.y >= sz.y) return;
+
+    vec3 game = texelFetch(gGame, pix, 0).rgb;
+    float bg = max(luma(game), 0.75 * max(game.r, max(game.g, game.b)));
+    vec2 lp = (vec2(pix) + 0.5) * vec2(pc.lightW, pc.lightH) * vec2(pc.invSrcW, pc.invSrcH) - 0.5;
+    ivec2 b0 = ivec2(floor(lp));
+    ivec2 hi = ivec2(int(pc.lightW), int(pc.lightH)) - 1;
+    vec2 f = lp - vec2(b0);
+    vec3 acc = vec3(0.0);
+    float occAcc = 0.0;
+    float wsum = 0.0;
+    for (int k = 0; k < 4; ++k) {
+        ivec2 o = ivec2(k & 1, k >> 1);
+        ivec2 sp = clamp(b0 + o, ivec2(0), hi);
+        float wb = (o.x != 0 ? f.x : 1.0 - f.x) * (o.y != 0 ? f.y : 1.0 - f.y);
+        vec4 s = imageLoad(gLight, sp);
+        float dl = bg - s.a;
+        float w = wb * exp(-pc.rangeK * dl * dl);
+        acc += w * s.rgb * s.rgb;
+        occAcc += w * imageLoad(gOcc, sp).x;
+        wsum += w;
+    }
+    float denom = max(wsum, 0.25);
+    vec3 light = acc / denom;
+    float occ = occAcc / denom;
+    vec3 g = game * game;
+    vec3 albedo = 0.5 * clamp(g / max(luma(g), 0.02), vec3(0.0), vec3(2.0));
+    g *= 1.0 - pc.aoGame * occ;
+    vec3 outv = sqrt(clamp(g + pc.strength * light * albedo, 0.0, 1.0));
+    imageStore(gDst, pix, vec4(outv, 1.0));
+}

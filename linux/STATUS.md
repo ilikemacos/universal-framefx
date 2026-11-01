@@ -5,11 +5,14 @@
   pick (graphics+compute+present, prefer discrete), AppDir shader paths,
   Wayland composite-alpha fallback, AppRun/run.sh log capture (tee on TTY)
 - Docs: `docs/TROUBLESHOOT.md` (fuse2, Vulkan drivers, GNOME portal, PipeWire)
+- CSR AI upscale and SSGI are ported (Vulkan compute, CPU reference + numeric test).
+  SSGI is off by default; toggle + strength in the panel, `--ssgi` for offline upscale.
+- Unavailable: FSR2+ / XeSS / CSR AI FG.
 - Game Mode: still experimental (unchanged path; hardware unverified)
-- Blockers: `docs/BLOCKERS.md` (FSR2+/XeSS/CSR AI/Larkquill/DLSS)
+- Blockers: `docs/BLOCKERS.md` (FSR2+/XeSS/CSR AI FG/Larkquill/DLSS)
 - Build: Release OK → `build/ufx-linux`
 - `--version` / `--selftest` (Lavapipe): PASS
-- Numeric: easu_rcas, csr2, fg2: PASS
+- Numeric: easu_rcas, csr2, csr_ai, fg2, ssgi: PASS
 - Artifacts under `dist/`:
   - AppImage sha256 `9bce5abfd77d6cf284c5d856a1513830eb4ba879902a7189ceb729a7940d6687`
   - zip sha256 `1a9753bb72ef3a018455a6cf8c45a0eccabf139fe50fd7fffd4cea60f8260371`

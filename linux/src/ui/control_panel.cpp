@@ -142,6 +142,14 @@ void control_panel_draw(ControlState* st) {
     ImGui::TextDisabled("0 = sharpest, 2 = least sharp. Default 0.25.");
 
     ImGui::Separator();
+    ImGui::TextUnformatted("Screen-space GI");
+    ImGui::Checkbox("SSGI", &st->ssgi);
+    if (!st->ssgi) ImGui::BeginDisabled();
+    ImGui::SliderFloat("SSGI strength", &st->ssgi_strength, 0.0f, 3.0f, "%.2f");
+    if (!st->ssgi) ImGui::EndDisabled();
+    ImGui::TextDisabled("Off by default. Applied before upscaling.");
+
+    ImGui::Separator();
     ImGui::TextUnformatted("Frame generation");
     const char* fg[] = {"Off", "CSR 2.0"};
     ImGui::Combo("FG", &st->fg_mode, fg, 2);

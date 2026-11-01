@@ -17,15 +17,15 @@ Evidence recorded 2026-10-23 on the build box.
 * No Intel XeSS Linux/Vulkan SDK present in our trees.
 * **Decision:** blocked / out of scope until Intel provides a Linux path we can ship legally.
 
-## CSR AI upscale / CSR AI FG
+## CSR AI upscale / SSGI
 
-* Windows live path: `Models/csr_ai_x2.weights.json` + HLSL compute (`CsrAi.hlsl`), not the tiny
-  ONNX stubs as the primary engine (`csr_ai_x2_fp16.onnx` ~5KB).
-* Linux tree has CSR 1.2 / CSR 2.0 / InterpFast Vulkan compute; **no** weights→GLSL conv pipeline yet.
-* System `libonnxruntime` is available on Debian, but wiring ORT alone would not match the Windows
-  HLSL weight path without a real port.
-* **Decision:** ship Models in the public repo (already OSS); Linux CSR AI labeled unavailable in UI
-  until a real Vulkan/CPU weight path lands. Not a fake “CSR AI” menu item that no-ops as quality.
+* CSR AI upscale: ported to Linux as Vulkan compute (`src/gpu/csr_ai_upscale.cpp`,
+  `Models/csr_ai_x2.weights.json`, `src/shaders/csr_ai_*.comp`), with a CPU reference and numeric test.
+* SSGI: ported to Linux as a Vulkan compute post effect (`src/gpu/ssgi.cpp`,
+  `src/shaders/ssgi_*.comp`), with a CPU reference and numeric test. It is off by default,
+  has a control-panel toggle plus strength slider, and `--ssgi` applies it on the offline upscale path.
+* CSR AI FG remains **unavailable** on Linux: the Windows live frame-generation path has its own
+  model/runtime pairing that has not been ported.
 
 ## LarkquillAI
 
